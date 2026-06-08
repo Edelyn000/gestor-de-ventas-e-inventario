@@ -209,6 +209,12 @@ class VentaController:
         # Esto evita que se registre una venta como pagada parcialmente.
         # IMPORTANTE: efectivo_usd esta en dolares, hay que convertirlo a Bs
         # antes de sumarlo con los demas montos que estan en bolivares.
+        if efectivo_usd > 0 and tasa is None:
+            raise ValueError(
+                "No hay una tasa de cambio activa registrada.\n"
+                "Para cobrar en USD debe existir una tasa del dia.\n"
+                "Vaya al Dashboard para que se cargue automaticamente."
+            )
         efectivo_usd_en_bs = efectivo_usd * tasa.tasa_venta if tasa else Decimal("0.00")
         suma_pagos = efectivo_bs + efectivo_usd_en_bs + tarjeta + pago_movil + bio_pago
         if suma_pagos < total_bs:

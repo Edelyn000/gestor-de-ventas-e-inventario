@@ -1,11 +1,13 @@
 import sys
 
 import bcrypt
+from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication
 from sqlmodel import select
 
 from .models import Usuario, create_db_and_tables, get_session
-from .ui.interflaz import LoginDialog, MainWindow
+from .ui.interflaz import MainWindow
+from .ui.ventana_login import VentanaLogin
 
 # ============================================================
 # ARCHIVO: __main__.py  (Entrypoint / Orquestador)
@@ -13,7 +15,7 @@ from .ui.interflaz import LoginDialog, MainWindow
 #   - Crea la aplicacion QApplication de PyQt6
 #   - Crea las tablas de la BD si no existen
 #   - Crea el usuario admin por defecto (seed)
-#   - Abre el LoginDialog y, si es exitoso, abre MainWindow
+#   - Abre el VentanaLogin y, si es exitoso, abre MainWindow
 #
 # ❌ QUE NO HACE:
 #   - NO contiene widgets ni interfaces visuales
@@ -50,11 +52,30 @@ def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName("Sistema Financiero")
 
+    # Fuente base mas grande para toda la aplicacion.
+    # En produccion el usuario necesita ver bien los textos.
+    fuente = QFont()
+    fuente.setPointSize(12)
+    app.setFont(fuente)
+
+    # Estilo global: texto oscuro para mejor legibilidad.
+    # NOTA: No ponemos background-color aqui porque la barra lateral
+    # oscura (interflaz.py) tiene su propio estilo y no queremos
+    # sobreescribirlo. Cada dialogo ya tiene su fondo blanco explicito.
+    app.setStyleSheet("""
+        QLabel, QTableWidget, QPushButton,
+        QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit,
+        QTextEdit, QPlainTextEdit, QGroupBox, QCheckBox,
+        QRadioButton, QTabWidget, QHeaderView, QAbstractSpinBox {
+            color: #1a1a1a;
+        }
+    """)
+
     create_db_and_tables()
     _seed_admin()
 
-    login = LoginDialog()
-    if login.exec() == LoginDialog.DialogCode.Accepted:
+    login = VentanaLogin()
+    if login.exec() == VentanaLogin.DialogCode.Accepted:
         window = MainWindow(login.usuario_actual)
         window.show()
         sys.exit(app.exec())

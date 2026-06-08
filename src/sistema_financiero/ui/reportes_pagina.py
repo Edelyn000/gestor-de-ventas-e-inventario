@@ -1,0 +1,242 @@
+# ============================================================
+# ARCHIVO: ui/reportes_pagina.py  (PAGINA DE REPORTES / CIERRE DIARIO)
+# ============================================================
+# Widget independiente para la gestion de reportes diarios.
+#
+# QUE MUESTRA:
+#   1. Filtro de fechas (desde / hasta) para el historial de reportes.
+#   2. Botones: Cerrar Dia (genera reporte), Exportar Excel, Regenerar.
+#   3. Tabla con reportes generados (ventas Bs, USD, stock bajo, etc.).
+#
+# QUE SE PUEDE MODIFICAR:
+#   - Estilos de botones, colores, fuentes, tamaños.
+#   - Columnas y anchos de la tabla.
+#   - Textos, etiquetas, mensajes de confirmacion.
+#   - Ruta/nombre por defecto en _exportar_reporte_excel().
+#
+# QUE NO SE DEBE TOCAR:
+#   - Nombre de la clase (ReportesPagina).
+#   - Firma del __init__ (controlador_reportes).
+#   - Logica de _cerrar_dia, _regenerar_reporte, _exportar_reporte_excel
+#     (flujo principal: seleccionar fila → confirmar → ejecutar).
+# ============================================================
+from datetime import date
+
+from PyQt6.QtCore import QDate
+from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import (
+    QAbstractItemView,
+    QDateEdit,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+from ..core.reporte_service import ReporteService
+
+
+class ReportesPagina(QWidget):
+    def __init__(self, controlador_reportes: ReporteService) -> None:
+        super().__init__()
+
+        self.controlador_reportes = controlador_reportes
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(15)
+
+        lbl_titulo = QLabel("Reportes")
+        fuente = QFont()
+        fuente.setPointSize(24)
+        fuente.setBold(True)
+        lbl_titulo.setFont(fuente)
+        layout.addWidget(lbl_titulo)
+
+        barra = QHBoxLayout()
+        barra.setSpacing(10)
+
+        barra.addWidget(QLabel("Desde:"))
+        self.fecha_desde_reporte = QDateEdit()
+        self.fecha_desde_reporte.setCalendarPopup(True)
+        self.fecha_desde_reporte.setDate(QDate.currentDate().addDays(-30))
+        self.fecha_desde_reporte.dateChanged.connect(self._refrescar_tabla_reportes)
+        barra.addWidget(self.fecha_desde_reporte)
+
+        barra.addWidget(QLabel("Hasta:"))
+        self.fecha_hasta_reporte = QDateEdit()
+        self.fecha_hasta_reporte.setCalendarPopup(True)
+        self.fecha_hasta_reporte.setDate(QDate.currentDate())
+        self.fecha_hasta_reporte.dateChanged.connect(self._refrescar_tabla_reportes)
+        barra.addWidget(self.fecha_hasta_reporte)
+
+        barra.addSpacing(20)
+
+        btn_cerrar_dia = QPushButton("Cerrar Dia")
+        btn_cerrar_dia.setStyleSheet(
+            "QPushButton { background-color: #4CAF50; color: white;"
+            " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
+            "QPushButton:hover { background-color: #45a049; }"
+        )
+        btn_cerrar_dia.clicked.connect(self._cerrar_dia)
+        barra.addWidget(btn_cerrar_dia)
+
+        btn_exportar = QPushButton("Exportar Excel")
+        btn_exportar.setStyleSheet(
+            "QPushButton { background-color: #2196F3; color: white;"
+            " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
+            "QPushButton:hover { background-color: #0b7dda; }"
+        )
+        btn_exportar.clicked.connect(self._exportar_reporte_excel)
+        barra.addWidget(btn_exportar)
+
+        btn_regenerar = QPushButton("Regenerar")
+        btn_regenerar.setStyleSheet(
+            "QPushButton { background-color: #FF9800; color: white;"
+            " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
+            "QPushButton:hover { background-color: #e68a00; }"
+        )
+        btn_regenerar.clicked.connect(self._regenerar_reporte)
+        barra.addWidget(btn_regenerar)
+
+        barra.addStretch()
+        layout.addLayout(barra)
+
+        self.tabla_reportes = QTableWidget()
+        self.tabla_reportes.setColumnCount(8)
+        self.tabla_reportes.setHorizontalHeaderLabels(
+            [
+                "ID",
+                "Fecha",
+                "Ventas Bs.",
+                "Ventas USD",
+                "Cant. Ventas",
+                "Stock Bajo",
+                "Sin Stock",
+                "Generado",
+            ]
+        )
+        self.tabla_reportes.horizontalHeader().setStretchLastSection(True)  # type: ignore[union-attr]
+        self.tabla_reportes.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tabla_reportes.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        layout.addWidget(self.tabla_reportes)
+
+        self._refrescar_tabla_reportes()
+
+    def _refrescar_tabla_reportes(self) -> None:
+        desde_qdate = self.fecha_desde_reporte.date()
+        hasta_qdate = self.fecha_hasta_reporte.date()
+
+        desde = date(desde_qdate.year(), desde_qdate.month(), desde_qdate.day())
+        hasta = date(hasta_qdate.year(), hasta_qdate.month(), hasta_qdate.day())
+
+        reportes = self.controlador_reportes.listar_por_rango(desde, hasta)
+
+        self.tabla_reportes.setRowCount(len(reportes))
+        for fila, rep in enumerate(reportes):
+            self.tabla_reportes.setItem(fila, 0, QTableWidgetItem(str(rep.id or "")))
+            self.tabla_reportes.setItem(fila, 1, QTableWidgetItem(rep.fecha.isoformat()))
+            self.tabla_reportes.setItem(
+                fila, 2, QTableWidgetItem(f"Bs. {rep.total_ventas_bs:,.2f}")
+            )
+            self.tabla_reportes.setItem(
+                fila, 3, QTableWidgetItem(f"USD {rep.total_ventas_usd:,.2f}")
+            )
+            self.tabla_reportes.setItem(fila, 4, QTableWidgetItem(str(rep.cantidad_ventas)))
+            self.tabla_reportes.setItem(fila, 5, QTableWidgetItem(str(rep.productos_stock_bajo)))
+            self.tabla_reportes.setItem(fila, 6, QTableWidgetItem(str(rep.productos_sin_stock)))
+            fecha_gen = (
+                rep.fecha_generacion.strftime("%d/%m/%Y %H:%M") if rep.fecha_generacion else ""
+            )
+            self.tabla_reportes.setItem(fila, 7, QTableWidgetItem(fecha_gen))
+
+        self.tabla_reportes.resizeColumnsToContents()
+
+    def _cerrar_dia(self) -> None:
+        try:
+            reporte = self.controlador_reportes.generar_reporte()
+            QMessageBox.information(
+                self,
+                "Cierre Exitoso",
+                f"Reporte del {reporte.fecha} generado correctamente.\n"
+                f"Ventas: {reporte.cantidad_ventas} | "
+                f"Total Bs.: {reporte.total_ventas_bs:,.2f}",
+            )
+            self._refrescar_tabla_reportes()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error al generar reporte:\n{str(e)}")
+
+    def _regenerar_reporte(self) -> None:
+        fila = self.tabla_reportes.currentRow()
+        if fila < 0:
+            QMessageBox.warning(self, "Seleccion", "Seleccione un reporte de la tabla.")
+            return
+
+        item_fecha = self.tabla_reportes.item(fila, 1)
+        if item_fecha is None:
+            return
+        fecha_texto = item_fecha.text()
+
+        try:
+            partes = fecha_texto.split("-")
+            fecha_reporte = date(int(partes[0]), int(partes[1]), int(partes[2]))
+        except (IndexError, ValueError):
+            QMessageBox.warning(self, "Error", "Fecha de reporte invalida.")
+            return
+
+        respuesta = QMessageBox.question(
+            self,
+            "Regenerar Reporte",
+            f"Va a regenerar el reporte del {fecha_reporte}.\n"
+            "Esto reemplazara el reporte existente. Continuar?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if respuesta != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            reporte = self.controlador_reportes.generar_reporte(fecha_reporte)
+            QMessageBox.information(
+                self,
+                "Regenerado",
+                f"Reporte del {reporte.fecha} regenerado correctamente.",
+            )
+            self._refrescar_tabla_reportes()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error al regenerar reporte:\n{str(e)}")
+
+    def _exportar_reporte_excel(self) -> None:
+        fila = self.tabla_reportes.currentRow()
+        if fila < 0:
+            QMessageBox.warning(self, "Seleccion", "Seleccione un reporte de la tabla.")
+            return
+
+        item_id = self.tabla_reportes.item(fila, 0)
+        if item_id is None:
+            return
+        reporte_id = int(item_id.text())
+
+        ruta, _filtro = QFileDialog.getSaveFileName(
+            self,
+            "Guardar Reporte Excel",
+            f"reporte_diario_{date.today().isoformat()}.xlsx",
+            "Archivos Excel (*.xlsx)",
+        )
+
+        if not ruta:
+            return
+
+        try:
+            self.controlador_reportes.exportar_excel(reporte_id, ruta)
+            QMessageBox.information(
+                self,
+                "Exportado",
+                f"Reporte exportado correctamente a:\n{ruta}",
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error al exportar:\n{str(e)}")

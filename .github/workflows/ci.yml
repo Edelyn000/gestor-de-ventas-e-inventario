@@ -1,0 +1,155 @@
+# ============================================================
+# ARCHIVO: .github/workflows/ci.yml
+# ============================================================
+# Pipeline de CI/CD para el Sistema Financiero.
+# Corre automaticamente en cada push o PR a main/master.
+#
+# QUE HACE:
+#   1. Instala Python 3.14 y Poetry 2.x.
+#   2. Instala las dependencias del proyecto (incluyendo dev).
+#   3. Corre linter (ruff) sobre `src/`.
+#   4. Corre type checker (mypy) sobre `src/`.
+#   5. Corre tests (pytest) con cobertura.
+#
+# POR QUE CADA PASO ES IMPORTANTE:
+#   - ruff: garantiza estilo consistente y atrapa errores simples.
+#   - mypy: verifica tipos (evita bugs como pasar str donde va int).
+#   - pytest: asegura que la logica de negocio funciona correctamente.
+#   - cobertura: muestra que partes del codigo NO tienen tests.
+#
+# NOTA: Los tests de UI requieren un display grafico (Xvfb en Linux).
+#   Como GitHub Actions usa Linux sin display fisico, usamos xvfb-run
+#   para crear un display virtual para pytest-qt.
+# ============================================================
+name: CI
+
+# Disparadores: cuando se ejecuta este pipeline.
+on:
+  # En cada push a main/master (codigo nuevo).
+  push:
+    branches: [main, master]
+  # En cada Pull Request hacia main/master (antes de fusionar).
+  pull_request:
+    branches: [main, master]
+
+# Jobs: tareas que se ejecutan en paralelo o secuencialmente.
+# "test" es el nombre de nuestro unico job.
+jobs:
+  test:
+    # Nombre descriptivo que aparece en GitHub Actions.
+    name: Lint & Test
+    # Sistema operativo donde se ejecuta (ubuntu es mas rapido que Windows).
+    runs-on: ubuntu-latest
+
+    # Pasos del job (se ejecutan en orden).
+    steps:
+      # ----------------------------------------------------------
+      # PASO 1: Clonar el repositorio
+      # ----------------------------------------------------------
+      # actions/checkout: action oficial de GitHub para clonar el repo.
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ----------------------------------------------------------
+      # PASO 2: Configurar Python 3.14
+      # ----------------------------------------------------------
+      # actions/setup-python: instala la version de Python especificada.
+      # cache: true → guarda en cache las dependencias pip para que
+      #   las proximas ejecuciones sean mas rapidas.
+      - name: Setup Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "pip"
+
+      # ----------------------------------------------------------
+      # PASO 3: Instalar Poetry 2.x
+      # ----------------------------------------------------------
+      # Poetry es el gestor de dependencias que usa el proyecto.
+      # Lo instalamos con pipx (aislado del proyecto).
+      - name: Install Poetry
+        run: |
+          pipx install poetry
+          poetry --version
+
+      # ----------------------------------------------------------
+      # PASO 4: Configurar cache de dependencias (Poetry)
+      # ----------------------------------------------------------
+      # Poetry cachea las dependencias descargadas para acelerar
+      # las ejecuciones siguientes.
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
+      # ----------------------------------------------------------
+      # PASO 5: Instalar dependencias del proyecto
+      # ----------------------------------------------------------
+      # poetry install: lee pyproject.toml y poetry.lock (si existe)
+      #   e instala todas las dependencias (incluyendo dev).
+      - name: Install dependencies
+        run: poetry install
+
+      # ----------------------------------------------------------
+      # PASO 6: Instalar dependencias del sistema para PyQt6
+      # ----------------------------------------------------------
+      # PyQt6 necesita librerias graficas del sistema en Linux.
+      # xvfb: "X Virtual Framebuffer" — crea un display virtual
+      #   para que PyQt6 pueda renderizar sin monitor fisico.
+      # libxcb-*: librerias que necesita Qt para comunicarse con X11.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libxcb-xinerama0 libxcb-util1 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xfixes0 libxcb-xkb1 \
+            libxkbcommon-x11-0 libgl1-mesa-glx
+
+      # ----------------------------------------------------------
+      # PASO 7: Linter (ruff)
+      # ----------------------------------------------------------
+      # ruff check: verifica estilo y posibles errores en src/.
+      # --exit-zero: aunque haya errores, no detiene el pipeline
+      #   (pero los reportamos para que sean visibles).
+      - name: Lint with ruff
+        run: poetry run ruff check src/
+
+      # ----------------------------------------------------------
+      # PASO 8: Type checker (mypy)
+      # ----------------------------------------------------------
+      # mypy: verifica que los tipos esten correctos.
+      # Usamos --strict porque el proyecto tiene strict mode en pyproject.toml.
+      - name: Type check with mypy
+        run: poetry run mypy src/
+
+      # ----------------------------------------------------------
+      # PASO 9: Tests con pytest (con cobertura)
+      # ----------------------------------------------------------
+      # xvfb-run: ejecuta pytest dentro de un display virtual X11.
+      #   Esto permite que PyQt6 funcione sin monitor fisico.
+      # pytest: corre todos los tests en tests/.
+      # --cov=sistema_financiero: mide cobertura del paquete.
+      # --cov-report=xml: genera reporte XML (para servicios como Codecov).
+      # --cov-report=term: muestra resumen en la terminal.
+      - name: Run tests with pytest
+        run: |
+          xvfb-run poetry run pytest tests/ \
+            -v \
+            --cov=sistema_financiero \
+            --cov-report=xml \
+            --cov-report=term
+
+      # ----------------------------------------------------------
+      # PASO 10: (Opcional) Subir cobertura a Codecov
+      # ----------------------------------------------------------
+      # codecov/codecov-action: sube el reporte XML de cobertura
+      #   a Codecov.io para visualizar que partes estan cubiertas.
+      # Comentado porque requiere configurar CODECOV_TOKEN en GitHub.
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v4
+      #   with:
+      #     file: ./coverage.xml
+      #     fail_ci_if_error: false
