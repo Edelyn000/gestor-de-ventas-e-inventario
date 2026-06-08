@@ -16,11 +16,15 @@ from datetime import datetime
 #   - Es el estandar actual para guardar contrasenas.
 import bcrypt
 
+# Session: tipo para el parametro opcional db_session.
 # select: funcion de SQLModel para construir consultas SELECT.
-from sqlmodel import select
+from sqlmodel import Session, select
 
-# Importamos el modelo Usuario y la funcion get_session.
-from ..models import Usuario, get_session
+# Importamos el modelo Usuario, obtener_sesion context manager.
+# obtener_sesion: si recibe una sesion la usa, si no crea una nueva.
+#   - En la app real: crea sesion contra database/database.db.
+#   - En tests: recibe la sesion de la BD en memoria del conftest.py.
+from ..models import Usuario, obtener_sesion
 
 # Constante: longitud minima para contrasenas.
 # Es mejor usar una constante que el numero 4 directamente ("magic number").
@@ -76,11 +80,18 @@ class AuthService:
     #     la contrasena.
     #   - Siempre decimos "usuario o contrasena incorrectos".
     # ------------------------------------------------------------------
-    def verificar_login(self, usuario: str, contrasena: str) -> Usuario | None:
-        """Verifica credenciales. Retorna el Usuario si son correctas, None si no."""
+    def verificar_login(
+        self,
+        usuario: str,
+        contrasena: str,
+        db_session: Session | None = None,
+    ) -> Usuario | None:
+        """Verifica credenciales. Retorna el Usuario si son correctas, None si no.
+        db_session: sesion opcional (para tests con BD en memoria)."""
         # Paso 1: Buscar el usuario en la BD.
-        # Usamos with get_session() para asegurar que la conexion se cierre.
-        with get_session() as session:
+        # obtener_sesion: si db_session es None, crea una nueva conexion a la BD real.
+        # Si db_session tiene valor (tests), usa esa sesion en memoria.
+        with obtener_sesion(db_session) as session:
             # select(Usuario): consulta SELECT * FROM usuario.
             # .where(Usuario.usuario == usuario): filtro WHERE usuario = '...'.
             # .first(): devuelve el primer resultado o None.
@@ -126,8 +137,10 @@ class AuthService:
         usuario: str,
         contrasena: str,
         nombre_completo: str | None = None,
+        db_session: Session | None = None,
     ) -> Usuario:
-        """Crea un nuevo usuario con contrasena hasheada."""
+        """Crea un nuevo usuario con contrasena hasheada.
+        db_session: sesion opcional para tests con BD en memoria."""
         # Validar que el nombre de usuario no este vacio.
         if not usuario.strip():
             raise ValueError("El nombre de usuario es obligatorio.")
@@ -153,7 +166,8 @@ class AuthService:
         ).decode("utf-8")
 
         # Verificar si ya existe un usuario con ese nombre.
-        with get_session() as session:
+        # obtener_sesion: reutiliza la sesion si viene de test, o crea nueva.
+        with obtener_sesion(db_session) as session:
             existente = session.exec(select(Usuario).where(Usuario.usuario == usuario)).first()
             if existente:
                 raise ValueError(f"El usuario '{usuario}' ya existe.")
@@ -175,25 +189,39 @@ class AuthService:
     # ------------------------------------------------------------------
     # obtener_por_id(): busca un usuario por su ID
     # ------------------------------------------------------------------
-    def obtener_por_id(self, id_usuario: int) -> Usuario | None:
-        """Busca un usuario por su ID."""
-        with get_session() as session:
+    def obtener_por_id(
+        self,
+        id_usuario: int,
+        db_session: Session | None = None,
+    ) -> Usuario | None:
+        """Busca un usuario por su ID.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             return session.get(Usuario, id_usuario)
 
     # ------------------------------------------------------------------
     # obtener_por_usuario(): busca un usuario por su nombre
     # ------------------------------------------------------------------
-    def obtener_por_usuario(self, usuario: str) -> Usuario | None:
-        """Busca un usuario por su nombre de usuario."""
-        with get_session() as session:
+    def obtener_por_usuario(
+        self,
+        usuario: str,
+        db_session: Session | None = None,
+    ) -> Usuario | None:
+        """Busca un usuario por su nombre de usuario.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             return session.exec(select(Usuario).where(Usuario.usuario == usuario)).first()
 
     # ------------------------------------------------------------------
     # listar_usuarios(): todos los usuarios del sistema
     # ------------------------------------------------------------------
-    def listar_usuarios(self) -> list[Usuario]:
-        """Devuelve todos los usuarios ordenados por nombre."""
-        with get_session() as session:
+    def listar_usuarios(
+        self,
+        db_session: Session | None = None,
+    ) -> list[Usuario]:
+        """Devuelve todos los usuarios ordenados por nombre.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             stmt = select(Usuario).order_by(Usuario.usuario)
             return list(session.exec(stmt).all())
 
@@ -214,15 +242,17 @@ class AuthService:
         id_usuario: int,
         contrasena_actual: str,
         nueva_contrasena: str,
+        db_session: Session | None = None,
     ) -> bool:
-        """Cambia la contrasena de un usuario. Retorna False si la actual no coincide."""
+        """Cambia la contrasena de un usuario. Retorna False si la actual no coincide.
+        db_session: sesion opcional para tests con BD en memoria."""
         # Validar requisitos minimos.
         if len(nueva_contrasena) < LONGITUD_MINIMA_CONTRASENA:
             raise ValueError(
                 f"La nueva contrasena debe tener al menos {LONGITUD_MINIMA_CONTRASENA} caracteres."
             )
 
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             user = session.get(Usuario, id_usuario)
             if not user:
                 return False
@@ -260,14 +290,16 @@ class AuthService:
         self,
         id_usuario: int,
         nueva_contrasena: str,
+        db_session: Session | None = None,
     ) -> bool:
-        """Cambia la contrasena sin verificar la actual (solo admin)."""
+        """Cambia la contrasena sin verificar la actual (solo admin).
+        db_session: sesion opcional para tests con BD en memoria."""
         if len(nueva_contrasena) < LONGITUD_MINIMA_CONTRASENA:
             raise ValueError(
                 f"La nueva contrasena debe tener al menos {LONGITUD_MINIMA_CONTRASENA} caracteres."
             )
 
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             user = session.get(Usuario, id_usuario)
             if not user:
                 return False
@@ -293,9 +325,14 @@ class AuthService:
     #   - Se desactiva su usuario (no puede entrar).
     #   - NO se elimina (las ventas que hizo quedan vinculadas a su ID).
     # ------------------------------------------------------------------
-    def activar(self, id_usuario: int) -> bool:
-        """Activa un usuario. Retorna False si no existe."""
-        with get_session() as session:
+    def activar(
+        self,
+        id_usuario: int,
+        db_session: Session | None = None,
+    ) -> bool:
+        """Activa un usuario. Retorna False si no existe.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             user = session.get(Usuario, id_usuario)
             if not user:
                 return False
@@ -304,9 +341,14 @@ class AuthService:
             session.commit()
         return True
 
-    def desactivar(self, id_usuario: int) -> bool:
-        """Desactiva un usuario. Retorna False si no existe."""
-        with get_session() as session:
+    def desactivar(
+        self,
+        id_usuario: int,
+        db_session: Session | None = None,
+    ) -> bool:
+        """Desactiva un usuario. Retorna False si no existe.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             user = session.get(Usuario, id_usuario)
             if not user:
                 return False
@@ -323,9 +365,11 @@ class AuthService:
         id_usuario: int,
         usuario: str | None = None,
         nombre_completo: str | None = None,
+        db_session: Session | None = None,
     ) -> Usuario | None:
-        """Actualiza los datos de un usuario (nombre, usuario)."""
-        with get_session() as session:
+        """Actualiza los datos de un usuario (nombre, usuario).
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             user = session.get(Usuario, id_usuario)
             if not user:
                 return None

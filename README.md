@@ -16,7 +16,7 @@ poetry install
 ## Ejecución
 
 ```bash
-poetry run python -m sistema_finacieron
+poetry run python -m sistema_financiero
 ```
 
 ## Tests

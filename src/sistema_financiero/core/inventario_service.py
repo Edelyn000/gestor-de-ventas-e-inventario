@@ -1,8 +1,8 @@
 from datetime import datetime
 
-from sqlmodel import select
+from sqlmodel import Session, select
 
-from ..models import MovimientoInventario, Producto, get_session
+from ..models import MovimientoInventario, Producto, obtener_sesion
 
 
 # ============================================================
@@ -28,6 +28,7 @@ class InventarioService:
         motivo: str,
         referencia_id: int | None = None,
         observaciones: str | None = None,
+        db_session: Session | None = None,
     ) -> MovimientoInventario:
         """Registra una entrada de stock (compra, devolucion, etc.).
         Incrementa el stock_actual del producto y crea un movimiento de auditoria."""
@@ -36,7 +37,7 @@ class InventarioService:
             raise ValueError("La cantidad debe ser mayor a cero.")
 
         # Abrir sesión y recuperar el producto.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             producto = session.get(Producto, producto_id)
             if not producto:
                 raise ValueError("El producto no existe.")
@@ -75,6 +76,7 @@ class InventarioService:
         motivo: str,
         referencia_id: int | None = None,
         observaciones: str | None = None,
+        db_session: Session | None = None,
     ) -> MovimientoInventario:
         """Registra una salida de stock (venta, merma, etc.).
         Decrementa el stock_actual del producto. Valida que haya stock suficiente."""
@@ -83,7 +85,7 @@ class InventarioService:
             raise ValueError("La cantidad debe ser mayor a cero.")
 
         # Abrir sesión y recuperar el producto.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             producto = session.get(Producto, producto_id)
             if not producto:
                 raise ValueError("El producto no existe.")
@@ -128,13 +130,14 @@ class InventarioService:
         stock_fisico: int,
         motivo: str = "AJUSTE",
         observaciones: str | None = None,
+        db_session: Session | None = None,
     ) -> MovimientoInventario:
         """Ajusta el stock al valor fisico real (inventario fisico).
         Calcula automaticamente la diferencia y crea el movimiento."""
         if stock_fisico < 0:
             raise ValueError("El stock fisico no puede ser negativo.")
 
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             producto = session.get(Producto, producto_id)
             if not producto:
                 raise ValueError("El producto no existe.")
@@ -165,9 +168,13 @@ class InventarioService:
 
         return movimiento
 
-    def historial_por_producto(self, producto_id: int) -> list[MovimientoInventario]:
+    def historial_por_producto(
+        self,
+        producto_id: int,
+        db_session: Session | None = None,
+    ) -> list[MovimientoInventario]:
         """Movimientos de un producto del mas reciente al mas antiguo."""
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             stmt = (
                 select(MovimientoInventario)
                 .where(MovimientoInventario.producto_id == producto_id)
@@ -175,17 +182,26 @@ class InventarioService:
             )
             return list(session.exec(stmt).all())
 
-    def stock_disponible(self, producto_id: int, cantidad: int) -> bool:
+    def stock_disponible(
+        self,
+        producto_id: int,
+        cantidad: int,
+        db_session: Session | None = None,
+    ) -> bool:
         """Verifica si hay stock suficiente para una cantidad dada."""
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             producto = session.get(Producto, producto_id)
             if not producto:
                 return False
             return producto.stock_actual >= cantidad
 
-    def movimientos_recientes(self, limite: int = 50) -> list[MovimientoInventario]:
+    def movimientos_recientes(
+        self,
+        limite: int = 50,
+        db_session: Session | None = None,
+    ) -> list[MovimientoInventario]:
         """Devuelve los ultimos movimientos globales (todos los productos)."""
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             stmt = (
                 select(MovimientoInventario)
                 .order_by(MovimientoInventario.fecha_movimiento.desc())  # type: ignore[union-attr]

@@ -9,13 +9,13 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlmodel import select
+from sqlmodel import Session, select
 
 # Venta y VentaDetalle son los modelos ORM que representan las tablas.
 # Venta = la cabecera de la venta (fecha, totales, metodo de pago).
 # VentaDetalle = cada producto que se vendio (cantidad, precio, subtotal).
-# get_session nos da una conexion a la BD.
-from ..models import Venta, VentaDetalle, get_session
+# obtener_sesion: context manager que acepta sesion opcional (BD en memoria para tests).
+from ..models import Venta, VentaDetalle, obtener_sesion
 
 # InventarioService: lo necesitamos para descontar el stock
 #   de cada producto cuando se confirma la venta.
@@ -82,10 +82,12 @@ class VentaController:
         self,
         productos: list[dict[str, object]],
         metodo_pago: dict[str, object] | None = None,
+        db_session: Session | None = None,
     ) -> Venta:
         """
         Crea una venta con sus detalles, calcula totales,
         aplica la tasa de cambio y descuenta del inventario.
+        db_session: sesion opcional para tests con BD en memoria.
         """
         # ----------------------------------------------------------
         # PASO 1: Validar que la venta tenga al menos un producto.
@@ -102,7 +104,7 @@ class VentaController:
         # Necesitamos la tasa para calcular el total en USD.
         # Si no hay tasa activa, la venta no puede registrar USD.
         # En ese caso, el total_usd quedara en 0.00.
-        tasa = self.tasas.tasa_activa()
+        tasa = self.tasas.tasa_activa(db_session)
 
         # ----------------------------------------------------------
         # PASO 3: Inicializar acumuladores.
@@ -138,7 +140,7 @@ class VentaController:
             # Usamos InventarioService.stock_disponible() que ya
             # implementamos antes. Si no hay stock, cancelamos toda
             # la venta (no solo ese producto).
-            if not self.inventario.stock_disponible(producto_id, cantidad):
+            if not self.inventario.stock_disponible(producto_id, cantidad, db_session):
                 raise ValueError(
                     f"Stock insuficiente para el producto ID {producto_id}. Solicito: {cantidad}"
                 )
@@ -149,7 +151,7 @@ class VentaController:
             # Necesitamos el precio_venta_bs del producto para
             # calcular el subtotal. Usamos el controlador de productos.
             pc = ProductoController()
-            producto = pc.obtener_por_id(producto_id)
+            producto = pc.obtener_por_id(producto_id, db_session)
             if not producto:
                 raise ValueError(f"El producto ID {producto_id} no existe.")
 
@@ -226,7 +228,7 @@ class VentaController:
         fecha_str = hoy.strftime("%Y%m%d")
 
         # Buscar cuantas ventas se hicieron hoy para generar el correlativo.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             ventas_hoy = session.exec(
                 select(Venta).where(
                     Venta.fecha_venta >= datetime(hoy.year, hoy.month, hoy.day),  # type: ignore[operator]
@@ -305,6 +307,7 @@ class VentaController:
                 motivo="VENTA",
                 referencia_id=venta_id,
                 observaciones=f"Factura {numero_factura}",
+                db_session=db_session,
             )
 
         return venta
@@ -322,9 +325,14 @@ class VentaController:
     #   - Los productos que se "vendieron" pero se devolvieron deben
     #     volver a estar disponibles.
     # ------------------------------------------------------------------
-    def anular(self, idventa: int) -> Venta | None:
-        """Anula una venta y devuelve el stock de cada producto."""
-        with get_session() as session:
+    def anular(
+        self,
+        idventa: int,
+        db_session: Session | None = None,
+    ) -> Venta | None:
+        """Anula una venta y devuelve el stock de cada producto.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             # Buscar la venta por ID.
             venta = session.get(Venta, idventa)
             if not venta:
@@ -343,7 +351,7 @@ class VentaController:
         # Devolver el stock de cada producto.
         # Necesitamos los detalles de la venta. Como ya cerramos la
         # sesion anterior, abrimos una nueva para consultar los detalles.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             detalles = session.exec(
                 select(VentaDetalle).where(VentaDetalle.venta_id == idventa)
             ).all()
@@ -357,6 +365,7 @@ class VentaController:
                 motivo="DEVOLUCION",
                 referencia_id=idventa,
                 observaciones=f"Anulacion factura {venta.numero_factura}",
+                db_session=db_session,
             )
 
         return venta
@@ -364,9 +373,14 @@ class VentaController:
     # ------------------------------------------------------------------
     # obtener_por_id(): busca una venta por su ID
     # ------------------------------------------------------------------
-    def obtener_por_id(self, idventa: int) -> Venta | None:
-        """Busca una venta por su ID."""
-        with get_session() as session:
+    def obtener_por_id(
+        self,
+        idventa: int,
+        db_session: Session | None = None,
+    ) -> Venta | None:
+        """Busca una venta por su ID.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             return session.get(Venta, idventa)
 
     # ------------------------------------------------------------------
@@ -374,9 +388,14 @@ class VentaController:
     # ------------------------------------------------------------------
     # El numero de factura es unico (unique=True en el modelo).
     # Por eso usamos .first() porque solo puede haber una.
-    def buscar_por_factura(self, numero_factura: str) -> Venta | None:
-        """Busca una venta por su numero de factura."""
-        with get_session() as session:
+    def buscar_por_factura(
+        self,
+        numero_factura: str,
+        db_session: Session | None = None,
+    ) -> Venta | None:
+        """Busca una venta por su numero de factura.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             return session.exec(select(Venta).where(Venta.numero_factura == numero_factura)).first()
 
     # ------------------------------------------------------------------
@@ -391,9 +410,15 @@ class VentaController:
     #   - Porque el usuario normalmente quiere ver las ventas mas recientes
     #     primero, igual que en un sistema de punto de venta real.
     # ------------------------------------------------------------------
-    def historial_por_fecha(self, desde: datetime, hasta: datetime) -> list[Venta]:
-        """Devuelve las ventas en un rango de fechas."""
-        with get_session() as session:
+    def historial_por_fecha(
+        self,
+        desde: datetime,
+        hasta: datetime,
+        db_session: Session | None = None,
+    ) -> list[Venta]:
+        """Devuelve las ventas en un rango de fechas.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             stmt = (
                 select(Venta)
                 .where(Venta.fecha_venta >= desde, Venta.fecha_venta <= hasta)  # type: ignore[operator]
@@ -406,8 +431,13 @@ class VentaController:
     # ------------------------------------------------------------------
     # Cada VentaDetalle tiene un producto_id, cantidad, precio y subtotal.
     # Esto se usa para mostrar el detalle de la venta en la UI.
-    def obtener_detalles(self, idventa: int) -> list[VentaDetalle]:
-        """Devuelve los detalles (productos) de una venta."""
-        with get_session() as session:
+    def obtener_detalles(
+        self,
+        idventa: int,
+        db_session: Session | None = None,
+    ) -> list[VentaDetalle]:
+        """Devuelve los detalles (productos) de una venta.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             stmt = select(VentaDetalle).where(VentaDetalle.venta_id == idventa)
             return list(session.exec(stmt).all())

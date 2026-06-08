@@ -1,10 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlmodel import or_, select
+from sqlmodel import Session, or_, select
 from sqlmodel.sql.expression import SelectOfScalar
 
-from ..models import Producto, get_session
+from ..models import Producto, obtener_sesion
 
 
 # ============================================================
@@ -13,7 +13,11 @@ from ..models import Producto, get_session
 # responsable de crear, leer, actualizar y eliminar productos.
 # ============================================================
 class ProductoController:
-    def crear(self, producto: Producto) -> Producto:
+    def crear(
+        self,
+        producto: Producto,
+        db_session: Session | None = None,
+    ) -> Producto:
         """Crea un nuevo producto con validaciones de precios y stock."""
         # Validar que el nombre no sea solo espacios ni esté vacío.
         if not producto.nombre_producto.strip():
@@ -47,7 +51,7 @@ class ProductoController:
         producto.fecha_ingreso = datetime.now()
 
         # Guardar el producto en la base de datos usando una sesión.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             session.add(producto)
             session.commit()
             session.refresh(producto)
@@ -55,23 +59,34 @@ class ProductoController:
         # Devolver el producto ya persistido con su ID.
         return producto
 
-    def obtener_por_id(self, idproducto: int) -> Producto | None:
+    def obtener_por_id(
+        self,
+        idproducto: int,
+        db_session: Session | None = None,
+    ) -> Producto | None:
         """Busca un producto por su ID. Retorna None si no existe."""
         # Abrir sesión y recuperar el registro por clave primaria.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             return session.get(Producto, idproducto)
 
-    def listar_todos(self) -> list[Producto]:
+    def listar_todos(
+        self,
+        db_session: Session | None = None,
+    ) -> list[Producto]:
         """Devuelve todos los productos ordenados alfabeticamente."""
         # Consultar todos los productos y ordenar por nombre.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             stmt = select(Producto).order_by(Producto.nombre_producto)
             return list(session.exec(stmt).all())
 
-    def buscar(self, termino: str) -> list[Producto]:
+    def buscar(
+        self,
+        termino: str,
+        db_session: Session | None = None,
+    ) -> list[Producto]:
         """Busca productos por nombre o categoria (busqueda parcial)."""
         # Usamos ilike para permitir coincidencias parciales sin importar mayúsculas.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             stmt: SelectOfScalar[Producto] = (
                 select(Producto)
                 .where(
@@ -84,12 +99,17 @@ class ProductoController:
             )
             return list(session.exec(stmt).all())
 
-    def actualizar(self, idproducto: int, **kwargs: object) -> Producto | None:
+    def actualizar(
+        self,
+        idproducto: int,
+        db_session: Session | None = None,
+        **kwargs: object,
+    ) -> Producto | None:
         """Actualiza campos de un producto via clave=valor.
         Ej: actualizar(1, precio_venta_bs=Decimal("2.50"), stock_actual=10)
         Retorna None si el producto no existe."""
         # Abrir sesión y recuperar el producto existente.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             producto = session.get(Producto, idproducto)
             if not producto:
                 return None
@@ -122,10 +142,14 @@ class ProductoController:
         # Retornar el producto actualizado.
         return producto
 
-    def eliminar(self, idproducto: int) -> bool:
+    def eliminar(
+        self,
+        idproducto: int,
+        db_session: Session | None = None,
+    ) -> bool:
         """Elimina un producto por ID. Retorna True si se elimino, False si no existia."""
         # Abrir sesión y buscar el producto.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             producto = session.get(Producto, idproducto)
             if not producto:
                 return False
@@ -136,10 +160,13 @@ class ProductoController:
 
         return True
 
-    def obtener_categorias(self) -> list[str]:
+    def obtener_categorias(
+        self,
+        db_session: Session | None = None,
+    ) -> list[str]:
         """Devuelve la lista de categorias unicas (sin repetir, ordenadas)."""
         # Seleccionar categorías distintas existentes.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             stmt = (
                 select(Producto.categoria)
                 .distinct()
@@ -149,10 +176,13 @@ class ProductoController:
             resultados = session.exec(stmt).all()
             return [r for r in resultados if r is not None]
 
-    def productos_stock_bajo(self) -> list[Producto]:
+    def productos_stock_bajo(
+        self,
+        db_session: Session | None = None,
+    ) -> list[Producto]:
         """Productos con stock actual <= stock minimo (pero > 0)."""
         # Consultar productos cuyo stock está en nivel bajo.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             stmt = (
                 select(Producto)
                 .where(Producto.stock_actual <= Producto.stock_minimo, Producto.stock_actual > 0)
@@ -160,10 +190,13 @@ class ProductoController:
             )
             return list(session.exec(stmt).all())
 
-    def productos_sin_stock(self) -> list[Producto]:
+    def productos_sin_stock(
+        self,
+        db_session: Session | None = None,
+    ) -> list[Producto]:
         """Productos con stock actual = 0 (agotados)."""
         # Consultar productos que se han quedado sin inventario.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             stmt = (
                 select(Producto)
                 .where(Producto.stock_actual == 0)

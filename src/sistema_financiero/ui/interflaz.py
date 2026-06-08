@@ -1838,7 +1838,7 @@ class MainWindow(QMainWindow):
         try:
             partes = fecha_texto.split("-")
             fecha_reporte = date(int(partes[0]), int(partes[1]), int(partes[2]))
-        except IndexError, ValueError:
+        except (IndexError, ValueError):
             QMessageBox.warning(self, "Error", "Fecha de reporte invalida.")
             return
 
@@ -2147,9 +2147,9 @@ class ProductoDialog(QDialog):
                 # los atributos personalizados de MainWindow.
                 if not self.controlador_productos:
                     QMessageBox.critical(
-                        self, "Error",
-                        "Controlador de productos no disponible. "
-                        "Contacte al administrador.",
+                        self,
+                        "Error",
+                        "Controlador de productos no disponible. Contacte al administrador.",
                     )
                     return
                 self.controlador_productos.actualizar(
@@ -2178,9 +2178,9 @@ class ProductoDialog(QDialog):
                 )
                 if not self.controlador_productos:
                     QMessageBox.critical(
-                        self, "Error",
-                        "Controlador de productos no disponible. "
-                        "Contacte al administrador.",
+                        self,
+                        "Error",
+                        "Controlador de productos no disponible. Contacte al administrador.",
                     )
                     return
                 self.controlador_productos.crear(nuevo)

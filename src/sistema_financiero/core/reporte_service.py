@@ -24,13 +24,13 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 # SQLModel: consultas a la BD.
 #   - Session: la sesion de conexion.
 #   - select: construye consultas SELECT.
-from sqlmodel import select
+from sqlmodel import Session, select
 
 # Importamos los modelos que necesitamos consultar.
 #   - Producto: para contar stock bajo/sin stock.
 #   - ReporteDiario: el modelo que vamos a crear/consultar.
 #   - Venta, VentaDetalle: para consolidar las ventas del dia.
-from ..models import Producto, ReporteDiario, Venta, VentaDetalle, get_session
+from ..models import Producto, ReporteDiario, Venta, VentaDetalle, obtener_sesion
 
 # ----------------------------------------------------------
 # CONSTANTES DE FORMATO PARA EXCEL
@@ -112,12 +112,14 @@ class ReporteService:
     def generar_reporte(
         self,
         fecha_param: date | None = None,
+        db_session: Session | None = None,
     ) -> ReporteDiario:
-        """Genera el reporte diario consolidando ventas de la fecha indicada."""
+        """Genera el reporte diario consolidando ventas de la fecha indicada.
+        db_session: sesion opcional para tests con BD en memoria."""
         # Si no se paso una fecha, usar la de hoy.
         hoy = fecha_param or date.today()
 
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             # ----------------------------------------------------------
             # PASO 1: Buscar todas las ventas COMPLETADA del dia
             # ----------------------------------------------------------
@@ -219,10 +221,15 @@ class ReporteService:
     # ------------------------------------------------------------------
     # obtener_por_fecha(): busca un reporte por fecha
     # ------------------------------------------------------------------
-    def obtener_por_fecha(self, fecha_param: date | None = None) -> ReporteDiario | None:
-        """Devuelve el reporte de una fecha, o None si no existe."""
+    def obtener_por_fecha(
+        self,
+        fecha_param: date | None = None,
+        db_session: Session | None = None,
+    ) -> ReporteDiario | None:
+        """Devuelve el reporte de una fecha, o None si no existe.
+        db_session: sesion opcional para tests con BD en memoria."""
         hoy = fecha_param or date.today()
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             return session.exec(select(ReporteDiario).where(ReporteDiario.fecha == hoy)).first()
 
     # ------------------------------------------------------------------
@@ -232,9 +239,11 @@ class ReporteService:
         self,
         desde: date,
         hasta: date,
+        db_session: Session | None = None,
     ) -> list[ReporteDiario]:
-        """Devuelve todos los reportes entre dos fechas (ordenados descendente)."""
-        with get_session() as session:
+        """Devuelve todos los reportes entre dos fechas (ordenados descendente).
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             stmt = (
                 select(ReporteDiario)
                 .where(
@@ -268,10 +277,14 @@ class ReporteService:
         self,
         reporte_id: int,
         ruta_archivo: str,
+        db_session: Session | None = None,
     ) -> str:
-        """Exporta un reporte a Excel. Devuelve la ruta del archivo."""
+        """Exporta un reporte a Excel. Devuelve la ruta del archivo.
+        db_session: sesion opcional para tests con BD en memoria."""
         # Cargar datos desde la BD (reporte, ventas, stock).
-        reporte_opt, ventas, stock_bajo, sin_stock = self._cargar_datos_reporte(reporte_id)
+        reporte_opt, ventas, stock_bajo, sin_stock = self._cargar_datos_reporte(
+            reporte_id, db_session
+        )
         if reporte_opt is None:
             raise ValueError(f"No existe el reporte con ID {reporte_id}")
         reporte = reporte_opt
@@ -297,6 +310,7 @@ class ReporteService:
     def _cargar_datos_reporte(
         self,
         reporte_id: int,
+        db_session: Session | None = None,
     ) -> tuple[
         ReporteDiario | None,
         list[Venta],
@@ -304,7 +318,7 @@ class ReporteService:
         list[Producto],
     ]:
         """Carga reporte, ventas, stock bajo y sin stock desde la BD."""
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             reporte = session.get(ReporteDiario, reporte_id)
             if not reporte:
                 return (None, [], [], [])

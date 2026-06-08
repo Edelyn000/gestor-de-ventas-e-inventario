@@ -1,9 +1,9 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlmodel import select
+from sqlmodel import Session, select
 
-from ..models import TasaCambio, get_session
+from ..models import TasaCambio, obtener_sesion
 from ..services.bcv import obtener_tasa as bcv_obtener_tasa
 
 
@@ -28,14 +28,15 @@ class TasaCambioService:
         tasa_venta: Decimal,
         tasa_compra: Decimal,
         activa: bool = True,
+        db_session: Session | None = None,
     ) -> TasaCambio:
         """Registra una nueva tasa de cambio para una fecha especifica.
-        Si ya existe una tasa para esa fecha, lanza error."""
+        db_session: sesion opcional para tests con BD en memoria."""
         if tasa_venta <= 0 or tasa_compra <= 0:
             raise ValueError("Las tasas deben ser mayores a cero.")
 
         # Verificar si ya existe una tasa para esta fecha.
-        with get_session() as session:
+        with obtener_sesion(db_session) as session:
             existente = session.exec(select(TasaCambio).where(TasaCambio.fecha == fecha)).first()
             if existente:
                 raise ValueError(f"Ya existe una tasa registrada para la fecha {fecha}.")
@@ -53,10 +54,14 @@ class TasaCambioService:
 
         return tasa
 
-    def tasa_activa(self) -> TasaCambio | None:
+    def tasa_activa(
+        self,
+        db_session: Session | None = None,
+    ) -> TasaCambio | None:
         """Devuelve la tasa de cambio activa mas reciente.
-        Si hay varias activas, retorna la de fecha mas reciente."""
-        with get_session() as session:
+        Si hay varias activas, retorna la de fecha mas reciente.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             stmt = (
                 select(TasaCambio)
                 .where(TasaCambio.activa == True)  # noqa: E712
@@ -64,20 +69,34 @@ class TasaCambioService:
             )
             return session.exec(stmt).first()
 
-    def obtener_por_fecha(self, fecha: date) -> TasaCambio | None:
-        """Busca la tasa registrada para una fecha especifica."""
-        with get_session() as session:
+    def obtener_por_fecha(
+        self,
+        fecha: date,
+        db_session: Session | None = None,
+    ) -> TasaCambio | None:
+        """Busca la tasa registrada para una fecha especifica.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             return session.exec(select(TasaCambio).where(TasaCambio.fecha == fecha)).first()
 
-    def historial(self) -> list[TasaCambio]:
-        """Devuelve todas las tasas registradas, de la mas reciente a la mas antigua."""
-        with get_session() as session:
+    def historial(
+        self,
+        db_session: Session | None = None,
+    ) -> list[TasaCambio]:
+        """Devuelve todas las tasas registradas, de la mas reciente a la mas antigua.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             stmt = select(TasaCambio).order_by(TasaCambio.fecha.desc())  # type: ignore[attr-defined]
             return list(session.exec(stmt).all())
 
-    def desactivar_tasa(self, tasa_id: int) -> bool:
-        """Marca una tasa como inactiva. Retorna False si no existe."""
-        with get_session() as session:
+    def desactivar_tasa(
+        self,
+        tasa_id: int,
+        db_session: Session | None = None,
+    ) -> bool:
+        """Marca una tasa como inactiva. Retorna False si no existe.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
             tasa = session.get(TasaCambio, tasa_id)
             if not tasa:
                 return False
@@ -96,5 +115,5 @@ class TasaCambioService:
             return self.registrar(
                 fecha=hoy, tasa_venta=tasa_redondeada, tasa_compra=tasa_redondeada
             )
-        except ImportError, ValueError, ConnectionError:
+        except (ImportError, ValueError, ConnectionError):
             return None

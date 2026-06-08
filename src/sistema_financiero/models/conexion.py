@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from sqlmodel import Session, SQLModel, create_engine
@@ -27,3 +29,14 @@ def create_db_and_tables() -> None:
 def get_session() -> Session:
     """Devuelve una nueva sesion de BD lista para operaciones."""
     return Session(engine)
+
+
+@contextmanager
+def obtener_sesion(session: Session | None = None) -> Iterator[Session]:
+    """Context manager: si recibe una sesion existente la usa,
+    si no, crea una nueva. Util para tests con BD en memoria."""
+    if session is not None:
+        yield session
+    else:
+        with Session(engine) as s:
+            yield s
