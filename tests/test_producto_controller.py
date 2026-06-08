@@ -25,6 +25,7 @@ import pytest
 
 # ProductoController: el servicio que vamos a probar.
 from sistema_financiero.core.producto_controller import ProductoController
+
 # Producto: el modelo ORM para crear productos de prueba.
 from sistema_financiero.models import Producto
 
@@ -137,7 +138,8 @@ def test_crear_producto_precio_negativo(session, producto_controller: ProductoCo
 # TEST: test_crear_producto_stock_minimo_invalido
 # ¿QUE PRUEBA? Que el stock_minimo no pueda ser 0.
 # ============================================================
-def test_crear_producto_stock_minimo_invalido(session, producto_controller: ProductoController) -> None:
+def test_crear_producto_stock_minimo_invalido(
+    session, producto_controller: ProductoController) -> None:
     """
     Prueba que crear() rechace stock_minimo < 1.
     """
@@ -196,15 +198,20 @@ def test_listar_todos(session, producto_controller: ProductoController) -> None:
     """
     Prueba que listar_todos() devuelva los productos ordenados alfabeticamente.
     """
-    # Crear 3 productos con nombres en distinto orden.
-    producto_controller.crear(Producto(nombre_producto="ZANAHORIA", precio_venta_bs=Decimal("1"), precio_venta_usd=Decimal("0.20")), db_session=session)
-    producto_controller.crear(Producto(nombre_producto="BROCOLI", precio_venta_bs=Decimal("2"), precio_venta_usd=Decimal("0.40")), db_session=session)
-    producto_controller.crear(Producto(nombre_producto="ajo", precio_venta_bs=Decimal("3"), precio_venta_usd=Decimal("0.60")), db_session=session)
+    minimo_productos = 3
+    producto_controller.crear(Producto(
+        nombre_producto="ZANAHORIA", precio_venta_bs=Decimal("1"),
+        precio_venta_usd=Decimal("0.20")), db_session=session)
+    producto_controller.crear(Producto(
+        nombre_producto="BROCOLI", precio_venta_bs=Decimal("2"),
+        precio_venta_usd=Decimal("0.40")), db_session=session)
+    producto_controller.crear(Producto(
+        nombre_producto="ajo", precio_venta_bs=Decimal("3"),
+        precio_venta_usd=Decimal("0.60")), db_session=session)
 
     lista = producto_controller.listar_todos(db_session=session)
 
-    # Debe haber al menos 3 productos.
-    assert len(lista) >= 3
+    assert len(lista) >= minimo_productos
 
     # Verificar que esten ordenados alfabeticamente.
     # El controlador convierte a mayusculas, entonces:
@@ -300,7 +307,8 @@ def test_actualizar_producto(session, producto_controller: ProductoController) -
 
     assert actualizado is not None
     assert actualizado.precio_venta_bs == Decimal("6.00")
-    assert actualizado.stock_actual == 15
+    stock_esperado = 15
+    assert actualizado.stock_actual == stock_esperado
     # El nombre NO deberia haber cambiado.
     assert actualizado.nombre_producto == "ACEITE"
 
@@ -313,7 +321,8 @@ def test_actualizar_producto_inexistente(session, producto_controller: ProductoC
     """
     Prueba que actualizar() retorne None para un ID inexistente.
     """
-    resultado = producto_controller.actualizar(9999, precio_venta_bs=Decimal("10.00"), db_session=session)
+    resultado = producto_controller.actualizar(
+        9999, precio_venta_bs=Decimal("10.00"), db_session=session)
     assert resultado is None
 
 
@@ -361,10 +370,15 @@ def test_obtener_categorias(session, producto_controller: ProductoController) ->
     """
     Prueba que obtener_categorias() devuelva categorias sin repetir.
     """
-    # Crear varios productos con categorias (algunas repetidas).
-    producto_controller.crear(Producto(nombre_producto="PROD1", categoria="LACTEOS", precio_venta_bs=Decimal("1"), precio_venta_usd=Decimal("0.20")), db_session=session)
-    producto_controller.crear(Producto(nombre_producto="PROD2", categoria="LACTEOS", precio_venta_bs=Decimal("2"), precio_venta_usd=Decimal("0.40")), db_session=session)
-    producto_controller.crear(Producto(nombre_producto="PROD3", categoria="PANADERIA", precio_venta_bs=Decimal("3"), precio_venta_usd=Decimal("0.60")), db_session=session)
+    producto_controller.crear(Producto(
+        nombre_producto="PROD1", categoria="LACTEOS",
+        precio_venta_bs=Decimal("1"), precio_venta_usd=Decimal("0.20")), db_session=session)
+    producto_controller.crear(Producto(
+        nombre_producto="PROD2", categoria="LACTEOS",
+        precio_venta_bs=Decimal("2"), precio_venta_usd=Decimal("0.40")), db_session=session)
+    producto_controller.crear(Producto(
+        nombre_producto="PROD3", categoria="PANADERIA",
+        precio_venta_bs=Decimal("3"), precio_venta_usd=Decimal("0.60")), db_session=session)
 
     categorias = producto_controller.obtener_categorias(db_session=session)
 

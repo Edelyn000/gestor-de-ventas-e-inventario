@@ -32,6 +32,10 @@
 # ============================================================
 
 # Importamos pytest (el framework de pruebas).
+# NOTA: Ruff exige imports ordenados: 1° stdlib, 2° terceros, 3° locales.
+# Si ves "I001 Import block is un-sorted", ejecuta:
+#     poetry run ruff check --fix tests/
+# Eso ordena los imports automaticamente.
 import pytest
 
 # Importamos tipos de SQLModel para crear la BD en memoria.
@@ -46,20 +50,9 @@ from sqlmodel import Session, SQLModel, create_engine
 from sistema_financiero.core.auth_service import AuthService
 from sistema_financiero.core.inventario_service import InventarioService
 from sistema_financiero.core.producto_controller import ProductoController
+from sistema_financiero.core.reporte_service import ReporteService
 from sistema_financiero.core.tasa_cambio_service import TasaCambioService
 from sistema_financiero.core.venta_controller import VentaController
-from sistema_financiero.core.reporte_service import ReporteService
-
-# Importamos los modelos ORM para crear datos de prueba.
-from sistema_financiero.models import (
-    MovimientoInventario,
-    Producto,
-    ReporteDiario,
-    TasaCambio,
-    Usuario,
-    Venta,
-    VentaDetalle,
-)
 
 
 # ============================================================

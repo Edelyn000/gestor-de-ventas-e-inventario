@@ -23,23 +23,11 @@
 # una fecha (ej: fecha_venta=datetime.now()).
 # ============================================================
 
-# Importamos datetime para crear fechas en los objetos de prueba.
-from datetime import datetime
-
-# Importamos bcrypt para hashear contrasenas en los tests.
-# bcrypt.hashpw(): hashea una contrasena.
-# bcrypt.checkpw(): verifica una contrasena contra un hash.
 import bcrypt
-# Importamos pytest para usar sus herramientas (ej: pytest.raises).
 import pytest
 
-# Importamos el servicio que vamos a probar.
 from sistema_financiero.core.auth_service import AuthService
-# Importamos el modelo Usuario para crear datos de prueba.
 from sistema_financiero.models import Usuario
-# Importamos select de SQLModel para hacer consultas.
-from sqlmodel import select
-
 
 # ============================================================
 # TEST: test_crear_usuario_exitoso
@@ -205,10 +193,13 @@ def test_verificar_login_exitoso(session):  # type: ignore[no-untyped-def]
     servicio = AuthService()
 
     # Primero crear un usuario.
-    servicio.crear_usuario(usuario="loginuser", contrasena="miclave", nombre_completo="Login Test", db_session=session)
+    servicio.crear_usuario(
+        usuario="loginuser", contrasena="miclave",
+        nombre_completo="Login Test", db_session=session)
 
     # Ahora intentar el login con las mismas credenciales.
-    resultado = servicio.verificar_login(usuario="loginuser", contrasena="miclave", db_session=session)
+    resultado = servicio.verificar_login(
+        usuario="loginuser", contrasena="miclave", db_session=session)
 
     # El resultado NO debe ser None (login exitoso).
     assert resultado is not None, "El login debe ser exitoso"
@@ -234,7 +225,8 @@ def test_verificar_login_contrasena_incorrecta(session):  # type: ignore[no-unty
     servicio.crear_usuario(usuario="userpass", contrasena="correcta", db_session=session)
 
     # Intentar login con contrasena INCORRECTA.
-    resultado = servicio.verificar_login(usuario="userpass", contrasena="incorrecta", db_session=session)
+    resultado = servicio.verificar_login(
+        usuario="userpass", contrasena="incorrecta", db_session=session)
 
     # Debe retornar None (login fallido).
     assert resultado is None, "El login debe fallar con contrasena incorrecta"
@@ -251,7 +243,8 @@ def test_verificar_login_usuario_inexistente(session):  # type: ignore[no-untype
     servicio = AuthService()
 
     # Intentar login con un usuario que NUNCA fue creado.
-    resultado = servicio.verificar_login(usuario="noexisto", contrasena="cualquiera", db_session=session)
+    resultado = servicio.verificar_login(
+        usuario="noexisto", contrasena="cualquiera", db_session=session)
 
     # Debe retornar None (usuario no encontrado).
     assert resultado is None, "El login debe fallar para usuario inexistente"
@@ -274,7 +267,8 @@ def test_verificar_login_usuario_inactivo(session):  # type: ignore[no-untyped-d
     servicio.desactivar(creado.id, db_session=session)  # type: ignore[union-attr]
 
     # Intentar login con el usuario desactivado.
-    resultado = servicio.verificar_login(usuario="inactivo", contrasena="clave123", db_session=session)
+    resultado = servicio.verificar_login(
+        usuario="inactivo", contrasena="clave123", db_session=session)
 
     # Debe retornar None aunque la contrasena sea correcta.
     assert resultado is None, "Usuario inactivo NO debe poder iniciar sesion"
@@ -309,7 +303,8 @@ def test_cambiar_contrasena_exitoso(session):  # type: ignore[no-untyped-def]
     assert login is not None, "Debe poder iniciar sesion con la nueva contrasena"
 
     # Verificar que la VIEJA contrasena YA NO funcione.
-    login_viejo = servicio.verificar_login(usuario="change", contrasena="vieja123", db_session=session)
+    login_viejo = servicio.verificar_login(
+        usuario="change", contrasena="vieja123", db_session=session)
     assert login_viejo is None, "La contrasena antigua ya no debe funcionar"
 
 
@@ -459,11 +454,8 @@ def test_listar_usuarios(session):  # type: ignore[no-untyped-def]
 
     lista = servicio.listar_usuarios(db_session=session)
 
-    # Verificar que haya al menos 3 usuarios.
-    # Usamos >= porque podria haber el admin de tests anteriores.
-    # NOTA: Como los servicios usan la BD real y no nuestra session
-    # de prueba, esto podria fallar. Es una limitacion actual.
-    assert len(lista) >= 3
+    minimo_usuarios = 3
+    assert len(lista) >= minimo_usuarios
     # Verificar que esten ordenados alfabeticamente (alpha < beta < gamma).
     nombres = [u.usuario for u in lista]
     assert "alpha" in nombres
