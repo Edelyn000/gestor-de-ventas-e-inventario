@@ -1,4 +1,3 @@
-
 from PyQt6.QtCore import QSize, Qt, QTimer
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
@@ -45,7 +44,9 @@ class MainWindow(QMainWindow):
         self.controlador_reportes = ReporteService()
 
         # Crear paginas ANTES de _setup_ui para que Pylance conozca los tipos.
-        self.pagina_dashboard: DashboardPagina = DashboardPagina(controlador_tasas=self.controlador_tasas)
+        self.pagina_dashboard: DashboardPagina = DashboardPagina(
+            controlador_tasas=self.controlador_tasas
+        )
         self.pagina_productos: ProductosPagina = ProductosPagina(self.controlador_productos)
         self.pagina_ventas: VentasPagina = VentasPagina(
             controlador_ventas=self.controlador_ventas,
@@ -140,8 +141,7 @@ class MainWindow(QMainWindow):
             )
             # Actualizar el mensaje de la barra de estado.
             self.statusBar().showMessage(  # type: ignore[union-attr]
-                f"Usuario: {self.usuario_actual.usuario} | "
-                f"{self.usuario_actual.nombre_completo}"
+                f"Usuario: {self.usuario_actual.usuario} | {self.usuario_actual.nombre_completo}"
             )
 
     # ------------------------------------------------------------------
