@@ -44,12 +44,27 @@ class MainWindow(QMainWindow):
         self.controlador_ventas = VentaController()
         self.controlador_reportes = ReporteService()
 
+        # Crear paginas ANTES de _setup_ui para que Pylance conozca los tipos.
+        self.pagina_dashboard = DashboardPagina(controlador_tasas=self.controlador_tasas)
+        self.pagina_productos = ProductosPagina(self.controlador_productos)
+        self.pagina_ventas = VentasPagina(
+            controlador_ventas=self.controlador_ventas,
+            controlador_productos=self.controlador_productos,
+        )
+        self.pagina_inventario = InventarioPagina(
+            controlador_inventario=self.controlador_inventario,
+            controlador_productos=self.controlador_productos,
+        )
+        self.pagina_reportes = ReportesPagina(
+            controlador_reportes=self.controlador_reportes,
+        )
+
         self._setup_ui()
 
         # Timer que refresca el dashboard cada 10 minutos (tasa BCV, ventas, stock).
         # No molesta al usuario porque actualiza solo los widgets, no bloquea la UI.
         self._timer_dashboard = QTimer(self)
-        self._timer_dashboard.timeout.connect(self.pagina_dashboard.refrescar)
+        self._timer_dashboard.timeout.connect(self._refrescar_dashboard)
         self._timer_dashboard.start(600_000)  # 600.000 ms = 10 minutos
 
     def _setup_ui(self) -> None:
@@ -102,6 +117,9 @@ class MainWindow(QMainWindow):
 
         self.barra_navegacion.setCurrentRow(0)
 
+    def _refrescar_dashboard(self) -> None:
+        self.pagina_dashboard.refrescar()
+
     def _cambiar_pagina(self, indice: int) -> None:
         # Cambiar la pagina visible.
         self.paginas.setCurrentIndex(indice)
@@ -130,16 +148,12 @@ class MainWindow(QMainWindow):
     # PAGINA: Dashboard
     # ------------------------------------------------------------------
     def _crear_pagina_dashboard(self) -> None:
-        self.pagina_dashboard = DashboardPagina(
-            controlador_tasas=self.controlador_tasas,
-        )
         self.paginas.addWidget(self.pagina_dashboard)
 
     # ------------------------------------------------------------------
     # PAGINA: Productos
     # ------------------------------------------------------------------
     def _crear_pagina_productos(self) -> None:
-        self.pagina_productos = ProductosPagina(self.controlador_productos)
         self.pagina_productos.producto_agregar.connect(self._agregar_producto)
         self.pagina_productos.producto_editar.connect(self._editar_producto)
         self.pagina_productos.producto_eliminar.connect(self._eliminar_producto)
@@ -190,10 +204,6 @@ class MainWindow(QMainWindow):
     # PAGINA: Ventas
     # ------------------------------------------------------------------
     def _crear_pagina_ventas(self) -> None:
-        self.pagina_ventas = VentasPagina(
-            controlador_ventas=self.controlador_ventas,
-            controlador_productos=self.controlador_productos,
-        )
         self.pagina_ventas.nueva_venta.connect(self._nueva_venta)
         self.paginas.addWidget(self.pagina_ventas)
 
@@ -211,17 +221,10 @@ class MainWindow(QMainWindow):
     # PAGINA: Inventario
     # ------------------------------------------------------------------
     def _crear_pagina_inventario(self) -> None:
-        self.pagina_inventario = InventarioPagina(
-            controlador_inventario=self.controlador_inventario,
-            controlador_productos=self.controlador_productos,
-        )
         self.paginas.addWidget(self.pagina_inventario)
 
     # ------------------------------------------------------------------
     # PAGINA: Reportes
     # ------------------------------------------------------------------
     def _crear_pagina_reportes(self) -> None:
-        self.pagina_reportes = ReportesPagina(
-            controlador_reportes=self.controlador_reportes,
-        )
         self.paginas.addWidget(self.pagina_reportes)
