@@ -224,13 +224,9 @@ class InventarioPagina(QWidget):
                     observaciones=observaciones or None,
                 )
             else:
-                producto_actual = self.controlador_productos.obtener_por_id(producto_id)
-                stock_fisico = (
-                    (producto_actual.stock_actual + cantidad) if producto_actual else cantidad
-                )
                 self.controlador_inventario.registrar_ajuste(
                     producto_id=producto_id,
-                    stock_fisico=stock_fisico,
+                    stock_fisico=cantidad,
                     motivo=motivo,
                     observaciones=observaciones or None,
                 )
@@ -260,9 +256,13 @@ class InventarioPagina(QWidget):
         form.addRow("Producto:", cmb_producto)
 
         spin_cantidad = QSpinBox()
-        spin_cantidad.setRange(1, 999999)
-        spin_cantidad.setValue(1)
-        form.addRow("Cantidad:", spin_cantidad)
+        if tipo == "AJUSTE":
+            spin_cantidad.setRange(0, 999999)
+            form.addRow("Stock Físico:", spin_cantidad)
+        else:
+            spin_cantidad.setRange(1, 999999)
+            spin_cantidad.setValue(1)
+            form.addRow("Cantidad:", spin_cantidad)
 
         cmb_motivo = QComboBox()
         if tipo == "ENTRADA":

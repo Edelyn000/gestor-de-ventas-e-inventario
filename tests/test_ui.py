@@ -23,22 +23,25 @@
 #   Cuando un componente necesita datos (ej. productos en el combo),
 #   usamos monkeypatch para simular las respuestas del controlador.
 # ============================================================
+from datetime import datetime
 from decimal import Decimal
 from unittest.mock import MagicMock
 
 import pytest
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QLineEdit, QPushButton
+from PyQt6.QtWidgets import QComboBox, QDialog, QLabel, QLineEdit, QPushButton, QTableWidget
 
 # Importamos los componentes UI que vamos a probar.
 from sistema_financiero.models.modelos import Producto, Usuario
+from sistema_financiero.ui.formulario_cambio_contrasena import FormularioCambioContrasena
+from sistema_financiero.ui.formulario_producto import FormularioProducto
+from sistema_financiero.ui.formulario_venta import FormularioVenta
 
 # NOTA: MainWindow se prueba con un fixture especial porque requiere
 # un usuario real (objeto Usuario). Lo definimos abajo.
 from sistema_financiero.ui.interflaz import MainWindow
+from sistema_financiero.ui.inventario_pagina import InventarioPagina
 from sistema_financiero.ui.ventana_login import VentanaLogin
-from sistema_financiero.ui.formulario_producto import FormularioProducto
-from sistema_financiero.ui.formulario_venta import FormularioVenta
 
 # ============================================================
 # FIXTURES (compartidos entre los tests de este archivo)
@@ -227,10 +230,11 @@ class TestMainWindow:
         assert ventana.barra_navegacion.count() == 5
 
         # Verificar los nombres de los items.
-        nombres = [
-            ventana.barra_navegacion.item(i).text()
-            for i in range(ventana.barra_navegacion.count())
-        ]
+        nombres = []
+        for i in range(ventana.barra_navegacion.count()):
+            item = ventana.barra_navegacion.item(i)
+            assert item is not None, f"item({i}) es None"
+            nombres.append(item.text())
         assert nombres == [
             "Dashboard",
             "Productos",
@@ -483,3 +487,478 @@ class TestFormularioVenta:
 
         # Debe mostrar advertencia porque no hay productos.
         mock_warning.assert_called_once()
+
+
+# ============================================================
+# FIXTURES COMPARTIDOS
+# ============================================================
+
+
+@pytest.fixture()
+def producto_ejemplo() -> Producto:
+    """Producto de prueba para tests de inventario."""
+    return Producto(
+        idproducto=1,
+        nombre_producto="Arroz",
+        categoria="ALIMENTOS",
+        precio_compra=Decimal("1.00"),
+        precio_venta_bs=Decimal("1.50"),
+        precio_venta_usd=Decimal("0.50"),
+        stock_actual=10,
+        stock_minimo=5,
+        unidad="KG",
+    )
+
+
+@pytest.fixture()
+def movimiento_ejemplo(producto_ejemplo: Producto) -> MagicMock:
+    """Movimiento de inventario simulado para tests de tabla."""
+    mov = MagicMock()
+    mov.id = 1
+    mov.fecha_movimiento = datetime(2025, 1, 15, 10, 30, 0)
+    mov.producto = producto_ejemplo
+    mov.tipo = "ENTRADA"
+    mov.cantidad = 5
+    mov.stock_anterior = 10
+    mov.stock_nuevo = 15
+    return mov
+
+
+# ============================================================
+# TESTS: FormularioCambioContrasena
+# ============================================================
+
+
+class TestFormularioCambioContrasena:
+    """Pruebas para el dialogo de cambio de contrasena/usuario."""
+
+    def test_crear_dialogo(self, qtbot, usuario_admin):
+        """Verifica que el dialogo se crea con el titulo correcto."""
+        dialogo = FormularioCambioContrasena(usuario=usuario_admin)
+        qtbot.addWidget(dialogo)
+
+        assert "Cambiar Contraseña / Usuario" in dialogo.windowTitle()
+
+    def test_widgets_existen(self, qtbot, usuario_admin):
+        """Verifica que los campos del formulario existen."""
+        dialogo = FormularioCambioContrasena(usuario=usuario_admin)
+        qtbot.addWidget(dialogo)
+
+        assert hasattr(dialogo, "txt_nombre_completo")
+        assert hasattr(dialogo, "txt_nuevo_usuario")
+        assert hasattr(dialogo, "txt_contrasena_actual")
+        assert hasattr(dialogo, "txt_nueva_contrasena")
+
+        assert isinstance(dialogo.txt_contrasena_actual, QLineEdit)
+        assert isinstance(dialogo.txt_nueva_contrasena, QLineEdit)
+        assert dialogo.txt_contrasena_actual.echoMode() == QLineEdit.EchoMode.Password
+        assert dialogo.txt_nueva_contrasena.echoMode() == QLineEdit.EchoMode.Password
+
+    def test_campos_precargados(self, qtbot, usuario_admin):
+        """Verifica que los campos se precargan con datos del usuario."""
+        dialogo = FormularioCambioContrasena(usuario=usuario_admin)
+        qtbot.addWidget(dialogo)
+
+        assert dialogo.txt_nombre_completo.text() == "Administrador"
+
+    def test_guardar_sin_contrasena_actual(self, qtbot, usuario_admin, monkeypatch):
+        """Verifica que rechaza guardar sin escribir la contrasena actual."""
+        dialogo = FormularioCambioContrasena(usuario=usuario_admin)
+        qtbot.addWidget(dialogo)
+
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.formulario_cambio_contrasena.QMessageBox.warning",
+            mock_warning,
+        )
+
+        for btn in dialogo.findChildren(QPushButton):
+            if btn.text() == "Guardar Cambios":
+                qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
+                break
+
+        mock_warning.assert_called_once()
+
+    def test_guardar_contrasena_incorrecta(self, qtbot, usuario_admin, monkeypatch):
+        """Verifica que contrasena actual incorrecta muestra error."""
+        dialogo = FormularioCambioContrasena(usuario=usuario_admin)
+        qtbot.addWidget(dialogo)
+
+        dialogo.auth_service.verificar_login = MagicMock(return_value=False)
+
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.formulario_cambio_contrasena.QMessageBox.warning",
+            mock_warning,
+        )
+
+        qtbot.keyClicks(dialogo.txt_contrasena_actual, "clave_incorrecta")
+
+        for btn in dialogo.findChildren(QPushButton):
+            if btn.text() == "Guardar Cambios":
+                qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
+                break
+
+        mock_warning.assert_called_once()
+
+    def test_guardar_sin_cambios(self, qtbot, usuario_admin, monkeypatch):
+        """Verifica que sin cambios muestra mensaje 'No se realizaron cambios'."""
+        dialogo = FormularioCambioContrasena(usuario=usuario_admin)
+        qtbot.addWidget(dialogo)
+
+        dialogo.auth_service.verificar_login = MagicMock(return_value=True)
+
+        mock_info = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.formulario_cambio_contrasena.QMessageBox.information",
+            mock_info,
+        )
+
+        qtbot.keyClicks(dialogo.txt_contrasena_actual, "admin")
+
+        for btn in dialogo.findChildren(QPushButton):
+            if btn.text() == "Guardar Cambios":
+                qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
+                break
+
+        mock_info.assert_called_once()
+
+    def test_guardar_exitoso(self, qtbot, usuario_admin, monkeypatch):
+        """Verifica que cambiar nombre completo guarda exitosamente."""
+        dialogo = FormularioCambioContrasena(usuario=usuario_admin)
+        qtbot.addWidget(dialogo)
+
+        dialogo.auth_service.verificar_login = MagicMock(return_value=True)
+        dialogo.auth_service.actualizar = MagicMock()
+
+        mock_info = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.formulario_cambio_contrasena.QMessageBox.information",
+            mock_info,
+        )
+
+        qtbot.keyClicks(dialogo.txt_contrasena_actual, "admin")
+        dialogo.txt_nombre_completo.setText("Nuevo Nombre")
+
+        for btn in dialogo.findChildren(QPushButton):
+            if btn.text() == "Guardar Cambios":
+                qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
+                break
+
+        dialogo.auth_service.actualizar.assert_called_once()
+        mock_info.assert_called_once()
+
+
+# ============================================================
+# TESTS: InventarioPagina
+# ============================================================
+
+
+class TestInventarioPagina:
+    """Pruebas para la pagina de inventario."""
+
+    def test_crear_pagina(self, qtbot, producto_ejemplo):
+        """Verifica que la pagina se crea sin errores."""
+        mock_controlador_inv = MagicMock()
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+
+        pagina = InventarioPagina(mock_controlador_inv, mock_controlador_prod)
+        qtbot.addWidget(pagina)
+
+        label = pagina.findChild(QLabel)
+        assert label is not None
+        assert "Inventario" in label.text()
+
+    def test_widgets_existen(self, qtbot, producto_ejemplo):
+        """Verifica que los widgets principales existen."""
+        mock_controlador_inv = MagicMock()
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+
+        pagina = InventarioPagina(mock_controlador_inv, mock_controlador_prod)
+        qtbot.addWidget(pagina)
+
+        assert hasattr(pagina, "cmb_producto_inventario")
+        assert hasattr(pagina, "tabla_movimientos")
+        assert isinstance(pagina.cmb_producto_inventario, QComboBox)
+        assert isinstance(pagina.tabla_movimientos, QTableWidget)
+
+        botones = [btn.text() for btn in pagina.findChildren(QPushButton)]
+        assert "Entrada" in botones
+        assert "Salida" in botones
+        assert "Ajuste" in botones
+        assert "Refrescar" in botones
+
+    def test_combo_poblado(self, qtbot, producto_ejemplo):
+        """Verifica que el combo de productos se puebla correctamente."""
+        mock_controlador_inv = MagicMock()
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+
+        pagina = InventarioPagina(mock_controlador_inv, mock_controlador_prod)
+        qtbot.addWidget(pagina)
+
+        assert pagina.cmb_producto_inventario.count() == 2
+        assert pagina.cmb_producto_inventario.itemText(0) == "Todos los productos"
+        assert "Arroz" in pagina.cmb_producto_inventario.itemText(1)
+
+    def test_tabla_movimientos_vacia(self, qtbot, producto_ejemplo):
+        """Verifica que la tabla se muestra vacia cuando no hay movimientos."""
+        mock_controlador_inv = MagicMock()
+        mock_controlador_inv.movimientos_recientes.return_value = []
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+
+        pagina = InventarioPagina(mock_controlador_inv, mock_controlador_prod)
+        qtbot.addWidget(pagina)
+
+        assert pagina.tabla_movimientos.rowCount() == 0
+
+    def test_tabla_movimientos_poblada(self, qtbot, producto_ejemplo, movimiento_ejemplo):
+        """Verifica que la tabla muestra datos de movimientos."""
+        mock_controlador_inv = MagicMock()
+        mock_controlador_inv.movimientos_recientes.return_value = [movimiento_ejemplo]
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+
+        pagina = InventarioPagina(mock_controlador_inv, mock_controlador_prod)
+        qtbot.addWidget(pagina)
+
+        assert pagina.tabla_movimientos.rowCount() == 1
+        item_id = pagina.tabla_movimientos.item(0, 0)
+        assert item_id is not None, "item(0,0) es None"
+        assert item_id.text() == "1"
+        item_tipo = pagina.tabla_movimientos.item(0, 3)
+        assert item_tipo is not None, "item(0,3) es None"
+        assert item_tipo.text() == "ENTRADA"
+
+    def test_dialogo_entrada_flujo_exitoso(self, qtbot, monkeypatch, producto_ejemplo):
+        """Verifica que el boton Entrada llama a registrar_entrada."""
+        mock_controlador_inv = MagicMock()
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+
+        pagina = InventarioPagina(mock_controlador_inv, mock_controlador_prod)
+        qtbot.addWidget(pagina)
+
+        mock_info = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.inventario_pagina.QMessageBox.information",
+            mock_info,
+        )
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.inventario_pagina.QMessageBox.warning",
+            mock_warning,
+        )
+
+        monkeypatch.setattr(
+            "sistema_financiero.ui.inventario_pagina.QDialog.exec",
+            MagicMock(return_value=QDialog.DialogCode.Accepted),
+        )
+
+        mock_combo = MagicMock()
+        mock_combo.currentData.return_value = 1
+        mock_spin = MagicMock()
+        mock_spin.value.return_value = 5
+        mock_motivo = MagicMock()
+        mock_motivo.currentText.return_value = "COMPRA"
+        mock_obs = MagicMock()
+        mock_obs.text.return_value = ""
+
+        monkeypatch.setattr(
+            pagina,
+            "_crear_formulario_movimiento",
+            MagicMock(return_value=(mock_combo, mock_spin, mock_motivo, mock_obs)),
+        )
+
+        for btn in pagina.findChildren(QPushButton):
+            if btn.text() == "Entrada":
+                qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
+                break
+
+        mock_controlador_inv.registrar_entrada.assert_called_once_with(
+            producto_id=1, cantidad=5, motivo="COMPRA", observaciones=None,
+        )
+        mock_info.assert_called_once()
+
+    def test_dialogo_salida_flujo_exitoso(self, qtbot, monkeypatch, producto_ejemplo):
+        """Verifica que el boton Salida llama a registrar_salida."""
+        mock_controlador_inv = MagicMock()
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+
+        pagina = InventarioPagina(mock_controlador_inv, mock_controlador_prod)
+        qtbot.addWidget(pagina)
+
+        mock_info = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.inventario_pagina.QMessageBox.information",
+            mock_info,
+        )
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.inventario_pagina.QMessageBox.warning",
+            mock_warning,
+        )
+
+        monkeypatch.setattr(
+            "sistema_financiero.ui.inventario_pagina.QDialog.exec",
+            MagicMock(return_value=QDialog.DialogCode.Accepted),
+        )
+
+        mock_combo = MagicMock()
+        mock_combo.currentData.return_value = 1
+        mock_spin = MagicMock()
+        mock_spin.value.return_value = 3
+        mock_motivo = MagicMock()
+        mock_motivo.currentText.return_value = "VENTA"
+        mock_obs = MagicMock()
+        mock_obs.text.return_value = ""
+
+        monkeypatch.setattr(
+            pagina,
+            "_crear_formulario_movimiento",
+            MagicMock(return_value=(mock_combo, mock_spin, mock_motivo, mock_obs)),
+        )
+
+        for btn in pagina.findChildren(QPushButton):
+            if btn.text() == "Salida":
+                qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
+                break
+
+        mock_controlador_inv.registrar_salida.assert_called_once_with(
+            producto_id=1, cantidad=3, motivo="VENTA", observaciones=None,
+        )
+        mock_info.assert_called_once()
+
+    def test_dialogo_ajuste_flujo_exitoso(self, qtbot, monkeypatch, producto_ejemplo):
+        """Verifica que el boton Ajuste llama a registrar_ajuste."""
+        mock_controlador_inv = MagicMock()
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+
+        pagina = InventarioPagina(mock_controlador_inv, mock_controlador_prod)
+        qtbot.addWidget(pagina)
+
+        mock_info = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.inventario_pagina.QMessageBox.information",
+            mock_info,
+        )
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.inventario_pagina.QMessageBox.warning",
+            mock_warning,
+        )
+
+        monkeypatch.setattr(
+            "sistema_financiero.ui.inventario_pagina.QDialog.exec",
+            MagicMock(return_value=QDialog.DialogCode.Accepted),
+        )
+
+        mock_combo = MagicMock()
+        mock_combo.currentData.return_value = 1
+        mock_spin = MagicMock()
+        mock_spin.value.return_value = 8
+        mock_motivo = MagicMock()
+        mock_motivo.currentText.return_value = "INVENTARIO"
+        mock_obs = MagicMock()
+        mock_obs.text.return_value = "Ajuste por inventario"
+
+        monkeypatch.setattr(
+            pagina,
+            "_crear_formulario_movimiento",
+            MagicMock(return_value=(mock_combo, mock_spin, mock_motivo, mock_obs)),
+        )
+
+        for btn in pagina.findChildren(QPushButton):
+            if btn.text() == "Ajuste":
+                qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
+                break
+
+        mock_controlador_inv.registrar_ajuste.assert_called_once_with(
+            producto_id=1, stock_fisico=8, motivo="INVENTARIO",
+            observaciones="Ajuste por inventario",
+        )
+        mock_info.assert_called_once()
+
+    def test_dialogo_cancelado(self, qtbot, monkeypatch, producto_ejemplo):
+        """Verifica que cancelar el dialogo no llama a los servicios."""
+        mock_controlador_inv = MagicMock()
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+
+        pagina = InventarioPagina(mock_controlador_inv, mock_controlador_prod)
+        qtbot.addWidget(pagina)
+
+        monkeypatch.setattr(
+            "sistema_financiero.ui.inventario_pagina.QDialog.exec",
+            MagicMock(return_value=QDialog.DialogCode.Rejected),
+        )
+
+        for btn in pagina.findChildren(QPushButton):
+            if btn.text() == "Entrada":
+                qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
+                break
+
+        mock_controlador_inv.registrar_entrada.assert_not_called()
+        mock_controlador_inv.registrar_salida.assert_not_called()
+        mock_controlador_inv.registrar_ajuste.assert_not_called()
+
+    def test_dialogo_producto_no_seleccionado(self, qtbot, monkeypatch, producto_ejemplo):
+        """Verifica que sin producto seleccionado muestra advertencia."""
+        mock_controlador_inv = MagicMock()
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+
+        pagina = InventarioPagina(mock_controlador_inv, mock_controlador_prod)
+        qtbot.addWidget(pagina)
+
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.inventario_pagina.QMessageBox.warning",
+            mock_warning,
+        )
+
+        monkeypatch.setattr(
+            "sistema_financiero.ui.inventario_pagina.QDialog.exec",
+            MagicMock(return_value=QDialog.DialogCode.Accepted),
+        )
+
+        mock_combo = MagicMock()
+        mock_combo.currentData.return_value = None
+        mock_spin = MagicMock()
+        mock_spin.value.return_value = 5
+        mock_motivo = MagicMock()
+        mock_motivo.currentText.return_value = "COMPRA"
+        mock_obs = MagicMock()
+        mock_obs.text.return_value = ""
+
+        monkeypatch.setattr(
+            pagina,
+            "_crear_formulario_movimiento",
+            MagicMock(return_value=(mock_combo, mock_spin, mock_motivo, mock_obs)),
+        )
+
+        for btn in pagina.findChildren(QPushButton):
+            if btn.text() == "Entrada":
+                qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
+                break
+
+        mock_warning.assert_called_once()
+        mock_controlador_inv.registrar_entrada.assert_not_called()
+
+    def test_tabla_refrescada_al_cambiar_producto(self, qtbot, producto_ejemplo):
+        """Verifica que cambiar el combo refresca la tabla con historial del producto."""
+        mock_controlador_inv = MagicMock()
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+
+        pagina = InventarioPagina(mock_controlador_inv, mock_controlador_prod)
+        qtbot.addWidget(pagina)
+
+        pagina.cmb_producto_inventario.setCurrentIndex(1)
+
+        mock_controlador_inv.historial_por_producto.assert_called_with(1)

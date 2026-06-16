@@ -41,6 +41,7 @@ from PyQt6.QtWidgets import (
 
 from ..core.producto_controller import ProductoController
 from ..core.venta_controller import VentaController
+from ..utils import formatear_bs, formatear_usd
 
 
 class VentasPagina(QWidget):
@@ -148,8 +149,8 @@ class VentasPagina(QWidget):
             fv = venta.fecha_venta
             fecha_str = fv.strftime("%d/%m/%Y %H:%M") if fv else "-"
             self.tabla_ventas.setItem(fila, 2, QTableWidgetItem(fecha_str))
-            self.tabla_ventas.setItem(fila, 3, QTableWidgetItem(f"Bs. {venta.total_bs:.2f}"))
-            self.tabla_ventas.setItem(fila, 4, QTableWidgetItem(f"$ {venta.total_usd:.2f}"))
+            self.tabla_ventas.setItem(fila, 3, QTableWidgetItem(formatear_bs(venta.total_bs)))
+            self.tabla_ventas.setItem(fila, 4, QTableWidgetItem(formatear_usd(venta.total_usd)))
             item_estado = QTableWidgetItem(venta.estado)
             if venta.estado == "ANULADA":
                 item_estado.setForeground(Qt.GlobalColor.red)
@@ -213,7 +214,7 @@ class VentasPagina(QWidget):
         for det in detalles:
             producto = self.controlador_productos.obtener_por_id(det.producto_id)
             nombre = producto.nombre_producto if producto else f"ID {det.producto_id}"
-            lineas.append(f"{det.cantidad}x {nombre} = Bs. {det.subtotal_bs:.2f}")
+            lineas.append(f"{det.cantidad}x {nombre} = {formatear_bs(det.subtotal_bs)}")
         lineas.append("=" * 30)
 
         QMessageBox.information(

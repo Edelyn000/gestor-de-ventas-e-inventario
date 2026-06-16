@@ -26,11 +26,13 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 #   - select: construye consultas SELECT.
 from sqlmodel import Session, select
 
+from ..models import Producto, ReporteDiario, Venta, VentaDetalle, obtener_sesion
+
 # Importamos los modelos que necesitamos consultar.
 #   - Producto: para contar stock bajo/sin stock.
 #   - ReporteDiario: el modelo que vamos a crear/consultar.
 #   - Venta, VentaDetalle: para consolidar las ventas del dia.
-from ..models import Producto, ReporteDiario, Venta, VentaDetalle, obtener_sesion
+from ..utils import formatear_bs, formatear_usd_texto
 
 # ----------------------------------------------------------
 # CONSTANTES DE FORMATO PARA EXCEL
@@ -431,17 +433,17 @@ class ReporteService:
         # Datos del resumen (desde fila 4).
         # Cada tupla = (concepto, valor).
         datos_reporte = [
-            ("Total Ventas Bs.", f"Bs. {reporte.total_ventas_bs:,.2f}"),
-            ("Total Ventas USD", f"USD {reporte.total_ventas_usd:,.2f}"),
+            ("Total Ventas Bs.", formatear_bs(reporte.total_ventas_bs)),
+            ("Total Ventas USD", formatear_usd_texto(reporte.total_ventas_usd)),
             ("Cantidad de Ventas", str(reporte.cantidad_ventas)),
             ("Productos Vendidos", str(reporte.cantidad_productos_vendidos)),
             ("", ""),
             ("— Metodos de Pago —", ""),
-            ("Efectivo Bs.", f"Bs. {reporte.efectivo_bs:,.2f}"),
-            ("Efectivo USD", f"USD {reporte.efectivo_usd:,.2f}"),
-            ("Tarjeta", f"Bs. {reporte.tarjeta:,.2f}"),
-            ("Pago Movil", f"Bs. {reporte.pago_movil:,.2f}"),
-            ("BioPago", f"Bs. {reporte.bio_pago:,.2f}"),
+            ("Efectivo Bs.", formatear_bs(reporte.efectivo_bs)),
+            ("Efectivo USD", formatear_usd_texto(reporte.efectivo_usd)),
+            ("Tarjeta", formatear_bs(reporte.tarjeta)),
+            ("Pago Movil", formatear_bs(reporte.pago_movil)),
+            ("BioPago", formatear_bs(reporte.bio_pago)),
             ("", ""),
             ("— Alertas de Stock —", ""),
             ("Productos Stock Bajo", str(reporte.productos_stock_bajo)),

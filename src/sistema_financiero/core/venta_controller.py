@@ -15,7 +15,13 @@ from sqlmodel import Session, select
 # Venta = la cabecera de la venta (fecha, totales, metodo de pago).
 # VentaDetalle = cada producto que se vendio (cantidad, precio, subtotal).
 # obtener_sesion: context manager que acepta sesion opcional (BD en memoria para tests).
-from ..models import Venta, VentaDetalle, obtener_sesion
+from ..models import (
+    MovimientoInventario,
+    Producto,
+    Venta,
+    VentaDetalle,
+    obtener_sesion,
+)
 
 # InventarioService: lo necesitamos para descontar el stock
 #   de cada producto cuando se confirma la venta.
@@ -78,7 +84,7 @@ class VentaController:
     #
     # Retorna: el objeto Venta recien creado (con su ID y numero de factura).
     # ------------------------------------------------------------------
-    def crear(  # noqa: PLR0915
+    def crear(  # noqa: PLR0912, PLR0915
         self,
         productos: list[dict[str, object]],
         metodo_pago: dict[str, object] | None = None,
@@ -291,30 +297,40 @@ class VentaController:
                 session.add(detalle)
 
             # ----------------------------------------------------------
-            # PASO 10: Confirmar todo en la BD.
+            # PASO 10: Descontar del inventario (misma transaccion).
+            # ----------------------------------------------------------
+            for det in detalles_lista:
+                producto = session.get(Producto, int(str(det["producto_id"])))
+                if not producto:
+                    raise ValueError(f"Producto ID {det['producto_id']} no existe.")
+                cantidad_det = int(str(det["cantidad"]))
+                if producto.stock_actual < cantidad_det:
+                    raise ValueError(
+                        f"Stock insuficiente para {producto.nombre_producto}. "
+                        f"Disponible: {producto.stock_actual}, solicitado: {cantidad_det}"
+                    )
+                stock_anterior = producto.stock_actual
+                producto.stock_actual -= cantidad_det
+                session.add(producto)
+
+                movimiento = MovimientoInventario(
+                    producto_id=int(str(det["producto_id"])),
+                    tipo="SALIDA",
+                    motivo="VENTA",
+                    cantidad=cantidad_det,
+                    stock_anterior=stock_anterior,
+                    stock_nuevo=producto.stock_actual,
+                    referencia_id=venta_id,
+                    observaciones=f"Factura {numero_factura}",
+                    fecha_movimiento=datetime.now(),
+                )
+                session.add(movimiento)
+
+            # ----------------------------------------------------------
+            # PASO 11: Confirmar todo en la BD (venta + inventario).
             # ----------------------------------------------------------
             session.commit()
-            # Refrescar para obtener los datos actualizados desde la BD.
             session.refresh(venta)
-
-        # ----------------------------------------------------------
-        # PASO 11: Descontar del inventario.
-        # ----------------------------------------------------------
-        # IMPORTANTE: esto se hace DESPUES del commit de la venta.
-        # Por que? Porque si falla el descuento de inventario, la venta
-        # ya quedo registrada y podemos rastrear el problema.
-        # Alternativa: hacerlo antes del commit (todo o nada).
-        # Decidi hacerlo despues para priorizar que la venta quede
-        # registrada siempre.
-        for det in detalles_lista:
-            self.inventario.registrar_salida(
-                producto_id=int(str(det["producto_id"])),
-                cantidad=int(str(det["cantidad"])),
-                motivo="VENTA",
-                referencia_id=venta_id,
-                observaciones=f"Factura {numero_factura}",
-                db_session=db_session,
-            )
 
         return venta
 

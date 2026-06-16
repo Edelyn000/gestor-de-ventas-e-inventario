@@ -39,6 +39,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ..core.reporte_service import ReporteService
+from ..utils import formatear_bs, formatear_usd_texto
 
 
 class ReportesPagina(QWidget):
@@ -142,10 +143,10 @@ class ReportesPagina(QWidget):
             self.tabla_reportes.setItem(fila, 0, QTableWidgetItem(str(rep.id or "")))
             self.tabla_reportes.setItem(fila, 1, QTableWidgetItem(rep.fecha.isoformat()))
             self.tabla_reportes.setItem(
-                fila, 2, QTableWidgetItem(f"Bs. {rep.total_ventas_bs:,.2f}")
+                fila, 2, QTableWidgetItem(formatear_bs(rep.total_ventas_bs))
             )
             self.tabla_reportes.setItem(
-                fila, 3, QTableWidgetItem(f"USD {rep.total_ventas_usd:,.2f}")
+                fila, 3, QTableWidgetItem(formatear_usd_texto(rep.total_ventas_usd))
             )
             self.tabla_reportes.setItem(fila, 4, QTableWidgetItem(str(rep.cantidad_ventas)))
             self.tabla_reportes.setItem(fila, 5, QTableWidgetItem(str(rep.productos_stock_bajo)))
@@ -165,7 +166,7 @@ class ReportesPagina(QWidget):
                 "Cierre Exitoso",
                 f"Reporte del {reporte.fecha} generado correctamente.\n"
                 f"Ventas: {reporte.cantidad_ventas} | "
-                f"Total Bs.: {reporte.total_ventas_bs:,.2f}",
+                f"Total Bs.: {formatear_bs(reporte.total_ventas_bs)}",
             )
             self._refrescar_tabla_reportes()
         except Exception as e:

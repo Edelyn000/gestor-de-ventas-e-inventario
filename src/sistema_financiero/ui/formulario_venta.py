@@ -44,6 +44,7 @@
 #   └──────────────────────────────────────────────────┘
 # ============================================================
 from decimal import Decimal
+from typing import cast
 
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -66,6 +67,7 @@ from PyQt6.QtWidgets import (
 from ..core.producto_controller import ProductoController
 from ..core.tasa_cambio_service import TasaCambioService
 from ..core.venta_controller import VentaController
+from ..utils import configurar_spinbox_bs, configurar_spinbox_usd, formatear_bs
 
 
 class FormularioVenta(QDialog):
@@ -177,7 +179,7 @@ class FormularioVenta(QDialog):
         # TOTAL DE LA VENTA
         # ----------------------------------------------------------
         # QLabel que muestra el total actualizado en tiempo real.
-        self.lbl_total = QLabel("Total: Bs. 0.00")
+        self.lbl_total = QLabel(f"Total: {formatear_bs(Decimal('0.00'))}")
         self.lbl_total.setStyleSheet("font-size: 18px; font-weight: bold;")
         layout.addWidget(self.lbl_total)
 
@@ -197,33 +199,23 @@ class FormularioVenta(QDialog):
         # El usuario ingresa el monto recibido por cada metodo.
 
         self.spin_efectivo_bs = QDoubleSpinBox()
-        self.spin_efectivo_bs.setRange(0, 999999)
-        self.spin_efectivo_bs.setDecimals(2)
-        self.spin_efectivo_bs.setPrefix("Bs. ")
+        configurar_spinbox_bs(self.spin_efectivo_bs)
         form_pago.addRow("Efectivo Bs:", self.spin_efectivo_bs)
 
         self.spin_efectivo_usd = QDoubleSpinBox()
-        self.spin_efectivo_usd.setRange(0, 999999)
-        self.spin_efectivo_usd.setDecimals(2)
-        self.spin_efectivo_usd.setPrefix("$ ")
+        configurar_spinbox_usd(self.spin_efectivo_usd)
         form_pago.addRow("Efectivo USD:", self.spin_efectivo_usd)
 
         self.spin_tarjeta = QDoubleSpinBox()
-        self.spin_tarjeta.setRange(0, 999999)
-        self.spin_tarjeta.setDecimals(2)
-        self.spin_tarjeta.setPrefix("Bs. ")
+        configurar_spinbox_bs(self.spin_tarjeta)
         form_pago.addRow("Tarjeta:", self.spin_tarjeta)
 
         self.spin_pago_movil = QDoubleSpinBox()
-        self.spin_pago_movil.setRange(0, 999999)
-        self.spin_pago_movil.setDecimals(2)
-        self.spin_pago_movil.setPrefix("Bs. ")
+        configurar_spinbox_bs(self.spin_pago_movil)
         form_pago.addRow("Pago Movil:", self.spin_pago_movil)
 
         self.spin_bio_pago = QDoubleSpinBox()
-        self.spin_bio_pago.setRange(0, 999999)
-        self.spin_bio_pago.setDecimals(2)
-        self.spin_bio_pago.setPrefix("Bs. ")
+        configurar_spinbox_bs(self.spin_bio_pago)
         form_pago.addRow("BioPago:", self.spin_bio_pago)
 
         layout.addWidget(grupo_pago)
@@ -279,7 +271,8 @@ class FormularioVenta(QDialog):
             return
         tasa = self.controlador_tasas.tasa_activa()
         if tasa:
-            self.lbl_tasa.setText(f"Tasa BCV: Bs. {tasa.tasa_venta} / USD  (activa: {tasa.fecha})")
+            texto = f"Tasa BCV: {formatear_bs(tasa.tasa_venta)} / USD  (activa: {tasa.fecha})"
+            self.lbl_tasa.setText(texto)
         else:
             self.lbl_tasa.setText("Tasa BCV: No hay tasa activa registrada.")
 
@@ -352,10 +345,10 @@ class FormularioVenta(QDialog):
             self.tabla_productos_venta.setItem(
                 fila, 1, QTableWidgetItem(str(item.get("cantidad", 0)))
             )
-            precio = item.get("precio", Decimal("0.00"))
-            self.tabla_productos_venta.setItem(fila, 2, QTableWidgetItem(f"Bs. {precio:.2f}"))
-            subtotal = item.get("subtotal", Decimal("0.00"))
-            self.tabla_productos_venta.setItem(fila, 3, QTableWidgetItem(f"Bs. {subtotal:.2f}"))
+            precio = cast(Decimal, item.get("precio", Decimal("0.00")))
+            self.tabla_productos_venta.setItem(fila, 2, QTableWidgetItem(formatear_bs(precio)))
+            subtotal = cast(Decimal, item.get("subtotal", Decimal("0.00")))
+            self.tabla_productos_venta.setItem(fila, 3, QTableWidgetItem(formatear_bs(subtotal)))
 
             # Boton "X" para eliminar el producto de la venta.
             # QPushButton dentro de la tabla usando setCellWidget.
@@ -370,7 +363,7 @@ class FormularioVenta(QDialog):
     # ------------------------------------------------------------------
     def _actualizar_total(self) -> None:
         """Actualiza el label del total de la venta."""
-        self.lbl_total.setText(f"Total: Bs. {self.total_bs:.2f}")
+        self.lbl_total.setText(f"Total: {formatear_bs(self.total_bs)}")
 
     # ------------------------------------------------------------------
     # _eliminar_producto_venta: quita un producto de la lista temporal
@@ -424,7 +417,7 @@ class FormularioVenta(QDialog):
                 "Venta exitosa",
                 f"Venta registrada correctamente.\n"
                 f"Factura: {venta.numero_factura}\n"
-                f"Total: Bs. {venta.total_bs:.2f}",
+                f"Total: {formatear_bs(venta.total_bs)}",
             )
 
             self.accept()

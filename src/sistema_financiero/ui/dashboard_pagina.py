@@ -18,7 +18,8 @@
 #   - Metodo refrescar() (MainWindow lo llama al cambiar a esta pagina).
 #   - La logica de consulta a la BD (usa get_session() internamente).
 # ============================================================
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
@@ -35,28 +36,20 @@ from sqlmodel import select
 
 from ..core.tasa_cambio_service import TasaCambioService
 from ..models import Producto, Venta, get_session
+from ..utils import formatear_bs
 
 
 class DashboardPagina(QWidget):
     """Pagina de inicio con resumen, graficos y alertas de stock."""
 
-    # __init__: recibe el controlador de tasas.
-    # Cada pagina recibe SOLO los controladores que necesita.
     def __init__(self, controlador_tasas: TasaCambioService) -> None:
-        # Llamar al constructor de QWidget.
         super().__init__()
-
-        # Guardar el controlador de tasas para usarlo en refrescar().
         self.controlador_tasas = controlador_tasas
 
-        # Layout vertical: tarjetas → grafico → tabla.
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
 
-        # ----------------------------------------------------------
-        # TITULO DE LA PAGINA
-        # ----------------------------------------------------------
         lbl_titulo = QLabel("Dashboard")
         fuente_titulo = QFont()
         fuente_titulo.setPointSize(24)
@@ -64,14 +57,8 @@ class DashboardPagina(QWidget):
         lbl_titulo.setFont(fuente_titulo)
         layout.addWidget(lbl_titulo)
 
-        # ----------------------------------------------------------
-        # TARJETAS DE RESUMEN
-        # ----------------------------------------------------------
         layout.addLayout(self._crear_tarjetas_resumen())
 
-        # ----------------------------------------------------------
-        # TABLA: Productos con stock bajo
-        # ----------------------------------------------------------
         lbl_stock = QLabel("Productos con Stock Bajo")
         lbl_stock.setStyleSheet("font-size: 14px; font-weight: bold; color: #333;")
         layout.addWidget(lbl_stock)
@@ -141,7 +128,10 @@ class DashboardPagina(QWidget):
                     Venta.estado == "COMPLETADA",
                 )
             ).all()
-            total_ventas_hoy = sum(v.total_bs for v in ventas_hoy)
+            total_ventas_hoy: Decimal = sum(
+                (v.total_bs for v in ventas_hoy),
+                start=Decimal(),
+            )
 
             productos = session.exec(select(Producto)).all()
             stock_bajo = sum(1 for p in productos if 0 < p.stock_actual <= p.stock_minimo)
@@ -149,21 +139,20 @@ class DashboardPagina(QWidget):
 
             tasa = self.controlador_tasas.tasa_activa()
 
-            # Si no hay tasa activa registrada, intentar obtener la del BCV
-            # automaticamente. Esto asegura que la app siempre tenga la tasa
-            # del dia sin que el usuario tenga que hacer nada.
-            if tasa is None:
+            if tasa is None or tasa.fecha < date.today():
                 self.controlador_tasas.obtener_desde_bcv()
                 tasa = self.controlador_tasas.tasa_activa()
 
-        self._dashboard_labels["ventas_hoy"].setText(f"Bs. {total_ventas_hoy:,.2f}")
+        self._dashboard_labels["ventas_hoy"].setText(formatear_bs(total_ventas_hoy))
         self._dashboard_labels["stock_bajo"].setText(f"{stock_bajo} productos")
         self._dashboard_labels["sin_stock"].setText(f"{sin_stock} productos")
-        self._dashboard_labels["tasa_bcv"].setText(
-            f"Bs. {float(tasa.tasa_venta):,.2f}" if tasa else "Sin tasa"
-        )
 
-        # Tabla de stock bajo.
+        if tasa:  # noqa: SIM108
+            texto_tasa = formatear_bs(tasa.tasa_venta)
+        else:
+            texto_tasa = "Sin tasa"
+        self._dashboard_labels["tasa_bcv"].setText(texto_tasa)
+
         self._refrescar_tabla_stock_bajo()
 
     def _refrescar_tabla_stock_bajo(self) -> None:

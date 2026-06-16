@@ -47,6 +47,7 @@ from PyQt6.QtWidgets import (
 from ..core.producto_controller import ProductoController
 from ..core.tasa_cambio_service import TasaCambioService
 from ..models import Producto
+from ..utils import configurar_spinbox_bs, configurar_spinbox_usd, formatear_bs
 
 
 class FormularioProducto(QDialog):
@@ -115,23 +116,17 @@ class FormularioProducto(QDialog):
         # setDecimals(2): 2 decimales (centimos).
         # setPrefix("Bs. "): texto que aparece ANTES del numero.
         self.spin_precio_compra = QDoubleSpinBox()
-        self.spin_precio_compra.setRange(0, 999999)
-        self.spin_precio_compra.setDecimals(2)
-        self.spin_precio_compra.setPrefix("Bs. ")
+        configurar_spinbox_bs(self.spin_precio_compra)
         form.addRow("Precio Compra:", self.spin_precio_compra)
 
         # Campo: Precio venta en bolivares.
         self.spin_precio_venta_bs = QDoubleSpinBox()
-        self.spin_precio_venta_bs.setRange(0, 999999)
-        self.spin_precio_venta_bs.setDecimals(2)
-        self.spin_precio_venta_bs.setPrefix("Bs. ")
+        configurar_spinbox_bs(self.spin_precio_venta_bs)
         form.addRow("Precio Venta Bs:", self.spin_precio_venta_bs)
 
         # Campo: Precio venta en dolares.
         self.spin_precio_venta_usd = QDoubleSpinBox()
-        self.spin_precio_venta_usd.setRange(0, 999999)
-        self.spin_precio_venta_usd.setDecimals(2)
-        self.spin_precio_venta_usd.setPrefix("$ ")
+        configurar_spinbox_usd(self.spin_precio_venta_usd)
         form.addRow("Precio Venta USD:", self.spin_precio_venta_usd)
 
         # Tasa de cambio activa (informativa) para la conversion automatica.
@@ -213,7 +208,7 @@ class FormularioProducto(QDialog):
         tasa = self.controlador_tasas.tasa_activa() if self.controlador_tasas else None
         if tasa:
             self.lbl_tasa.setText(
-                f"Tasa: Bs. {tasa.tasa_venta} / USD  (al {tasa.fecha})"
+                f"Tasa: {formatear_bs(tasa.tasa_venta)} / USD  (al {tasa.fecha})"
             )
             self.lbl_tasa.setStyleSheet("color: #555; font-size: 11px;")
         else:

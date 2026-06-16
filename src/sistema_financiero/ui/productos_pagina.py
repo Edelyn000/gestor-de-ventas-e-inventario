@@ -41,6 +41,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ..core.producto_controller import ProductoController
+from ..utils import formatear_bs, formatear_usd
 
 
 class ProductosPagina(QWidget):
@@ -157,10 +158,10 @@ class ProductosPagina(QWidget):
             categoria = producto.categoria if producto.categoria else "-"
             self.tabla_productos.setItem(fila, 2, QTableWidgetItem(categoria))
             self.tabla_productos.setItem(
-                fila, 3, QTableWidgetItem(f"Bs. {producto.precio_venta_bs:.2f}")
+                fila, 3, QTableWidgetItem(formatear_bs(producto.precio_venta_bs))
             )
             self.tabla_productos.setItem(
-                fila, 4, QTableWidgetItem(f"$ {producto.precio_venta_usd:.2f}")
+                fila, 4, QTableWidgetItem(formatear_usd(producto.precio_venta_usd))
             )
             self.tabla_productos.setItem(fila, 5, QTableWidgetItem(str(producto.stock_actual)))
             self.tabla_productos.setItem(fila, 6, QTableWidgetItem(str(producto.stock_minimo)))
@@ -181,10 +182,10 @@ class ProductosPagina(QWidget):
             categoria = producto.categoria if producto.categoria else "-"
             self.tabla_productos.setItem(fila, 2, QTableWidgetItem(categoria))
             self.tabla_productos.setItem(
-                fila, 3, QTableWidgetItem(f"Bs. {producto.precio_venta_bs:.2f}")
+                fila, 3, QTableWidgetItem(formatear_bs(producto.precio_venta_bs))
             )
             self.tabla_productos.setItem(
-                fila, 4, QTableWidgetItem(f"$ {producto.precio_venta_usd:.2f}")
+                fila, 4, QTableWidgetItem(formatear_usd(producto.precio_venta_usd))
             )
             self.tabla_productos.setItem(fila, 5, QTableWidgetItem(str(producto.stock_actual)))
             self.tabla_productos.setItem(fila, 6, QTableWidgetItem(str(producto.stock_minimo)))
