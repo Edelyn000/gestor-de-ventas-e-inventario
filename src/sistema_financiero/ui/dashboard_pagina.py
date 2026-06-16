@@ -108,9 +108,7 @@ class DashboardPagina(QWidget):
                     Venta.estado == "COMPLETADA",
                 )
             ).all()
-            total_ventas_hoy: Decimal = sum(
-                (v.total_bs for v in ventas_hoy), start=Decimal()
-            )
+            total_ventas_hoy: Decimal = sum((v.total_bs for v in ventas_hoy), start=Decimal())
 
             productos = session.exec(select(Producto)).all()
             stock_bajo = sum(1 for p in productos if 0 < p.stock_actual <= p.stock_minimo)
