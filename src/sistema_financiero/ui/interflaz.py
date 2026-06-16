@@ -45,17 +45,17 @@ class MainWindow(QMainWindow):
         self.controlador_reportes = ReporteService()
 
         # Crear paginas ANTES de _setup_ui para que Pylance conozca los tipos.
-        self.pagina_dashboard = DashboardPagina(controlador_tasas=self.controlador_tasas)
-        self.pagina_productos = ProductosPagina(self.controlador_productos)
-        self.pagina_ventas = VentasPagina(
+        self.pagina_dashboard: DashboardPagina = DashboardPagina(controlador_tasas=self.controlador_tasas)
+        self.pagina_productos: ProductosPagina = ProductosPagina(self.controlador_productos)
+        self.pagina_ventas: VentasPagina = VentasPagina(
             controlador_ventas=self.controlador_ventas,
             controlador_productos=self.controlador_productos,
         )
-        self.pagina_inventario = InventarioPagina(
+        self.pagina_inventario: InventarioPagina = InventarioPagina(
             controlador_inventario=self.controlador_inventario,
             controlador_productos=self.controlador_productos,
         )
-        self.pagina_reportes = ReportesPagina(
+        self.pagina_reportes: ReportesPagina = ReportesPagina(
             controlador_reportes=self.controlador_reportes,
         )
 

@@ -1,23 +1,3 @@
-# ============================================================
-# ARCHIVO: ui/dashboard_pagina.py  (PAGINA DE INICIO / RESUMEN)
-# ============================================================
-# Widget independiente que muestra el Dashboard (pagina principal).
-#
-# QUE MUESTRA:
-#   1. 4 tarjetas resumen (Ventas Hoy, Stock Bajo, Sin Stock, Tasa BCV).
-#   2. Tabla de productos con stock bajo.
-#
-# QUE SE PUEDE MODIFICAR:
-#   - Estilos (colores fuentes, tamaños) en _crear_tarjetas_resumen().
-#   - Columnas de la tabla de stock bajo.
-#   - Textos, etiquetas, mensajes.
-#
-# QUE NO SE DEBE TOCAR:
-#   - Nombre de la clase (DashboardPagina).
-#   - Firma del __init__ (controlador_tasas: TasaCambioService).
-#   - Metodo refrescar() (MainWindow lo llama al cambiar a esta pagina).
-#   - La logica de consulta a la BD (usa get_session() internamente).
-# ============================================================
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -129,8 +109,7 @@ class DashboardPagina(QWidget):
                 )
             ).all()
             total_ventas_hoy: Decimal = sum(
-                (v.total_bs for v in ventas_hoy),
-                start=Decimal(),
+                (v.total_bs for v in ventas_hoy), start=Decimal()
             )
 
             productos = session.exec(select(Producto)).all()
@@ -146,12 +125,9 @@ class DashboardPagina(QWidget):
         self._dashboard_labels["ventas_hoy"].setText(formatear_bs(total_ventas_hoy))
         self._dashboard_labels["stock_bajo"].setText(f"{stock_bajo} productos")
         self._dashboard_labels["sin_stock"].setText(f"{sin_stock} productos")
-
-        if tasa:  # noqa: SIM108
-            texto_tasa = formatear_bs(tasa.tasa_venta)
-        else:
-            texto_tasa = "Sin tasa"
-        self._dashboard_labels["tasa_bcv"].setText(texto_tasa)
+        self._dashboard_labels["tasa_bcv"].setText(
+            formatear_bs(tasa.tasa_venta) if tasa else "Sin tasa"
+        )
 
         self._refrescar_tabla_stock_bajo()
 
