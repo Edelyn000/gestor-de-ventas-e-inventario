@@ -378,8 +378,9 @@ class VentaController:
                 select(VentaDetalle).where(VentaDetalle.venta_id == idventa)
             ).all()
 
-        # Por cada detalle, registramos una entrada de inventario
-        # con motivo "DEVOLUCION" para devolver el stock.
+        # ADVERTENCIA: venta está DETACHED (obtenida en la sesión anterior).
+        # venta.numero_factura es columna directa (segura). NO accedas a
+        # venta.detalles aquí (relación lazy) sin selectinload().
         for det in detalles:
             self.inventario.registrar_entrada(
                 producto_id=det.producto_id,

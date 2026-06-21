@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from ..models import MovimientoInventario, Producto, obtener_sesion
@@ -177,6 +178,7 @@ class InventarioService:
         with obtener_sesion(db_session) as session:
             stmt = (
                 select(MovimientoInventario)
+                .options(selectinload(MovimientoInventario.producto))  # type: ignore[arg-type]
                 .where(MovimientoInventario.producto_id == producto_id)
                 .order_by(MovimientoInventario.fecha_movimiento.desc())  # type: ignore[union-attr]
             )
@@ -204,6 +206,7 @@ class InventarioService:
         with obtener_sesion(db_session) as session:
             stmt = (
                 select(MovimientoInventario)
+                .options(selectinload(MovimientoInventario.producto))  # type: ignore[arg-type]
                 .order_by(MovimientoInventario.fecha_movimiento.desc())  # type: ignore[union-attr]
                 .limit(limite)
             )

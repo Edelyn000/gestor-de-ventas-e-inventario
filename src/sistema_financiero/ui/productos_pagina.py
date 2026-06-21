@@ -148,6 +148,8 @@ class ProductosPagina(QWidget):
 
     def cargar(self) -> None:
         """Carga todos los productos desde la BD a la tabla."""
+        # ADVERTENCIA: listar_todos() cierra la sesión. producto tiene relaciones
+        # lazy (movimientos, detalles_venta). Usa solo columnas directas.
         productos = self.controlador_productos.listar_todos()
 
         self.tabla_productos.setRowCount(len(productos))
@@ -174,6 +176,7 @@ class ProductosPagina(QWidget):
             self.cargar()
             return
 
+        # ADVERTENCIA: buscar() cierra la sesión. Misma regla: solo columnas directas.
         productos = self.controlador_productos.buscar(texto)
         self.tabla_productos.setRowCount(len(productos))
         for fila, producto in enumerate(productos):

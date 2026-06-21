@@ -136,6 +136,8 @@ class ReportesPagina(QWidget):
         desde = date(desde_qdate.year(), desde_qdate.month(), desde_qdate.day())
         hasta = date(hasta_qdate.year(), hasta_qdate.month(), hasta_qdate.day())
 
+        # ADVERTENCIA: listar_por_rango() cierra la sesión. ReporteDiario no tiene
+        # relaciones, pero si agregas una en el futuro, cárgala con selectinload().
         reportes = self.controlador_reportes.listar_por_rango(desde, hasta)
 
         self.tabla_reportes.setRowCount(len(reportes))

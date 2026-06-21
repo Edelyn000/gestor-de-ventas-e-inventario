@@ -210,6 +210,8 @@ class VentasPagina(QWidget):
             QMessageBox.information(self, "Detalle", "Esta venta no tiene productos registrados.")
             return
 
+        # ADVERTENCIA: detalles viene de obtener_detalles() con sesión cerrada.
+        # Accede solo a columnas directas (producto_id). NO hagas det.producto.nombre.
         lineas = [f"Factura: {factura}\n", "=" * 30]
         for det in detalles:
             producto = self.controlador_productos.obtener_por_id(det.producto_id)

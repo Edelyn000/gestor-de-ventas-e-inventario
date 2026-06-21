@@ -205,6 +205,8 @@ class FormularioProducto(QDialog):
     # _actualizar_label_tasa: muestra la tasa activa en el formulario
     # ------------------------------------------------------------------
     def _actualizar_label_tasa(self) -> None:
+        # ADVERTENCIA: tasa_activa() cierra la sesión. tasa.tasa_venta y tasa.fecha
+        # son columnas directas (seguras). TasaCambio no tiene relaciones lazy.
         tasa = self.controlador_tasas.tasa_activa() if self.controlador_tasas else None
         if tasa:
             self.lbl_tasa.setText(
@@ -221,6 +223,7 @@ class FormularioProducto(QDialog):
     def _actualizar_usd_desde_bs(self, valor_bs: float) -> None:
         if self._actualizando or not self.controlador_tasas:
             return
+        # ADVERTENCIA: tasa_activa() cierra la sesión. Solo columnas directas.
         tasa = self.controlador_tasas.tasa_activa()
         if tasa and tasa.tasa_venta > 0 and valor_bs > 0:
             self._actualizando = True
@@ -234,6 +237,7 @@ class FormularioProducto(QDialog):
     def _actualizar_bs_desde_usd(self, valor_usd: float) -> None:
         if self._actualizando or not self.controlador_tasas:
             return
+        # ADVERTENCIA: tasa_activa() cierra la sesión. Solo columnas directas.
         tasa = self.controlador_tasas.tasa_activa()
         if tasa and tasa.tasa_venta > 0 and valor_usd > 0:
             self._actualizando = True

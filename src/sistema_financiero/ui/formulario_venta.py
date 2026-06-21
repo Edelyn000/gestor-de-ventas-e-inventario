@@ -269,6 +269,8 @@ class FormularioVenta(QDialog):
         """Actualiza el label de la tasa de cambio."""
         if not self.controlador_tasas:
             return
+        # ADVERTENCIA: tasa_activa() cierra la sesión. tasa.tasa_venta y tasa.fecha
+        # son columnas directas (seguras). TasaCambio no tiene relaciones lazy.
         tasa = self.controlador_tasas.tasa_activa()
         if tasa:
             texto = f"Tasa BCV: {formatear_bs(tasa.tasa_venta)} / USD  (activa: {tasa.fecha})"

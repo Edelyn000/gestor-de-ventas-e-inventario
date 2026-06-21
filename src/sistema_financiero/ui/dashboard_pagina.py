@@ -114,6 +114,9 @@ class DashboardPagina(QWidget):
             stock_bajo = sum(1 for p in productos if 0 < p.stock_actual <= p.stock_minimo)
             sin_stock = sum(1 for p in productos if p.stock_actual == 0)
 
+            # ADVERTENCIA: tasa_activa() cierra la sesión internamente.
+            # tasa.tasa_venta y tasa.fecha son columnas directas (seguras).
+            # NO accedas a relaciones lazy de TasaCambio (no tiene, pero igual).
             tasa = self.controlador_tasas.tasa_activa()
 
             if tasa is None or tasa.fecha < date.today():

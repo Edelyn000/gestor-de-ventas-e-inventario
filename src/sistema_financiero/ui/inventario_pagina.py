@@ -151,6 +151,8 @@ class InventarioPagina(QWidget):
         else:
             movimientos = self.controlador_inventario.historial_por_producto(producto_id)
 
+        # ADVERTENCIA: mov.producto es una relación lazy. Si el service no usa
+        # selectinload(), falla con DetachedInstanceError. Usa solo columnas directas.
         self.tabla_movimientos.setRowCount(len(movimientos))
         for fila, mov in enumerate(movimientos):
             self.tabla_movimientos.setItem(fila, 0, QTableWidgetItem(str(mov.id or "")))
