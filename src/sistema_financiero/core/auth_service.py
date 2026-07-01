@@ -2,8 +2,6 @@
 # IMPORTACIONES
 # ============================================================
 # datetime: para registrar la fecha de creacion del usuario.
-from datetime import datetime
-
 # bcrypt: libreria de hashing de contrasenas.
 #   - hashpw(): convierte una contrasena en un hash seguro.
 #   - gensalt(): genera una "sal" aleatoria unica para cada hash.
@@ -19,6 +17,8 @@ import bcrypt
 # Session: tipo para el parametro opcional db_session.
 # select: funcion de SQLModel para construir consultas SELECT.
 from sqlmodel import Session, select
+
+from sistema_financiero.utils import ahora
 
 # Importamos el modelo Usuario, obtener_sesion context manager.
 # obtener_sesion: si recibe una sesion la usa, si no crea una nueva.
@@ -143,18 +143,19 @@ class AuthService:
         db_session: sesion opcional para tests con BD en memoria."""
         # Validar que el nombre de usuario no este vacio.
         if not usuario.strip():
-            raise ValueError("El nombre de usuario es obligatorio.")
+            msg = "El nombre de usuario es obligatorio."
+            raise ValueError(msg)
 
         # Validar que la contrasena no este vacia.
         if not contrasena:
-            raise ValueError("La contrasena es obligatoria.")
+            msg = "La contrasena es obligatoria."
+            raise ValueError(msg)
 
         # Validar longitud minima de contrasena (seguridad basica).
         # LONGITUD_MINIMA_CONTRASENA esta definido al inicio del archivo.
         if len(contrasena) < LONGITUD_MINIMA_CONTRASENA:
-            raise ValueError(
-                f"La contrasena debe tener al menos {LONGITUD_MINIMA_CONTRASENA} caracteres."
-            )
+            msg = f"La contrasena debe tener al menos {LONGITUD_MINIMA_CONTRASENA} caracteres."
+            raise ValueError(msg)
 
         # Hashear la contrasena antes de guardarla.
         # bcrypt.hashpw(): recibe la contrasena en bytes + una sal.
@@ -170,7 +171,8 @@ class AuthService:
         with obtener_sesion(db_session) as session:
             existente = session.exec(select(Usuario).where(Usuario.usuario == usuario)).first()
             if existente:
-                raise ValueError(f"El usuario '{usuario}' ya existe.")
+                msg = f"El usuario '{usuario}' ya existe."
+                raise ValueError(msg)
 
             # Crear el objeto Usuario con la contrasena hasheada.
             nuevo = Usuario(
@@ -178,7 +180,7 @@ class AuthService:
                 contrasena=contrasena_hash,
                 nombre_completo=nombre_completo.strip() if nombre_completo else None,
                 activo=True,
-                fecha_creacion=datetime.now(),
+                fecha_creacion=ahora(),
             )
             session.add(nuevo)
             session.commit()
@@ -248,9 +250,11 @@ class AuthService:
         db_session: sesion opcional para tests con BD en memoria."""
         # Validar requisitos minimos.
         if len(nueva_contrasena) < LONGITUD_MINIMA_CONTRASENA:
-            raise ValueError(
-                f"La nueva contrasena debe tener al menos {LONGITUD_MINIMA_CONTRASENA} caracteres."
+            msg = (
+                f"La nueva contrasena debe tener al menos "
+                f"{LONGITUD_MINIMA_CONTRASENA} caracteres."
             )
+            raise ValueError(msg)
 
         with obtener_sesion(db_session) as session:
             user = session.get(Usuario, id_usuario)
@@ -295,9 +299,11 @@ class AuthService:
         """Cambia la contrasena sin verificar la actual (solo admin).
         db_session: sesion opcional para tests con BD en memoria."""
         if len(nueva_contrasena) < LONGITUD_MINIMA_CONTRASENA:
-            raise ValueError(
-                f"La nueva contrasena debe tener al menos {LONGITUD_MINIMA_CONTRASENA} caracteres."
+            msg = (
+                f"La nueva contrasena debe tener al menos "
+                f"{LONGITUD_MINIMA_CONTRASENA} caracteres."
             )
+            raise ValueError(msg)
 
         with obtener_sesion(db_session) as session:
             user = session.get(Usuario, id_usuario)
@@ -380,10 +386,11 @@ class AuthService:
                     select(Usuario).where(
                         Usuario.usuario == usuario,
                         Usuario.id != id_usuario,
-                    )
+                    ),
                 ).first()
                 if existente:
-                    raise ValueError(f"El usuario '{usuario}' ya esta en uso.")
+                    msg = f"El usuario '{usuario}' ya esta en uso."
+                    raise ValueError(msg)
                 user.usuario = usuario.strip().lower()
 
             if nombre_completo is not None:

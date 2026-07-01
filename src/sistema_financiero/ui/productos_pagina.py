@@ -8,7 +8,7 @@
 #   2. Tabla con todos los productos.
 #   3. Doble clic en una fila → emite senial para editar.
 #
-# SENIALES (para que MainWindow maneje):
+# SENIALES (para que VentanaPrincipal maneje):
 #   - producto_agregar: el usuario quiere crear un producto.
 #   - producto_editar(id): el usuario quiere editar un producto.
 #   - producto_eliminar(id): el usuario quiere eliminar un producto.
@@ -22,19 +22,16 @@
 # QUE NO SE DEBE TOCAR:
 #   - Nombre de la clase (ProductosPagina).
 #   - Firma del __init__ (controlador_productos: ProductoController).
-#   - Las 3 seniales (pyqtSignal): MainWindow las conecta.
-#   - Metodo cargar() (MainWindow lo llama al refrescar).
+#   - Las 3 seniales (pyqtSignal): VentanaPrincipal las conecta.
+#   - Metodo cargar() (VentanaPrincipal lo llama al refrescar).
 #   - Metodos _emitir_editar y _emitir_eliminar (conectados a botones y doble clic).
 # ============================================================
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QAbstractItemView,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QPushButton,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -42,12 +39,13 @@ from PyQt6.QtWidgets import (
 
 from ..core.producto_controller import ProductoController
 from ..utils import formatear_bs, formatear_usd
+from .widgets import CampoBusqueda, TablaProductos
 
 
 class ProductosPagina(QWidget):
     """Pagina de gestion de productos con tabla y botones."""
 
-    # Seniales que este widget emite para que MainWindow las maneje.
+    # Seniales que este widget emite para que VentanaPrincipal las maneje.
     # pyqtSignal: tipo especial de PyQt6 para crear eventos.
     producto_agregar = pyqtSignal()
     producto_editar = pyqtSignal(int)  # Recibe el id del producto.
@@ -72,8 +70,9 @@ class ProductosPagina(QWidget):
         # Barra de herramientas.
         barra = QHBoxLayout()
 
-        self.txt_buscar_producto = QLineEdit()
-        self.txt_buscar_producto.setPlaceholderText("Buscar producto por nombre o categoria...")
+        self.txt_buscar_producto = CampoBusqueda(
+            placeholder="Buscar producto por nombre o categoria...",
+        )
         self.txt_buscar_producto.textChanged.connect(self._buscar_producto)
         barra.addWidget(self.txt_buscar_producto, 1)
 
@@ -97,7 +96,6 @@ class ProductosPagina(QWidget):
         layout.addSpacing(10)
 
         # Tabla de productos.
-        self.tabla_productos = QTableWidget()
         columnas = [
             ("ID", 50),
             ("Nombre", 200),
@@ -108,14 +106,7 @@ class ProductosPagina(QWidget):
             ("Stock Min", 70),
             ("Unidad", 80),
         ]
-        self.tabla_productos.setColumnCount(len(columnas))
-        self.tabla_productos.setHorizontalHeaderLabels([c[0] for c in columnas])
-        for i, (_, ancho) in enumerate(columnas):
-            self.tabla_productos.setColumnWidth(i, ancho)
-        self.tabla_productos.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.tabla_productos.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.tabla_productos.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.tabla_productos.horizontalHeader().setStretchLastSection(True)  # type: ignore[union-attr]
+        self.tabla_productos = TablaProductos(columnas)
 
         # Doble clic → emitir senial de editar.
         self.tabla_productos.cellDoubleClicked.connect(self._emitir_editar)
@@ -157,13 +148,13 @@ class ProductosPagina(QWidget):
             self.tabla_productos.setItem(fila, 0, QTableWidgetItem(str(producto.idproducto)))
             item_nombre = QTableWidgetItem(producto.nombre_producto)
             self.tabla_productos.setItem(fila, 1, item_nombre)
-            categoria = producto.categoria if producto.categoria else "-"
+            categoria = producto.categoria or "-"
             self.tabla_productos.setItem(fila, 2, QTableWidgetItem(categoria))
             self.tabla_productos.setItem(
-                fila, 3, QTableWidgetItem(formatear_bs(producto.precio_venta_bs))
+                fila, 3, QTableWidgetItem(formatear_bs(producto.precio_venta_bs)),
             )
             self.tabla_productos.setItem(
-                fila, 4, QTableWidgetItem(formatear_usd(producto.precio_venta_usd))
+                fila, 4, QTableWidgetItem(formatear_usd(producto.precio_venta_usd)),
             )
             self.tabla_productos.setItem(fila, 5, QTableWidgetItem(str(producto.stock_actual)))
             self.tabla_productos.setItem(fila, 6, QTableWidgetItem(str(producto.stock_minimo)))
@@ -182,13 +173,13 @@ class ProductosPagina(QWidget):
         for fila, producto in enumerate(productos):
             self.tabla_productos.setItem(fila, 0, QTableWidgetItem(str(producto.idproducto)))
             self.tabla_productos.setItem(fila, 1, QTableWidgetItem(producto.nombre_producto))
-            categoria = producto.categoria if producto.categoria else "-"
+            categoria = producto.categoria or "-"
             self.tabla_productos.setItem(fila, 2, QTableWidgetItem(categoria))
             self.tabla_productos.setItem(
-                fila, 3, QTableWidgetItem(formatear_bs(producto.precio_venta_bs))
+                fila, 3, QTableWidgetItem(formatear_bs(producto.precio_venta_bs)),
             )
             self.tabla_productos.setItem(
-                fila, 4, QTableWidgetItem(formatear_usd(producto.precio_venta_usd))
+                fila, 4, QTableWidgetItem(formatear_usd(producto.precio_venta_usd)),
             )
             self.tabla_productos.setItem(fila, 5, QTableWidgetItem(str(producto.stock_actual)))
             self.tabla_productos.setItem(fila, 6, QTableWidgetItem(str(producto.stock_minimo)))

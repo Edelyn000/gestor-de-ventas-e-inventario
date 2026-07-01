@@ -45,7 +45,8 @@ from decimal import Decimal
 def validar_no_vacio(valor: str | None, nombre: str) -> None:
     """Valida que un string no sea None, vacio o solo espacios."""
     if not valor or not valor.strip():
-        raise ValueError(f"El {nombre} es obligatorio.")
+        msg = f"El {nombre} es obligatorio."
+        raise ValueError(msg)
 
 
 # ----------------------------------------------------------
@@ -65,9 +66,8 @@ def validar_no_vacio(valor: str | None, nombre: str) -> None:
 def validar_longitud_minima(valor: str, minimo: int, nombre: str) -> None:
     """Valida que un string tenga al menos N caracteres."""
     if len(valor) < minimo:
-        raise ValueError(
-            f"La {nombre} debe tener al menos {minimo} caracteres."
-        )
+        msg = f"La {nombre} debe tener al menos {minimo} caracteres."
+        raise ValueError(msg)
 
 
 # ----------------------------------------------------------
@@ -92,7 +92,8 @@ def validar_longitud_minima(valor: str, minimo: int, nombre: str) -> None:
 def validar_no_negativo(valor: int | Decimal, nombre: str) -> None:
     """Valida que un numero no sea negativo."""
     if valor < 0:
-        raise ValueError(f"El {nombre} no puede ser negativo.")
+        msg = f"El {nombre} no puede ser negativo."
+        raise ValueError(msg)
 
 
 # ----------------------------------------------------------
@@ -113,7 +114,8 @@ def validar_no_negativo(valor: int | Decimal, nombre: str) -> None:
 def validar_positivo(valor: int | Decimal, nombre: str) -> None:
     """Valida que un numero sea mayor a cero."""
     if valor <= 0:
-        raise ValueError(f"La {nombre} debe ser mayor a cero.")
+        msg = f"La {nombre} debe ser mayor a cero."
+        raise ValueError(msg)
 
 
 # ----------------------------------------------------------
@@ -128,7 +130,8 @@ def validar_positivo(valor: int | Decimal, nombre: str) -> None:
 def validar_existe(obj: object | None, nombre: str) -> None:
     """Valida que un objeto no sea None (existe en BD)."""
     if obj is None:
-        raise ValueError(f"{nombre} no existe.")
+        msg = f"{nombre} no existe."
+        raise ValueError(msg)
 
 
 # ----------------------------------------------------------
@@ -150,7 +153,8 @@ def validar_existe(obj: object | None, nombre: str) -> None:
 def validar_pagos_cubren_total(suma_pagos: Decimal, total: Decimal) -> None:
     """Valida que la suma de pagos cubra el total de la venta."""
     if suma_pagos < total:
-        raise ValueError(
+        msg = (
             f"La suma de los metodos de pago ({suma_pagos}) "
             f"no cubre el total de la venta ({total})."
         )
+        raise ValueError(msg)

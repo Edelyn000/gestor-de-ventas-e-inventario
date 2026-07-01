@@ -80,14 +80,14 @@ class FormularioCambioContrasena(QDialog):
 
         btn_guardar = QPushButton("Guardar Cambios")
         btn_guardar.setStyleSheet(
-            "background-color: #2196F3; color: white; font-weight: bold; padding: 8px 16px;"
+            "background-color: #2196F3; color: white; font-weight: bold; padding: 8px 16px;",
         )
         btn_guardar.clicked.connect(self._guardar)
         btn_layout.addWidget(btn_guardar)
 
         layout.addLayout(btn_layout)
 
-    def _guardar(self) -> None:  # noqa: PLR0912
+    def _guardar(self) -> None:
         if self.usuario is None:
             return
 
@@ -96,7 +96,6 @@ class FormularioCambioContrasena(QDialog):
             QMessageBox.warning(self, "Error", "Debes ingresar tu contraseña actual.")
             return
 
-        # Verificar contrasena actual antes de cualquier cambio.
         if not self.auth_service.verificar_login(self.usuario.usuario, contrasena_actual):
             QMessageBox.warning(self, "Error", "La contraseña actual no es correcta.")
             return
@@ -104,54 +103,16 @@ class FormularioCambioContrasena(QDialog):
         cambios = False
         errores: list[str] = []
 
-        # Cambiar nombre completo.
-        nuevo_nombre = self.txt_nombre_completo.text().strip()
-        if nuevo_nombre and nuevo_nombre != self.usuario.nombre_completo:
-            try:
-                self.auth_service.actualizar(
-                    self.usuario.id,  # type: ignore[arg-type]
-                    nombre_completo=nuevo_nombre,
-                )
-                cambios = True
-            except ValueError as e:
-                errores.append(str(e))
+        cambios |= self._actualizar_nombre(errores)
+        cambios |= self._actualizar_usuario(errores)
+        cambios |= self._actualizar_contrasena(contrasena_actual, errores)
 
-        # Cambiar nombre de usuario.
-        nuevo_usuario = self.txt_nuevo_usuario.text().strip()
-        if nuevo_usuario and nuevo_usuario != self.usuario.usuario:
-            try:
-                self.auth_service.actualizar(
-                    self.usuario.id,  # type: ignore[arg-type]
-                    usuario=nuevo_usuario,
-                )
-                self.usuario.usuario = nuevo_usuario
-                cambios = True
-            except ValueError as e:
-                errores.append(str(e))
-
-        # Cambiar contrasena.
-        nueva_contrasena = self.txt_nueva_contrasena.text()
-        if nueva_contrasena:
-            try:
-                ok = self.auth_service.cambiar_contrasena(
-                    self.usuario.id,  # type: ignore[arg-type]
-                    contrasena_actual,
-                    nueva_contrasena,
-                )
-                if ok:
-                    cambios = True
-                else:
-                    errores.append("No se pudo cambiar la contraseña.")
-            except ValueError as e:
-                errores.append(str(e))
-
-        # Mostrar resultado.
         if errores:
             QMessageBox.warning(self, "Errores", "\n".join(errores))
             return
 
         if cambios:
-            # Actualizar el nombre completo en el objeto usuario.
+            nuevo_nombre = self.txt_nombre_completo.text().strip()
             if nuevo_nombre:
                 self.usuario.nombre_completo = nuevo_nombre
             QMessageBox.information(self, "Exito", "Datos actualizados correctamente.")
@@ -159,3 +120,51 @@ class FormularioCambioContrasena(QDialog):
         else:
             QMessageBox.information(self, "Sin cambios", "No se realizaron cambios.")
             self.reject()
+
+    def _actualizar_nombre(self, errores: list[str]) -> bool:
+        usuario = self.usuario
+        if usuario is None or usuario.id is None:
+            return False
+        nuevo_nombre = self.txt_nombre_completo.text().strip()
+        if not nuevo_nombre or nuevo_nombre == usuario.nombre_completo:
+            return False
+        try:
+            self.auth_service.actualizar(usuario.id, nombre_completo=nuevo_nombre)
+            return True
+        except ValueError as e:
+            errores.append(str(e))
+            return False
+
+    def _actualizar_usuario(self, errores: list[str]) -> bool:
+        usuario = self.usuario
+        if usuario is None or usuario.id is None:
+            return False
+        nuevo_usuario = self.txt_nuevo_usuario.text().strip()
+        if not nuevo_usuario or nuevo_usuario == usuario.usuario:
+            return False
+        try:
+            self.auth_service.actualizar(usuario.id, usuario=nuevo_usuario)
+            usuario.usuario = nuevo_usuario
+            return True
+        except ValueError as e:
+            errores.append(str(e))
+            return False
+
+    def _actualizar_contrasena(self, contrasena_actual: str, errores: list[str]) -> bool:
+        usuario = self.usuario
+        if usuario is None or usuario.id is None:
+            return False
+        nueva_contrasena = self.txt_nueva_contrasena.text()
+        if not nueva_contrasena:
+            return False
+        try:
+            ok = self.auth_service.cambiar_contrasena(
+                usuario.id, contrasena_actual, nueva_contrasena,
+            )
+            if ok:
+                return True
+            errores.append("No se pudo cambiar la contraseña.")
+            return False
+        except ValueError as e:
+            errores.append(str(e))
+            return False

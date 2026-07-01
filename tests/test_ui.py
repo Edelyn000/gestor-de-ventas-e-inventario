@@ -5,7 +5,7 @@
 #
 # QUE PRUEBA:
 #   - VentanaLogin: apertura, widgets, validacion de campos.
-#   - MainWindow: creacion con usuario, navegacion, cambio de paginas.
+#   - VentanaPrincipal: creacion con usuario, navegacion, cambio de paginas.
 #   - FormularioProducto: modo crear y editar, campos del formulario.
 #   - FormularioVenta: apertura, widgets principales.
 #
@@ -37,9 +37,9 @@ from sistema_financiero.ui.formulario_cambio_contrasena import FormularioCambioC
 from sistema_financiero.ui.formulario_producto import FormularioProducto
 from sistema_financiero.ui.formulario_venta import FormularioVenta
 
-# NOTA: MainWindow se prueba con un fixture especial porque requiere
+# NOTA: VentanaPrincipal se prueba con un fixture especial porque requiere
 # un usuario real (objeto Usuario). Lo definimos abajo.
-from sistema_financiero.ui.interflaz import MainWindow
+from sistema_financiero.ui.interfaz import VentanaPrincipal
 from sistema_financiero.ui.inventario_pagina import InventarioPagina
 from sistema_financiero.ui.ventana_login import VentanaLogin
 
@@ -57,9 +57,10 @@ def usuario_admin() -> Usuario:
 
     Crea un Usuario como si fuera un registro de la BD, pero SIN
     guardarlo en ninguna base de datos. Solo existe en memoria para
-    que MainWindow pueda usarlo al inicializarse.
+    que VentanaPrincipal pueda usarlo al inicializarse.
     """
     return Usuario(
+        id=1,
         usuario="admin",
         contrasena="hash_falso",
         nombre_completo="Administrador",
@@ -192,23 +193,23 @@ class TestVentanaLogin:
 
 
 # ============================================================
-# TESTS: MainWindow
+# TESTS: VentanaPrincipal
 # ============================================================
 # Verificamos que la ventana principal se crea correctamente,
 # que tiene la barra de navegacion y las paginas del sistema.
 # ============================================================
 
 
-class TestMainWindow:
-    """Pruebas para la ventana principal (MainWindow)."""
+class TestVentanaPrincipal:
+    """Pruebas para la ventana principal (VentanaPrincipal)."""
 
     def test_crear_ventana(self, qtbot, usuario_admin):
-        """Verifica que MainWindow se crea con el titulo correcto.
+        """Verifica que VentanaPrincipal se crea con el titulo correcto.
 
         Crea la ventana principal con un usuario simulado y verifica
         que el titulo incluye el nombre del usuario.
         """
-        ventana = MainWindow(usuario_admin)
+        ventana = VentanaPrincipal(usuario_admin)
         qtbot.addWidget(ventana)
 
         # El titulo debe contener el nombre completo del usuario.
@@ -220,7 +221,7 @@ class TestMainWindow:
         La barra de navegacion es un QListWidget con los nombres
         de los modulos del sistema.
         """
-        ventana = MainWindow(usuario_admin)
+        ventana = VentanaPrincipal(usuario_admin)
         qtbot.addWidget(ventana)
 
         # Verificar que el atributo barra_navegacion existe.
@@ -246,10 +247,10 @@ class TestMainWindow:
     def test_paginas_existen(self, qtbot, usuario_admin):
         """Verifica que las 5 paginas del sistema estan en el QStackedWidget.
 
-        MainWindow usa un QStackedWidget que contiene una pagina
+        VentanaPrincipal usa un QStackedWidget que contiene una pagina
         por cada modulo. Verificamos que hay 5 paginas agregadas.
         """
-        ventana = MainWindow(usuario_admin)
+        ventana = VentanaPrincipal(usuario_admin)
         qtbot.addWidget(ventana)
 
         # El QStackedWidget debe tener 5 paginas (una por modulo).
@@ -261,7 +262,7 @@ class TestMainWindow:
         Simula la seleccion de cada item de navegacion y verifica
         que la pagina activa del QStackedWidget cambia correctamente.
         """
-        ventana = MainWindow(usuario_admin)
+        ventana = VentanaPrincipal(usuario_admin)
         qtbot.addWidget(ventana)
 
         # Probar cada indice de pagina.
@@ -273,12 +274,12 @@ class TestMainWindow:
             assert ventana.paginas.currentIndex() == i
 
     def test_controladores_creados(self, qtbot, usuario_admin):
-        """Verifica que los controladores se crearon al iniciar MainWindow.
+        """Verifica que los controladores se crearon al iniciar VentanaPrincipal.
 
-        MainWindow crea los 5 controladores/servicios en su __init__.
+        VentanaPrincipal crea los 5 controladores/servicios en su __init__.
         Verificamos que todos existen y tienen los metodos esperados.
         """
-        ventana = MainWindow(usuario_admin)
+        ventana = VentanaPrincipal(usuario_admin)
         qtbot.addWidget(ventana)
 
         # Lista de (nombre_atributo, clase_esperada).

@@ -26,6 +26,9 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 #   - select: construye consultas SELECT.
 from sqlmodel import Session, select
 
+from sistema_financiero.utils import ahora
+from sistema_financiero.utils import hoy as fecha_hoy
+
 from ..models import Producto, ReporteDiario, Venta, VentaDetalle, obtener_sesion
 
 # Importamos los modelos que necesitamos consultar.
@@ -119,7 +122,7 @@ class ReporteService:
         """Genera el reporte diario consolidando ventas de la fecha indicada.
         db_session: sesion opcional para tests con BD en memoria."""
         # Si no se paso una fecha, usar la de hoy.
-        hoy = fecha_param or date.today()
+        hoy = fecha_param or fecha_hoy()
 
         with obtener_sesion(db_session) as session:
             # ----------------------------------------------------------
@@ -139,10 +142,10 @@ class ReporteService:
 
             ventas = session.exec(
                 select(Venta).where(
-                    Venta.fecha_venta >= desde,  # type: ignore[operator]
-                    Venta.fecha_venta <= hasta,  # type: ignore[operator]
+                    Venta.fecha_venta >= desde,
+                    Venta.fecha_venta <= hasta,
                     Venta.estado == "COMPLETADA",
-                )
+                ),
             ).all()
 
             # ----------------------------------------------------------
@@ -173,7 +176,7 @@ class ReporteService:
                 # Contar la cantidad de productos en esta venta.
                 # Obtenemos los detalles (lineas de productos).
                 detalles = session.exec(
-                    select(VentaDetalle).where(VentaDetalle.venta_id == v.idventa)
+                    select(VentaDetalle).where(VentaDetalle.venta_id == v.idventa),
                 ).all()
                 cantidad_productos += sum(d.cantidad for d in detalles)
 
@@ -192,7 +195,7 @@ class ReporteService:
             # Si ya existe un reporte para esta fecha, lo eliminamos.
             # Esto permite regenerar sin duplicados.
             reporte_existente = session.exec(
-                select(ReporteDiario).where(ReporteDiario.fecha == hoy)
+                select(ReporteDiario).where(ReporteDiario.fecha == hoy),
             ).first()
             if reporte_existente:
                 session.delete(reporte_existente)
@@ -212,7 +215,7 @@ class ReporteService:
                 tarjeta=tarjeta,
                 pago_movil=pago_movil,
                 bio_pago=bio_pago,
-                fecha_generacion=datetime.now(),
+                fecha_generacion=ahora(),
             )
             session.add(reporte)
             session.commit()
@@ -230,7 +233,7 @@ class ReporteService:
     ) -> ReporteDiario | None:
         """Devuelve el reporte de una fecha, o None si no existe.
         db_session: sesion opcional para tests con BD en memoria."""
-        hoy = fecha_param or date.today()
+        hoy = fecha_param or fecha_hoy()
         with obtener_sesion(db_session) as session:
             return session.exec(select(ReporteDiario).where(ReporteDiario.fecha == hoy)).first()
 
@@ -285,10 +288,11 @@ class ReporteService:
         db_session: sesion opcional para tests con BD en memoria."""
         # Cargar datos desde la BD (reporte, ventas, stock).
         reporte_opt, ventas, stock_bajo, sin_stock = self._cargar_datos_reporte(
-            reporte_id, db_session
+            reporte_id, db_session,
         )
         if reporte_opt is None:
-            raise ValueError(f"No existe el reporte con ID {reporte_id}")
+            msg = f"No existe el reporte con ID {reporte_id}"
+            raise ValueError(msg)
         reporte = reporte_opt
 
         # Crear el libro de Excel.
@@ -347,11 +351,11 @@ class ReporteService:
             ventas = list(
                 session.exec(
                     select(Venta).where(
-                        Venta.fecha_venta >= desde,  # type: ignore[operator]
-                        Venta.fecha_venta <= hasta,  # type: ignore[operator]
+                        Venta.fecha_venta >= desde,
+                        Venta.fecha_venta <= hasta,
                         Venta.estado == "COMPLETADA",
-                    )
-                ).all()
+                    ),
+                ).all(),
             )
 
             # Obtener productos con stock bajo/sin stock.
@@ -496,7 +500,7 @@ class ReporteService:
         for i, v in enumerate(ventas, start=2):
             datos = [
                 v.numero_factura or "S/N",
-                v.fecha_venta.strftime("%H:%M") if v.fecha_venta else "",
+                v.fecha_venta.strftime("%H:%M"),
                 float(v.total_bs),
                 float(v.total_usd),
                 float(v.efectivo_bs),

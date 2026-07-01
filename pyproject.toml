@@ -14,7 +14,8 @@ dependencies = [
     "bcrypt (>=5.0.0,<6.0.0)",
     "pyqtgraph (>=0.14.0,<0.15.0)",
     "openpyxl (>=3.1.5,<4.0.0)",
-    "scraper-bcv (>=0.1.1,<0.2.0)"
+    "scraper-bcv (>=0.1.1,<0.2.0)",
+    "fpdf2 (>=2.8.7,<3.0.0)"
 ]
 
 [tool.poetry]
@@ -40,7 +41,7 @@ target-version = "py314"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "ARG", "PL"]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "ARG", "PL", "DTZ005", "DTZ011"]
 ignore = ["PLR0913"]
 
 [tool.ruff.lint.per-file-ignores]

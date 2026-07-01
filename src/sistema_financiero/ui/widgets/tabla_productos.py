@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QAbstractItemView, QTableWidget
+from PyQt6.QtWidgets import QAbstractItemView, QTableWidget, QWidget
 
 
 class TablaProductos(QTableWidget):
@@ -7,7 +7,7 @@ class TablaProductos(QTableWidget):
     def __init__(
         self,
         columnas: list[tuple[str, int]],
-        padre: QTableWidget | None = None,
+        padre: QWidget | None = None,
     ) -> None:
         super().__init__(padre)
         self._columnas = columnas
@@ -18,7 +18,9 @@ class TablaProductos(QTableWidget):
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.horizontalHeader().setStretchLastSection(True)  # type: ignore[union-attr]
+        header = self.horizontalHeader()
+        if header:
+            header.setStretchLastSection(True)
 
     def item_texto(self, fila: int, col: int) -> str:
         item = self.item(fila, col)

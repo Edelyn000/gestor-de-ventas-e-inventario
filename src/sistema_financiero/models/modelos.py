@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from sqlmodel import Field, Relationship, SQLModel
 
+from sistema_financiero.utils.fecha import ahora
+
 
 # ============================================================
 # MODELO: Producto
@@ -38,7 +40,7 @@ class Producto(SQLModel, table=True):
 class Venta(SQLModel, table=True):
     idventa: int | None = Field(default=None, primary_key=True)
     numero_factura: str | None = Field(default=None, max_length=50, unique=True)
-    fecha_venta: datetime | None = Field(default=None)
+    fecha_venta: datetime = Field(default=ahora)
     total_bs: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
     total_usd: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
     tasa_cambio: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)

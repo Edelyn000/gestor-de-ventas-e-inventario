@@ -5,7 +5,7 @@
 # NO debe contener logica de negocio — solo llama a core/.
 #
 # Archivos:
-#   interflaz.py          → MainWindow (ventana principal con paginas)
+#   interfaz.py           → VentanaPrincipal (ventana principal con paginas)
 #   ventana_login.py      → VentanaLogin (inicio de sesion)
 #   formulario_producto.py → FormularioProducto (crear/editar productos)
 #   formulario_venta.py   → FormularioVenta (registrar ventas)
@@ -15,5 +15,5 @@
 #   inventario_pagina.py  → InventarioPagina (movimientos stock)
 #   reportes_pagina.py    → ReportesPagina (cierre diario, exportar)
 #
-# Paginas independientes que se insertan en MainWindow -> QStackedWidget.
+# Paginas independientes que se insertan en VentanaPrincipal -> QStackedWidget.
 # ============================================================

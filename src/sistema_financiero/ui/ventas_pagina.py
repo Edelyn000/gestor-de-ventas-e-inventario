@@ -8,7 +8,7 @@
 #   2. Filtro de fechas (desde / hasta) para acotar el historial.
 #   3. Tabla de ventas con doble clic para ver detalle.
 #
-# SENIALES (para MainWindow):
+# SENIALES (para VentanaPrincipal):
 #   - nueva_venta: el usuario quiere registrar una venta.
 #
 # QUE SE PUEDE MODIFICAR:
@@ -20,20 +20,15 @@
 # QUE NO SE DEBE TOCAR:
 #   - Nombre de la clase (VentasPagina).
 #   - Firma del __init__ (controlador_ventas, controlador_productos).
-#   - La senial nueva_venta (MainWindow la conecta).
+#   - La senial nueva_venta (VentanaPrincipal la conecta).
 # ============================================================
-from datetime import datetime
-
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QAbstractItemView,
-    QDateEdit,
     QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -42,6 +37,7 @@ from PyQt6.QtWidgets import (
 from ..core.producto_controller import ProductoController
 from ..core.venta_controller import VentaController
 from ..utils import formatear_bs, formatear_usd
+from .widgets import SelectorFecha, TablaProductos
 
 
 class VentasPagina(QWidget):
@@ -82,7 +78,7 @@ class VentasPagina(QWidget):
         barra = QHBoxLayout()
         btn_nueva = QPushButton("+ Nueva Venta")
         btn_nueva.setStyleSheet(
-            "background-color: #4CAF50; color: white; font-weight: bold; padding: 8px 16px;"
+            "background-color: #4CAF50; color: white; font-weight: bold; padding: 8px 16px;",
         )
         btn_nueva.clicked.connect(self.nueva_venta.emit)
         barra.addWidget(btn_nueva)
@@ -98,24 +94,15 @@ class VentasPagina(QWidget):
 
     def _crear_filtro_fechas(self) -> QHBoxLayout:
         filtro = QHBoxLayout()
-        filtro.addWidget(QLabel("Desde:"))
-        self.fecha_desde = QDateEdit()
-        self.fecha_desde.setCalendarPopup(True)
-        self.fecha_desde.setDate(self.fecha_desde.date().addDays(-30))
-        filtro.addWidget(self.fecha_desde)
-        filtro.addWidget(QLabel("Hasta:"))
-        self.fecha_hasta = QDateEdit()
-        self.fecha_hasta.setCalendarPopup(True)
-        self.fecha_hasta.setDate(self.fecha_hasta.date())
-        filtro.addWidget(self.fecha_hasta)
+        self.selector_fechas = SelectorFecha(dias_por_defecto=30)
+        filtro.addWidget(self.selector_fechas)
         btn_filtrar = QPushButton("Filtrar")
         btn_filtrar.clicked.connect(self.cargar)
         filtro.addWidget(btn_filtrar)
         filtro.addStretch()
         return filtro
 
-    def _crear_tabla_ventas(self) -> QTableWidget:
-        tabla = QTableWidget()
+    def _crear_tabla_ventas(self) -> TablaProductos:
         columnas = [
             ("ID", 50),
             ("Factura", 140),
@@ -124,20 +111,12 @@ class VentasPagina(QWidget):
             ("Total USD", 100),
             ("Estado", 100),
         ]
-        tabla.setColumnCount(len(columnas))
-        tabla.setHorizontalHeaderLabels([c[0] for c in columnas])
-        for i, (_, ancho) in enumerate(columnas):
-            tabla.setColumnWidth(i, ancho)
-        tabla.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        tabla.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        tabla.horizontalHeader().setStretchLastSection(True)  # type: ignore[union-attr]
+        tabla = TablaProductos(columnas)
         tabla.cellDoubleClicked.connect(self._detalle_venta)
         return tabla
 
     def cargar(self) -> None:
-        desde = datetime.combine(self.fecha_desde.date().toPyDate(), datetime.min.time())
-        hasta = datetime.combine(self.fecha_hasta.date().toPyDate(), datetime.max.time())
+        desde, hasta = self.selector_fechas.rango_datetime()
 
         ventas = self.controlador_ventas.historial_por_fecha(desde, hasta)
 
@@ -147,7 +126,7 @@ class VentasPagina(QWidget):
             factura = venta.numero_factura or "-"
             self.tabla_ventas.setItem(fila, 1, QTableWidgetItem(factura))
             fv = venta.fecha_venta
-            fecha_str = fv.strftime("%d/%m/%Y %H:%M") if fv else "-"
+            fecha_str = fv.strftime("%d/%m/%Y %H:%M")
             self.tabla_ventas.setItem(fila, 2, QTableWidgetItem(fecha_str))
             self.tabla_ventas.setItem(fila, 3, QTableWidgetItem(formatear_bs(venta.total_bs)))
             self.tabla_ventas.setItem(fila, 4, QTableWidgetItem(formatear_usd(venta.total_usd)))
@@ -187,7 +166,7 @@ class VentasPagina(QWidget):
             try:
                 self.controlador_ventas.anular(idventa)
                 QMessageBox.information(
-                    self, "Exito", f"Venta {venta.numero_factura} anulada correctamente."
+                    self, "Exito", f"Venta {venta.numero_factura} anulada correctamente.",
                 )
                 self.cargar()
             except ValueError as e:

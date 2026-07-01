@@ -28,7 +28,6 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QAbstractItemView,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -39,7 +38,6 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSpinBox,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -47,6 +45,7 @@ from PyQt6.QtWidgets import (
 
 from ..core.inventario_service import InventarioService
 from ..core.producto_controller import ProductoController
+from .widgets import TablaProductos
 
 
 class InventarioPagina(QWidget):
@@ -85,7 +84,7 @@ class InventarioPagina(QWidget):
         btn_entrada.setStyleSheet(
             "QPushButton { background-color: #4CAF50; color: white;"
             " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #45a049; }"
+            "QPushButton:hover { background-color: #45a049; }",
         )
         btn_entrada.clicked.connect(lambda: self._mostrar_dialogo_movimiento("ENTRADA"))
         barra.addWidget(btn_entrada)
@@ -94,7 +93,7 @@ class InventarioPagina(QWidget):
         btn_salida.setStyleSheet(
             "QPushButton { background-color: #f44336; color: white;"
             " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #da190b; }"
+            "QPushButton:hover { background-color: #da190b; }",
         )
         btn_salida.clicked.connect(lambda: self._mostrar_dialogo_movimiento("SALIDA"))
         barra.addWidget(btn_salida)
@@ -103,7 +102,7 @@ class InventarioPagina(QWidget):
         btn_ajuste.setStyleSheet(
             "QPushButton { background-color: #FF9800; color: white;"
             " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #e68a00; }"
+            "QPushButton:hover { background-color: #e68a00; }",
         )
         btn_ajuste.clicked.connect(lambda: self._mostrar_dialogo_movimiento("AJUSTE"))
         barra.addWidget(btn_ajuste)
@@ -112,7 +111,7 @@ class InventarioPagina(QWidget):
         btn_refrescar.setStyleSheet(
             "QPushButton { background-color: #2196F3; color: white;"
             " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #0b7dda; }"
+            "QPushButton:hover { background-color: #0b7dda; }",
         )
         btn_refrescar.clicked.connect(self._refrescar_tabla_movimientos)
         barra.addWidget(btn_refrescar)
@@ -120,14 +119,16 @@ class InventarioPagina(QWidget):
         barra.addStretch()
         layout.addLayout(barra)
 
-        self.tabla_movimientos = QTableWidget()
-        self.tabla_movimientos.setColumnCount(7)
-        self.tabla_movimientos.setHorizontalHeaderLabels(
-            ["ID", "Fecha", "Producto", "Tipo", "Cantidad", "Stock Anterior", "Stock Nuevo"]
-        )
-        self.tabla_movimientos.horizontalHeader().setStretchLastSection(True)  # type: ignore[union-attr]
-        self.tabla_movimientos.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.tabla_movimientos.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        columnas = [
+            ("ID", 50),
+            ("Fecha", 150),
+            ("Producto", 200),
+            ("Tipo", 80),
+            ("Cantidad", 80),
+            ("Stock Anterior", 100),
+            ("Stock Nuevo", 100),
+        ]
+        self.tabla_movimientos = TablaProductos(columnas)
         layout.addWidget(self.tabla_movimientos)
 
         self._cargar_productos_en_combo()
@@ -192,7 +193,7 @@ class InventarioPagina(QWidget):
         )
 
         botones = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
         )
         botones.accepted.connect(dialogo.accept)
         botones.rejected.connect(dialogo.reject)

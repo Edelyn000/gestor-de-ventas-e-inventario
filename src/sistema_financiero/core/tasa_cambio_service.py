@@ -1,7 +1,9 @@
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 
 from sqlmodel import Session, select
+
+from sistema_financiero.utils import ahora, hoy
 
 from ..models import TasaCambio, obtener_sesion
 from ..services.bcv import obtener_tasa as bcv_obtener_tasa
@@ -33,20 +35,22 @@ class TasaCambioService:
         """Registra una nueva tasa de cambio para una fecha especifica.
         db_session: sesion opcional para tests con BD en memoria."""
         if tasa_venta <= 0 or tasa_compra <= 0:
-            raise ValueError("Las tasas deben ser mayores a cero.")
+            msg = "Las tasas deben ser mayores a cero."
+            raise ValueError(msg)
 
         # Verificar si ya existe una tasa para esta fecha.
         with obtener_sesion(db_session) as session:
             existente = session.exec(select(TasaCambio).where(TasaCambio.fecha == fecha)).first()
             if existente:
-                raise ValueError(f"Ya existe una tasa registrada para la fecha {fecha}.")
+                msg = f"Ya existe una tasa registrada para la fecha {fecha}."
+                raise ValueError(msg)
 
             tasa = TasaCambio(
                 fecha=fecha,
                 tasa_venta=tasa_venta,
                 tasa_compra=tasa_compra,
                 activa=activa,
-                fecha_registro=datetime.now(),
+                fecha_registro=ahora(),
             )
             session.add(tasa)
             session.commit()
@@ -110,10 +114,10 @@ class TasaCambioService:
         y la registra en la BD. Retorna None si no se pudo obtener."""
         try:
             tasa_actual = bcv_obtener_tasa()
-            hoy = date.today()
+            hoy_dt = hoy()
             tasa_redondeada = tasa_actual.quantize(Decimal("0.01"))
             return self.registrar(
-                fecha=hoy, tasa_venta=tasa_redondeada, tasa_compra=tasa_redondeada
+                fecha=hoy_dt, tasa_venta=tasa_redondeada, tasa_compra=tasa_redondeada,
             )
         except (ImportError, ValueError, ConnectionError):
             return None

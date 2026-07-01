@@ -2,7 +2,7 @@
 # ARCHIVO: ui/formulario_producto.py  (DIALOGO CREAR/EDITAR PRODUCTO)
 # ============================================================
 # QDialog que se abre para AGREGAR o EDITAR un producto.
-# Antes estaba dentro de interflaz.py, lo extraemos a su propio
+# Antes estaba dentro de interfaz.py, lo extraemos a su propio
 # archivo para mantener el codigo mas organizado y facil de mantener.
 #
 # Tiene DOS modos de uso:
@@ -88,99 +88,75 @@ class FormularioProducto(QDialog):
     # ------------------------------------------------------------------
     # _setup_ui: construye los campos del formulario
     # ------------------------------------------------------------------
-    def _setup_ui(self) -> None:  # noqa: PLR0915
+    def _setup_ui(self) -> None:
         """Crea todos los campos del formulario y los botones."""
-        # Layout vertical principal.
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
+        layout.addLayout(self._crear_formulario())
+        layout.addSpacing(20)
+        layout.addLayout(self._crear_botones())
 
-        # ----------------------------------------------------------
-        # FORMULARIO (QFormLayout)
-        # ----------------------------------------------------------
-        # QFormLayout: organiza los campos en filas etiqueta + control.
+    def _crear_formulario(self) -> QFormLayout:
+        """Crea los campos del formulario de producto."""
         form = QFormLayout()
 
-        # Campo: Nombre del producto (QLineEdit).
         self.txt_nombre = QLineEdit()
         self.txt_nombre.setPlaceholderText("Nombre del producto")
         form.addRow("Nombre:", self.txt_nombre)
 
-        # Campo: Categoria (QLineEdit).
         self.txt_categoria = QLineEdit()
         self.txt_categoria.setPlaceholderText("Ej: LACTEOS, BEBIDAS, etc.")
         form.addRow("Categoria:", self.txt_categoria)
 
-        # Campo: Precio de compra (QDoubleSpinBox).
-        # QDoubleSpinBox: campo numerico con decimales (igual a un "input type=number").
-        # setRange(0, 999999): valores permitidos entre 0 y casi 1 millon.
-        # setDecimals(2): 2 decimales (centimos).
-        # setPrefix("Bs. "): texto que aparece ANTES del numero.
         self.spin_precio_compra = QDoubleSpinBox()
         configurar_spinbox_bs(self.spin_precio_compra)
         form.addRow("Precio Compra:", self.spin_precio_compra)
 
-        # Campo: Precio venta en bolivares.
         self.spin_precio_venta_bs = QDoubleSpinBox()
         configurar_spinbox_bs(self.spin_precio_venta_bs)
         form.addRow("Precio Venta Bs:", self.spin_precio_venta_bs)
 
-        # Campo: Precio venta en dolares.
         self.spin_precio_venta_usd = QDoubleSpinBox()
         configurar_spinbox_usd(self.spin_precio_venta_usd)
         form.addRow("Precio Venta USD:", self.spin_precio_venta_usd)
 
-        # Tasa de cambio activa (informativa) para la conversion automatica.
         self.lbl_tasa = QLabel("")
         self._actualizar_label_tasa()
         form.addRow("", self.lbl_tasa)
 
-        # Sincronizacion automatica Bs <> USD usando la tasa activa.
-        # Al cambiar Bs → se recalcula USD; al cambiar USD → se recalcula Bs.
         self.spin_precio_venta_bs.valueChanged.connect(self._actualizar_usd_desde_bs)
         self.spin_precio_venta_usd.valueChanged.connect(self._actualizar_bs_desde_usd)
 
-        # Campo: Stock actual (QSpinBox, solo enteros).
         self.spin_stock_actual = QSpinBox()
         self.spin_stock_actual.setRange(0, 999999)
         form.addRow("Stock Actual:", self.spin_stock_actual)
 
-        # Campo: Stock minimo (para alertas de reabastecimiento).
         self.spin_stock_minimo = QSpinBox()
         self.spin_stock_minimo.setRange(1, 999999)
-        self.spin_stock_minimo.setValue(5)  # Valor por defecto.
+        self.spin_stock_minimo.setValue(5)
         form.addRow("Stock Minimo:", self.spin_stock_minimo)
 
-        # Campo: Unidad de medida.
         self.txt_unidad = QLineEdit()
         self.txt_unidad.setPlaceholderText("UNIDAD, KG, LTS, etc.")
-        self.txt_unidad.setText("UNIDAD")  # Valor por defecto.
+        self.txt_unidad.setText("UNIDAD")
         form.addRow("Unidad:", self.txt_unidad)
 
-        # Agregar el formulario al layout principal.
-        layout.addLayout(form)
+        return form
 
-        # ----------------------------------------------------------
-        # BOTONES (Aceptar / Cancelar)
-        # ----------------------------------------------------------
-        layout.addSpacing(20)
-
-        # Layout horizontal para los botones.
+    def _crear_botones(self) -> QHBoxLayout:
+        """Crea los botones Cancelar y Guardar."""
         btn_layout = QHBoxLayout()
-        # addStretch(): agrega espacio flexible ANTES de los botones,
-        #   empujandolos hacia la derecha.
         btn_layout.addStretch()
 
-        # Boton Cancelar: cierra el dialogo sin guardar.
         btn_cancelar = QPushButton("Cancelar")
         btn_cancelar.clicked.connect(self.reject)
         btn_layout.addWidget(btn_cancelar)
 
-        # Boton Guardar: valida y guarda el producto.
         btn_guardar = QPushButton("Guardar")
         btn_guardar.clicked.connect(self._guardar)
         btn_layout.addWidget(btn_guardar)
 
-        layout.addLayout(btn_layout)
+        return btn_layout
 
     # ------------------------------------------------------------------
     # _cargar_datos: llena los campos con los valores de un producto existente
@@ -210,7 +186,7 @@ class FormularioProducto(QDialog):
         tasa = self.controlador_tasas.tasa_activa() if self.controlador_tasas else None
         if tasa:
             self.lbl_tasa.setText(
-                f"Tasa: {formatear_bs(tasa.tasa_venta)} / USD  (al {tasa.fecha})"
+                f"Tasa: {formatear_bs(tasa.tasa_venta)} / USD  (al {tasa.fecha})",
             )
             self.lbl_tasa.setStyleSheet("color: #555; font-size: 11px;")
         else:
@@ -293,12 +269,14 @@ class FormularioProducto(QDialog):
 
                 # Obtener el ID del producto (nunca es None porque el producto existe).
                 producto_id = self.producto.idproducto
-                assert producto_id is not None
+                if producto_id is None:
+                    msg = "ID de producto no disponible después de guardar"
+                    raise RuntimeError(msg)
 
                 # Usar el controlador que recibimos en el constructor.
                 # Antes usabamos self.parent().controlador_productos, pero eso
                 # fallaba porque parent() devuelve QObject y PyQt6 no reconoce
-                # los atributos personalizados de MainWindow.
+                # los atributos personalizados de VentanaPrincipal.
                 if not self.controlador_productos:
                     QMessageBox.critical(
                         self,
@@ -345,7 +323,9 @@ class FormularioProducto(QDialog):
         except ValueError as e:
             # ValueError es lanzado por el controlador si hay datos invalidos.
             QMessageBox.warning(self, "Error de validacion", str(e))
-        except Exception as e:
-            # Cualquier otro error inesperado.
-            QMessageBox.critical(self, "Error inesperado", f"No se pudo guardar el producto:\n{e}")
+        except Exception:
+            QMessageBox.critical(
+                self, "Error inesperado", "No se pudo guardar el producto.",
+            )
+            raise
 

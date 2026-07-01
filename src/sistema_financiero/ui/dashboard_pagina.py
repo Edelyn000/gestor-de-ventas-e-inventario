@@ -1,13 +1,13 @@
-from datetime import date, datetime
+from collections import defaultdict
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
+import pyqtgraph as pg
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QAbstractItemView,
     QFrame,
     QHBoxLayout,
     QLabel,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -16,7 +16,9 @@ from sqlmodel import select
 
 from ..core.tasa_cambio_service import TasaCambioService
 from ..models import Producto, Venta, get_session
-from ..utils import formatear_bs
+from ..utils import ahora, formatear_bs
+from ..utils import hoy as fecha_hoy
+from .widgets import TablaProductos
 
 
 class DashboardPagina(QWidget):
@@ -39,18 +41,38 @@ class DashboardPagina(QWidget):
 
         layout.addLayout(self._crear_tarjetas_resumen())
 
+        graficos_layout = QHBoxLayout()
+        graficos_layout.setSpacing(15)
+
+        self.grafico_ventas = pg.PlotWidget()
+        self.grafico_ventas.setTitle("Ventas Últimos 7 Días", size="12pt")
+        self.grafico_ventas.setLabel("left", "Total Bs")
+        self.grafico_ventas.setLabel("bottom", "Día")
+        self.grafico_ventas.showGrid(x=True, y=True, alpha=0.3)
+        self.grafico_ventas.setMinimumHeight(250)
+        graficos_layout.addWidget(self.grafico_ventas)
+
+        self.grafico_pagos = pg.PlotWidget()
+        self.grafico_pagos.setTitle("Métodos de Pago - Hoy", size="12pt")
+        self.grafico_pagos.setLabel("left", "Monto Bs")
+        self.grafico_pagos.showGrid(x=True, y=True, alpha=0.3)
+        self.grafico_pagos.setMinimumHeight(250)
+        graficos_layout.addWidget(self.grafico_pagos)
+
+        layout.addLayout(graficos_layout)
+
         lbl_stock = QLabel("Productos con Stock Bajo")
         lbl_stock.setStyleSheet("font-size: 14px; font-weight: bold; color: #333;")
         layout.addWidget(lbl_stock)
 
-        self.tabla_stock_bajo = QTableWidget()
-        self.tabla_stock_bajo.setColumnCount(5)
-        self.tabla_stock_bajo.setHorizontalHeaderLabels(
-            ["Producto", "Categoria", "Stock Actual", "Stock Minimo", "Estado"]
-        )
-        self.tabla_stock_bajo.horizontalHeader().setStretchLastSection(True)  # type: ignore[union-attr]
-        self.tabla_stock_bajo.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.tabla_stock_bajo.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        columnas = [
+            ("Producto", 150),
+            ("Categoria", 100),
+            ("Stock Actual", 80),
+            ("Stock Minimo", 80),
+            ("Estado", 100),
+        ]
+        self.tabla_stock_bajo = TablaProductos(columnas)
         self.tabla_stock_bajo.setMaximumHeight(200)
         layout.addWidget(self.tabla_stock_bajo)
 
@@ -73,7 +95,7 @@ class DashboardPagina(QWidget):
         for clave, titulo, _icono in datos_tarjetas:
             tarjeta = QFrame()
             tarjeta.setStyleSheet(
-                "QFrame { background-color: white; border-radius: 10px; padding: 15px; }"
+                "QFrame { background-color: white; border-radius: 10px; padding: 15px; }",
             )
             tarjeta.setMinimumHeight(100)
 
@@ -96,17 +118,17 @@ class DashboardPagina(QWidget):
 
     def refrescar(self) -> None:
         """Refresca todos los datos del dashboard (tarjetas, grafico, tabla)."""
-        hoy = datetime.now()
+        hoy = ahora()
         desde_hoy = datetime(hoy.year, hoy.month, hoy.day, 0, 0, 0)
         hasta_hoy = datetime(hoy.year, hoy.month, hoy.day, 23, 59, 59)
 
         with get_session() as session:
             ventas_hoy = session.exec(
                 select(Venta).where(
-                    Venta.fecha_venta >= desde_hoy,  # type: ignore[operator]
-                    Venta.fecha_venta <= hasta_hoy,  # type: ignore[operator]
+                    Venta.fecha_venta >= desde_hoy,
+                    Venta.fecha_venta <= hasta_hoy,
                     Venta.estado == "COMPLETADA",
-                )
+                ),
             ).all()
             total_ventas_hoy: Decimal = sum((v.total_bs for v in ventas_hoy), start=Decimal())
 
@@ -119,7 +141,7 @@ class DashboardPagina(QWidget):
             # NO accedas a relaciones lazy de TasaCambio (no tiene, pero igual).
             tasa = self.controlador_tasas.tasa_activa()
 
-            if tasa is None or tasa.fecha < date.today():
+            if tasa is None or tasa.fecha < fecha_hoy():
                 self.controlador_tasas.obtener_desde_bcv()
                 tasa = self.controlador_tasas.tasa_activa()
 
@@ -127,10 +149,88 @@ class DashboardPagina(QWidget):
         self._dashboard_labels["stock_bajo"].setText(f"{stock_bajo} productos")
         self._dashboard_labels["sin_stock"].setText(f"{sin_stock} productos")
         self._dashboard_labels["tasa_bcv"].setText(
-            formatear_bs(tasa.tasa_venta) if tasa else "Sin tasa"
+            formatear_bs(tasa.tasa_venta) if tasa else "Sin tasa",
         )
 
+        self._refrescar_grafico_ventas()
+        self._refrescar_grafico_pagos()
         self._refrescar_tabla_stock_bajo()
+
+    def _refrescar_grafico_ventas(self) -> None:
+        """Dibuja el grafico de linea: ventas totales de los ultimos 7 dias."""
+        hoy = fecha_hoy()
+        desde = datetime(hoy.year, hoy.month, hoy.day) - timedelta(days=6)
+        hasta = datetime(hoy.year, hoy.month, hoy.day, 23, 59, 59)
+
+        with get_session() as session:
+            ventas = session.exec(
+                select(Venta).where(
+                    Venta.fecha_venta >= desde,
+                    Venta.fecha_venta <= hasta,
+                    Venta.estado == "COMPLETADA",
+                ),
+            ).all()
+
+        ventas_por_dia: defaultdict[date, Decimal] = defaultdict(Decimal)
+        for v in ventas:
+            dia = v.fecha_venta.date()
+            ventas_por_dia[dia] += v.total_bs
+
+        dias = [hoy - timedelta(days=i) for i in range(6, -1, -1)]
+        valores = [float(ventas_por_dia.get(d, Decimal("0"))) for d in dias]
+
+        self.grafico_ventas.clear()
+        self.grafico_ventas.plot(
+            list(range(7)),
+            valores,
+            pen=pg.mkPen(color=(41, 128, 185), width=2),
+            symbol="o",
+            symbolSize=8,
+            symbolBrush=(41, 128, 185),
+        )
+        ticks = [[(i, d.strftime("%d/%m")) for i, d in enumerate(dias)]]
+        self.grafico_ventas.getAxis("bottom").setTicks(ticks)
+
+    def _refrescar_grafico_pagos(self) -> None:
+        """Dibuja el grafico de barras: metodos de pago usados hoy."""
+        hoy = ahora()
+        desde = datetime(hoy.year, hoy.month, hoy.day, 0, 0, 0)
+        hasta = datetime(hoy.year, hoy.month, hoy.day, 23, 59, 59)
+
+        with get_session() as session:
+            ventas_hoy = session.exec(
+                select(Venta).where(
+                    Venta.fecha_venta >= desde,
+                    Venta.fecha_venta <= hasta,
+                    Venta.estado == "COMPLETADA",
+                ),
+            ).all()
+
+        efectivo = sum(v.efectivo_bs for v in ventas_hoy)
+        tarjeta = sum(v.tarjeta for v in ventas_hoy)
+        pago_movil = sum(v.pago_movil for v in ventas_hoy)
+        bio_pago = sum(v.bio_pago for v in ventas_hoy)
+
+        categorias = ["Efectivo", "Tarjeta", "P.Móvil", "BioPago"]
+        montos = [float(efectivo), float(tarjeta), float(pago_movil), float(bio_pago)]
+        colores = [
+            pg.mkColor(46, 204, 113),
+            pg.mkColor(52, 152, 219),
+            pg.mkColor(155, 89, 182),
+            pg.mkColor(231, 76, 60),
+        ]
+
+        self.grafico_pagos.clear()
+        barras = pg.BarGraphItem(
+            x=range(len(categorias)),
+            height=montos,
+            width=0.6,
+            brushes=colores,
+        )
+        self.grafico_pagos.addItem(barras)
+        ticks = [[(i, cat) for i, cat in enumerate(categorias)]]
+        self.grafico_pagos.getAxis("bottom").setTicks(ticks)
+        self.grafico_pagos.setYRange(0, max(montos) * 1.15 if montos else 1)
 
     def _refrescar_tabla_stock_bajo(self) -> None:
         """Llena la tabla de productos con stock bajo/sin stock."""

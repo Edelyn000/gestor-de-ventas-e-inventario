@@ -31,20 +31,13 @@ from ..models import Usuario, get_session
 
 
 class VentanaLogin(QDialog):
-    # Type hint: le decimos a Python que usuario_actual sera un objeto Usuario.
-    # Aunque se inicializa como None, cuando el login es exitoso tendra un valor.
-    usuario_actual: Usuario
+    usuario_actual: Usuario | None = None
 
     # __init__: constructor de la clase. Se ejecuta cuando se crea el dialogo.
     def __init__(self) -> None:
         # super().__init__(): llama al constructor de QDialog (clase padre).
         # Esto asegura que la ventana se configure correctamente.
         super().__init__()
-
-        # Inicializamos usuario_actual como None.
-        # El comentario "type: ignore[assignment]" en la siguiente linea
-        # le dice a mypy que ignore que None no es del tipo Usuario.
-        self.usuario_actual = None  # type: ignore[assignment]
 
         # setWindowTitle: texto que aparece en la barra de titulo de la ventana.
         self.setWindowTitle("Sistema Financiero — Iniciar Sesión")
@@ -146,10 +139,10 @@ class VentanaLogin(QDialog):
             QMessageBox.warning(self, "Error", "Usuario o contraseña incorrectos.")
             return  # No revelamos si el usuario existe o no (seguridad).
 
-        # Guardar el usuario logueado para que MainWindow lo use.
+        # Guardar el usuario logueado para que VentanaPrincipal lo use.
         self.usuario_actual = user
 
         # accept(): cierra el dialogo con codigo de "aceptado".
-        # __main__.py detecta esto y abre MainWindow.
+        # __main__.py detecta esto y abre VentanaPrincipal.
         self.accept()
 

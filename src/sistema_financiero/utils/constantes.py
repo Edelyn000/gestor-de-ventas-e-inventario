@@ -26,7 +26,7 @@
 #   - VentaController.crear() para recibir los montos.
 #   - Venta.efectivo_bs, Venta.tarjeta, etc. (modelo ORM).
 #   - ReporteDiario.efectivo_bs, ReporteDiario.tarjeta, etc.
-#   - interflaz.py para crear los QDoubleSpinBox de pago.
+#   - interfaz.py para crear los QDoubleSpinBox de pago.
 #   - reporte_service.py para los encabezados de Excel.
 # ----------------------------------------------------------
 METODO_PAGO_EFECTIVO_BS: str = "efectivo_bs"

@@ -29,7 +29,7 @@ from .reportes_pagina import ReportesPagina
 from .ventas_pagina import VentasPagina
 
 
-class MainWindow(QMainWindow):
+class VentanaPrincipal(QMainWindow):
     def __init__(self, usuario: Usuario) -> None:
         super().__init__()
 
@@ -45,7 +45,7 @@ class MainWindow(QMainWindow):
 
         # Crear paginas ANTES de _setup_ui para que Pylance conozca los tipos.
         self.pagina_dashboard: DashboardPagina = DashboardPagina(
-            controlador_tasas=self.controlador_tasas
+            controlador_tasas=self.controlador_tasas,
         )
         self.pagina_productos: ProductosPagina = ProductosPagina(self.controlador_productos)
         self.pagina_ventas: VentasPagina = VentasPagina(
@@ -107,7 +107,7 @@ class MainWindow(QMainWindow):
         barra_estado = QStatusBar()
         self.setStatusBar(barra_estado)
         barra_estado.showMessage(
-            f"Usuario: {self.usuario_actual.usuario} | {self.usuario_actual.nombre_completo}"
+            f"Usuario: {self.usuario_actual.usuario} | {self.usuario_actual.nombre_completo}",
         )
 
         # Boton para cambiar contrasena / usuario desde la barra de estado.
@@ -137,12 +137,15 @@ class MainWindow(QMainWindow):
             # Actualizar el titulo de la ventana si cambio el nombre.
             self.setWindowTitle(
                 f"Sistema Financiero — "
-                f"{self.usuario_actual.nombre_completo or self.usuario_actual.usuario}"
+                f"{self.usuario_actual.nombre_completo or self.usuario_actual.usuario}",
             )
             # Actualizar el mensaje de la barra de estado.
-            self.statusBar().showMessage(  # type: ignore[union-attr]
-                f"Usuario: {self.usuario_actual.usuario} | {self.usuario_actual.nombre_completo}"
-            )
+            barra = self.statusBar()
+            if barra:
+                barra.showMessage(
+                    f"Usuario: {self.usuario_actual.usuario} | "
+                    f"{self.usuario_actual.nombre_completo}",
+                )
 
     # ------------------------------------------------------------------
     # PAGINA: Dashboard

@@ -1,8 +1,9 @@
-from datetime import datetime
 from decimal import Decimal
 
 from sqlmodel import Session, or_, select
 from sqlmodel.sql.expression import SelectOfScalar
+
+from sistema_financiero.utils import ahora
 
 from ..models import Producto, obtener_sesion
 
@@ -21,7 +22,8 @@ class ProductoController:
         """Crea un nuevo producto con validaciones de precios y stock."""
         # Validar que el nombre no sea solo espacios ni esté vacío.
         if not producto.nombre_producto.strip():
-            raise ValueError("El nombre del producto es obligatorio.")
+            msg = "El nombre del producto es obligatorio."
+            raise ValueError(msg)
 
         # Validar que ninguno de los precios sea negativo.
         if (
@@ -29,15 +31,18 @@ class ProductoController:
             or producto.precio_venta_bs < 0
             or producto.precio_venta_usd < 0
         ):
-            raise ValueError("Los precios no pueden ser negativos.")
+            msg = "Los precios no pueden ser negativos."
+            raise ValueError(msg)
 
         # Validar que el stock actual no sea negativo.
         if producto.stock_actual < 0:
-            raise ValueError("El stock no puede ser negativo.")
+            msg = "El stock no puede ser negativo."
+            raise ValueError(msg)
 
         # Validar que el stock mínimo sea al menos 1.
         if producto.stock_minimo < 1:
-            raise ValueError("El stock minimo debe ser al menos 1.")
+            msg = "El stock minimo debe ser al menos 1."
+            raise ValueError(msg)
 
         # Normalizar el nombre y categoría a mayúsculas para búsquedas.
         producto.nombre_producto = producto.nombre_producto.strip().upper()
@@ -48,7 +53,7 @@ class ProductoController:
         producto.unidad = producto.unidad.upper()
 
         # Registrar la fecha de ingreso al crear el producto.
-        producto.fecha_ingreso = datetime.now()
+        producto.fecha_ingreso = ahora()
 
         # Guardar el producto en la base de datos usando una sesión.
         with obtener_sesion(db_session) as session:
@@ -92,8 +97,8 @@ class ProductoController:
                 .where(
                     or_(
                         Producto.nombre_producto.ilike(f"%{termino}%"),  # type: ignore[attr-defined]
-                        Producto.categoria.ilike(f"%{termino}%"),  # type: ignore[union-attr]
-                    )
+                        Producto.categoria.ilike(f"%{termino}%"),  # type: ignore[attr-defined]
+                    ),
                 )
                 .order_by(Producto.nombre_producto)
             )
@@ -125,11 +130,13 @@ class ProductoController:
                     clave in ("precio_compra", "precio_venta_bs", "precio_venta_usd")
                     and Decimal(str(valor)) < 0
                 ):
-                    raise ValueError(f"{clave} no puede ser negativo.")
+                    msg = f"{clave} no puede ser negativo."
+                    raise ValueError(msg)
 
                 # Validar stock actual no negativo.
                 if clave == "stock_actual" and int(str(valor)) < 0:
-                    raise ValueError("El stock no puede ser negativo.")
+                    msg = "El stock no puede ser negativo."
+                    raise ValueError(msg)
 
                 # Asignar el nuevo valor al producto.
                 setattr(producto, clave, valor)
@@ -170,7 +177,7 @@ class ProductoController:
             stmt = (
                 select(Producto.categoria)
                 .distinct()
-                .where(Producto.categoria.isnot(None))  # type: ignore[union-attr]
+                .where(Producto.categoria.isnot(None))  # type: ignore[attr-defined]
                 .order_by(Producto.categoria)
             )
             resultados = session.exec(stmt).all()

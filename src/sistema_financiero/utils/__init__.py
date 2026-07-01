@@ -19,6 +19,7 @@
 #   from sistema_financiero.utils import validar_no_vacio
 # ============================================================
 
+# Exportar helpers de fecha.
 # Exportar constantes.
 from .constantes import ESTADO_VENTA_ANULADA as ESTADO_VENTA_ANULADA
 from .constantes import ESTADO_VENTA_COMPLETADA as ESTADO_VENTA_COMPLETADA
@@ -40,6 +41,8 @@ from .constantes import RANGO_SPINBOX_MAX as RANGO_SPINBOX_MAX
 from .constantes import TIPO_MOVIMIENTO_AJUSTE as TIPO_MOVIMIENTO_AJUSTE
 from .constantes import TIPO_MOVIMIENTO_ENTRADA as TIPO_MOVIMIENTO_ENTRADA
 from .constantes import TIPO_MOVIMIENTO_SALIDA as TIPO_MOVIMIENTO_SALIDA
+from .fecha import ahora as ahora
+from .fecha import hoy as hoy
 
 # Exportar funciones de moneda.
 from .moneda import DECIMAL_CENTIMO as DECIMAL_CENTIMO

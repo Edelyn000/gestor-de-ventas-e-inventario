@@ -2,7 +2,7 @@
 # ARCHIVO: ui/formulario_venta.py  (DIALOGO DE NUEVA VENTA)
 # ============================================================
 # Este dialogo guia al usuario paso a paso para crear una venta.
-# Antes estaba dentro de interflaz.py, lo extraemos a su propio
+# Antes estaba dentro de interfaz.py, lo extraemos a su propio
 # archivo para mantener el codigo mas organizado.
 #
 # Flujo:
@@ -44,7 +44,7 @@
 #   └──────────────────────────────────────────────────┘
 # ============================================================
 from decimal import Decimal
-from typing import cast
+from typing import TypedDict
 
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -68,6 +68,22 @@ from ..core.producto_controller import ProductoController
 from ..core.tasa_cambio_service import TasaCambioService
 from ..core.venta_controller import VentaController
 from ..utils import configurar_spinbox_bs, configurar_spinbox_usd, formatear_bs
+
+
+class ProductoVenta(TypedDict):
+    idproducto: int | None
+    nombre: str
+    cantidad: int
+    precio: Decimal
+    subtotal: Decimal
+
+
+class MetodoPago(TypedDict):
+    efectivo_bs: Decimal
+    efectivo_usd: Decimal
+    tarjeta: Decimal
+    pago_movil: Decimal
+    bio_pago: Decimal
 
 
 class FormularioVenta(QDialog):
@@ -97,7 +113,7 @@ class FormularioVenta(QDialog):
         # Lista temporal: aqui guardamos los productos que se van agregando
         #   antes de enviarlos al controlador.
         # Cada elemento es un dict con: idproducto, nombre, cantidad, precio, subtotal.
-        self.productos_venta: list[dict[str, object]] = []
+        self.productos_venta: list[ProductoVenta] = []
 
         # Total acumulado de la venta en bolivares.
         self.total_bs = Decimal("0.00")
@@ -114,89 +130,72 @@ class FormularioVenta(QDialog):
     # ------------------------------------------------------------------
     # _setup_ui: construye todos los widgets del dialogo
     # ------------------------------------------------------------------
-    def _setup_ui(self) -> None:  # noqa: PLR0915
+    def _setup_ui(self) -> None:
         """Crea los widgets del dialogo de nueva venta."""
-        # Layout vertical principal.
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
+        self._crear_seccion_seleccion_producto(layout)
+        self._crear_seccion_tabla_y_total(layout)
+        self._crear_seccion_pago(layout)
+        layout.addSpacing(10)
+        self._crear_botones(layout)
 
-        # ----------------------------------------------------------
-        # SECCION: SELECCIONAR PRODUCTO
-        # ----------------------------------------------------------
-        # QGroupBox: un cuadro con borde y titulo para agrupar widgets relacionados.
+    def _crear_seccion_seleccion_producto(self, layout: QVBoxLayout) -> None:
         grupo_producto = QGroupBox("Agregar Producto")
-        # Layout horizontal para el grupo.
         grupo_layout = QHBoxLayout(grupo_producto)
 
-        # QComboBox: lista desplegable para elegir un producto.
-        # El usuario hace clic y ve todos los productos disponibles.
         self.combo_producto = QComboBox()
         self.combo_producto.setMinimumWidth(300)
         self.combo_producto.setPlaceholderText("Selecciona un producto...")
         grupo_layout.addWidget(self.combo_producto)
 
-        # QSpinBox: cantidad del producto a vender (minimo 1).
         self.spin_cantidad = QSpinBox()
         self.spin_cantidad.setRange(1, 9999)
         self.spin_cantidad.setValue(1)
         grupo_layout.addWidget(QLabel("Cant:"))
         grupo_layout.addWidget(self.spin_cantidad)
 
-        # Boton: Agregar producto a la lista de la venta.
         btn_agregar = QPushButton("Agregar")
         btn_agregar.clicked.connect(self._agregar_producto_venta)
         grupo_layout.addWidget(btn_agregar)
 
         layout.addWidget(grupo_producto)
 
-        # ----------------------------------------------------------
-        # SECCION: TABLA DE PRODUCTOS DE LA VENTA
-        # ----------------------------------------------------------
+    def _crear_seccion_tabla_y_total(self, layout: QVBoxLayout) -> None:
         layout.addSpacing(10)
         layout.addWidget(QLabel("Productos de la venta:"))
 
-        self.tabla_productos_venta = QTableWidget()
-        columnas = [
+        columnas: list[tuple[str, int]] = [
             ("Producto", 200),
             ("Cantidad", 60),
             ("P.Unit Bs", 100),
             ("Subtotal", 100),
             ("", 40),
         ]
+        self.tabla_productos_venta = QTableWidget()
         self.tabla_productos_venta.setColumnCount(len(columnas))
         self.tabla_productos_venta.setHorizontalHeaderLabels([c[0] for c in columnas])
         for i, (_, ancho) in enumerate(columnas):
             self.tabla_productos_venta.setColumnWidth(i, ancho)
         self.tabla_productos_venta.setSelectionBehavior(
-            QAbstractItemView.SelectionBehavior.SelectRows
+            QAbstractItemView.SelectionBehavior.SelectRows,
         )
         self.tabla_productos_venta.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
 
-        # layout.addWidget con factor 1 para que ocupe espacio vertical.
         layout.addWidget(self.tabla_productos_venta, 1)
 
-        # ----------------------------------------------------------
-        # TOTAL DE LA VENTA
-        # ----------------------------------------------------------
-        # QLabel que muestra el total actualizado en tiempo real.
         self.lbl_total = QLabel(f"Total: {formatear_bs(Decimal('0.00'))}")
         self.lbl_total.setStyleSheet("font-size: 18px; font-weight: bold;")
         layout.addWidget(self.lbl_total)
 
-        # Tasa de cambio activa (informativa).
         self.lbl_tasa = QLabel("Tasa BCV: ---")
         self.lbl_tasa.setStyleSheet("color: #666;")
         layout.addWidget(self.lbl_tasa)
 
-        # ----------------------------------------------------------
-        # SECCION: METODO DE PAGO
-        # ----------------------------------------------------------
+    def _crear_seccion_pago(self, layout: QVBoxLayout) -> None:
         layout.addSpacing(10)
         grupo_pago = QGroupBox("Metodo de Pago")
         form_pago = QFormLayout(grupo_pago)
-
-        # Cada metodo de pago tiene su propio QDoubleSpinBox.
-        # El usuario ingresa el monto recibido por cada metodo.
 
         self.spin_efectivo_bs = QDoubleSpinBox()
         configurar_spinbox_bs(self.spin_efectivo_bs)
@@ -220,10 +219,7 @@ class FormularioVenta(QDialog):
 
         layout.addWidget(grupo_pago)
 
-        # ----------------------------------------------------------
-        # BOTONES DE ACCION
-        # ----------------------------------------------------------
-        layout.addSpacing(10)
+    def _crear_botones(self, layout: QVBoxLayout) -> None:
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
@@ -231,10 +227,9 @@ class FormularioVenta(QDialog):
         btn_cancelar.clicked.connect(self.reject)
         btn_layout.addWidget(btn_cancelar)
 
-        # Boton "Finalizar Venta": verde para indicar accion positiva.
         btn_finalizar = QPushButton("Finalizar Venta")
         btn_finalizar.setStyleSheet(
-            "background-color: #4CAF50; color: white; font-weight: bold; padding: 10px 20px;"
+            "background-color: #4CAF50; color: white; font-weight: bold; padding: 10px 20px;",
         )
         btn_finalizar.clicked.connect(self._finalizar_venta)
         btn_layout.addWidget(btn_finalizar)
@@ -283,9 +278,9 @@ class FormularioVenta(QDialog):
     # ------------------------------------------------------------------
     def _agregar_producto_venta(self) -> None:
         """Agrega el producto seleccionado a la lista de la venta."""
-        # Asegurar que los controladores no sean None (se pasan en el constructor).
-        assert self.controlador_productos is not None
-        assert self.controlador_ventas is not None
+        if self.controlador_productos is None or self.controlador_ventas is None:
+            msg = "Controladores no inicializados"
+            raise RuntimeError(msg)
 
         # Obtener el ID del producto seleccionado en el combo.
         # .currentData() devuelve el "user data" que guardamos con addItem.
@@ -323,7 +318,7 @@ class FormularioVenta(QDialog):
                 "cantidad": cantidad,
                 "precio": producto.precio_venta_bs,
                 "subtotal": subtotal,
-            }
+            },
         )
 
         # Actualizar el total acumulado.
@@ -342,14 +337,14 @@ class FormularioVenta(QDialog):
 
         for fila, item in enumerate(self.productos_venta):
             self.tabla_productos_venta.setItem(
-                fila, 0, QTableWidgetItem(str(item.get("nombre", "")))
+                fila, 0, QTableWidgetItem(item["nombre"]),
             )
             self.tabla_productos_venta.setItem(
-                fila, 1, QTableWidgetItem(str(item.get("cantidad", 0)))
+                fila, 1, QTableWidgetItem(str(item["cantidad"])),
             )
-            precio = cast(Decimal, item.get("precio", Decimal("0.00")))
+            precio = item["precio"]
             self.tabla_productos_venta.setItem(fila, 2, QTableWidgetItem(formatear_bs(precio)))
-            subtotal = cast(Decimal, item.get("subtotal", Decimal("0.00")))
+            subtotal = item["subtotal"]
             self.tabla_productos_venta.setItem(fila, 3, QTableWidgetItem(formatear_bs(subtotal)))
 
             # Boton "X" para eliminar el producto de la venta.
@@ -373,7 +368,7 @@ class FormularioVenta(QDialog):
     def _eliminar_producto_venta(self, fila: int) -> None:
         """Elimina un producto de la lista de la venta."""
         if 0 <= fila < len(self.productos_venta):
-            subtotal = Decimal(str(self.productos_venta[fila].get("subtotal", "0.00")))
+            subtotal = self.productos_venta[fila]["subtotal"]
             self.total_bs -= subtotal
             self.productos_venta.pop(fila)
             self._refrescar_tabla_productos()
@@ -393,14 +388,13 @@ class FormularioVenta(QDialog):
         # momento de crear, no la que vio al abrir el dialogo.
         self._actualizar_tasa()
 
-        productos: list[dict[str, object]] = []
-        for item in self.productos_venta:
-            productos.append(
-                {
-                    "idproducto": int(str(item.get("idproducto", 0))),
-                    "cantidad": int(str(item.get("cantidad", 1))),
-                }
-            )
+        productos: list[dict[str, object]] = [
+            {
+                "idproducto": int(str(item["idproducto"])),
+                "cantidad": item["cantidad"],
+            }
+            for item in self.productos_venta
+        ]
 
         metodo_pago: dict[str, object] = {
             "efectivo_bs": Decimal(str(self.spin_efectivo_bs.value())),
@@ -410,7 +404,9 @@ class FormularioVenta(QDialog):
             "bio_pago": Decimal(str(self.spin_bio_pago.value())),
         }
 
-        assert self.controlador_ventas is not None
+        if self.controlador_ventas is None:
+            msg = "Controlador de ventas no inicializado"
+            raise RuntimeError(msg)
         try:
             venta = self.controlador_ventas.crear(productos, metodo_pago)
 
@@ -426,10 +422,9 @@ class FormularioVenta(QDialog):
 
         except ValueError as e:
             QMessageBox.warning(self, "Error", str(e))
-        except Exception as e:
+        except Exception:
             QMessageBox.critical(
-                self,
-                "Error inesperado",
-                f"No se pudo crear la venta:\n{e}",
+                self, "Error inesperado", "No se pudo crear la venta.",
             )
+            raise
 
