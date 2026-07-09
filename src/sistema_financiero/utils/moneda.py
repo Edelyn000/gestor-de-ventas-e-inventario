@@ -116,6 +116,11 @@ def redondear_moneda(valor: Decimal) -> Decimal:
     return valor.quantize(DECIMAL_CENTIMO)
 
 
+def formatear_stock(valor: Decimal) -> str:
+    """Formatea stock con 3 decimales. Ej: 5.000, 0.500, 1.250"""
+    return f"{valor:.3f}"
+
+
 # ----------------------------------------------------------
 # FUNCION: configurar_spinbox_bs()
 # Configura un QDoubleSpinBox para montos en bolivares.

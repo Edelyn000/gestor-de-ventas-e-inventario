@@ -40,9 +40,14 @@ from ..utils import formatear_bs, formatear_usd
 from .widgets import SelectorFecha, TablaProductos
 
 
+# ============ PAGINA DE VENTAS ============
+# --- NO TOCAR: clase, senial nueva_venta, conexiones a controladores.
+# --- MODIFICABLE: estilos, columnas de tabla, textos, layout.
 class VentasPagina(QWidget):
+    # --- NO TOCAR: senial para VentanaPrincipal.
     nueva_venta = pyqtSignal()
 
+    # --- NO TOCAR: firma del constructor (recibe controladores).
     def __init__(
         self,
         controlador_ventas: VentaController,
@@ -53,6 +58,7 @@ class VentasPagina(QWidget):
         self.controlador_ventas = controlador_ventas
         self.controlador_productos = controlador_productos
 
+        # --- MODIFICABLE: layout, titulo, estilos.
         layout = QVBoxLayout(self)
         layout.setContentsMargins(40, 40, 40, 40)
 
@@ -69,21 +75,28 @@ class VentasPagina(QWidget):
         layout.addLayout(self._crear_filtro_fechas())
         layout.addSpacing(10)
 
+        # --- MODIFICABLE: creacion de tabla de ventas.
         self.tabla_ventas = self._crear_tabla_ventas()
         layout.addWidget(self.tabla_ventas, 1)
 
+        # --- NO TOCAR: carga inicial de datos.
         self.cargar()
 
+    # --- MODIFICABLE: botones, colores, textos en la barra de herramientas.
     def _crear_barra_herramientas(self) -> QHBoxLayout:
         barra = QHBoxLayout()
+        # --- MODIFICABLE: estilo y texto del boton Nueva Venta.
         btn_nueva = QPushButton("+ Nueva Venta")
         btn_nueva.setStyleSheet(
             "background-color: #4CAF50; color: white; font-weight: bold; padding: 8px 16px;",
         )
+        # --- NO TOCAR: senial de ventana nueva.
         btn_nueva.clicked.connect(self.nueva_venta.emit)
         barra.addWidget(btn_nueva)
+        # --- MODIFICABLE: estilo y texto del boton Anular.
         btn_anular = QPushButton("Anular Venta")
         btn_anular.setStyleSheet("background-color: #f44336; color: white; padding: 8px 16px;")
+        # --- NO TOCAR: conexion a _anular_venta.
         btn_anular.clicked.connect(self._anular_venta)
         barra.addWidget(btn_anular)
         btn_refrescar = QPushButton("Refrescar")
@@ -92,6 +105,7 @@ class VentasPagina(QWidget):
         barra.addStretch()
         return barra
 
+    # --- MODIFICABLE: filtro de fechas (SelectorFecha, boton Filtrar).
     def _crear_filtro_fechas(self) -> QHBoxLayout:
         filtro = QHBoxLayout()
         self.selector_fechas = SelectorFecha(dias_por_defecto=30)
@@ -102,6 +116,7 @@ class VentasPagina(QWidget):
         filtro.addStretch()
         return filtro
 
+    # --- MODIFICABLE: columnas y anchos de la tabla de ventas.
     def _crear_tabla_ventas(self) -> TablaProductos:
         columnas = [
             ("ID", 50),
@@ -112,12 +127,15 @@ class VentasPagina(QWidget):
             ("Estado", 100),
         ]
         tabla = TablaProductos(columnas)
+        # --- NO TOCAR: conexion a detalle de venta.
         tabla.cellDoubleClicked.connect(self._detalle_venta)
         return tabla
 
+    # --- MODIFICABLE: logica de carga y poblado de la tabla.
     def cargar(self) -> None:
         desde, hasta = self.selector_fechas.rango_datetime()
 
+        # --- NO TOCAR: consulta al controlador de ventas.
         ventas = self.controlador_ventas.historial_por_fecha(desde, hasta)
 
         self.tabla_ventas.setRowCount(len(ventas))
@@ -131,12 +149,14 @@ class VentasPagina(QWidget):
             self.tabla_ventas.setItem(fila, 3, QTableWidgetItem(formatear_bs(venta.total_bs)))
             self.tabla_ventas.setItem(fila, 4, QTableWidgetItem(formatear_usd(venta.total_usd)))
             item_estado = QTableWidgetItem(venta.estado)
+            # --- MODIFICABLE: colores de estado.
             if venta.estado == "ANULADA":
                 item_estado.setForeground(Qt.GlobalColor.red)
             else:
                 item_estado.setForeground(Qt.GlobalColor.darkGreen)
             self.tabla_ventas.setItem(fila, 5, item_estado)
 
+    # --- NO TOCAR: logica de anulacion de venta (reversa de stock incluida).
     def _anular_venta(self) -> None:
         fila = self.tabla_ventas.currentRow()
         if fila < 0:
@@ -154,6 +174,7 @@ class VentasPagina(QWidget):
         if venta.estado == "ANULADA":
             return
 
+        # --- MODIFICABLE: texto de confirmacion de anulacion.
         respuesta = QMessageBox.question(
             self,
             "Confirmar anulacion",
@@ -162,6 +183,7 @@ class VentasPagina(QWidget):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 
+        # --- NO TOCAR: ejecucion de la anulacion via controlador.
         if respuesta == QMessageBox.StandardButton.Yes:
             try:
                 self.controlador_ventas.anular(idventa)
@@ -172,6 +194,7 @@ class VentasPagina(QWidget):
             except ValueError as e:
                 QMessageBox.warning(self, "Error", str(e))
 
+    # --- NO TOCAR: logica de detalle de venta (doble clic en fila).
     def _detalle_venta(self) -> None:
         fila = self.tabla_ventas.currentRow()
         if fila < 0:
@@ -189,7 +212,7 @@ class VentasPagina(QWidget):
             QMessageBox.information(self, "Detalle", "Esta venta no tiene productos registrados.")
             return
 
-        # ADVERTENCIA: detalles viene de obtener_detalles() con sesión cerrada.
+        # ADVERTENCIA: detalles viene de obtener_detalles() con sesion cerrada.
         # Accede solo a columnas directas (producto_id). NO hagas det.producto.nombre.
         lineas = [f"Factura: {factura}\n", "=" * 30]
         for det in detalles:

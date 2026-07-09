@@ -1,10 +1,10 @@
 # ============================================================
 # PAQUETE: models/
 # Exporta todos los modelos ORM y utilidades de conexion.
-# Importar desde aqui: from .models import Producto, get_session
+# Importar desde aqui: from .models import Producto
 # ============================================================
 
-from .conexion import create_db_and_tables, engine, get_session, obtener_sesion
+from .conexion import create_db_and_tables, engine, obtener_sesion
 from .modelos import (
     MovimientoInventario,
     Producto,
@@ -18,7 +18,6 @@ from .modelos import (
 __all__ = [
     "create_db_and_tables",
     "engine",
-    "get_session",
     "obtener_sesion",
     "MovimientoInventario",
     "Producto",

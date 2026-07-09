@@ -26,11 +26,6 @@ def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
 
 
-def get_session() -> Session:
-    """Devuelve una nueva sesion de BD lista para operaciones."""
-    return Session(engine)
-
-
 @contextmanager
 def obtener_sesion(session: Session | None = None) -> Iterator[Session]:
     """Context manager: si recibe una sesion existente la usa,

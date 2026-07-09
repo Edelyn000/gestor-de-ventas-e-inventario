@@ -136,7 +136,7 @@ class VentaController:
 
         for item in productos:
             producto_id = int(str(item.get("idproducto", 0)))
-            cantidad = int(str(item.get("cantidad", 1)))
+            cantidad = Decimal(str(item.get("cantidad", 1)))
 
             if cantidad <= 0:
                 msg = f"La cantidad del producto ID {producto_id} debe ser mayor a cero."
@@ -237,7 +237,7 @@ class VentaController:
             detalle = VentaDetalle(
                 venta_id=venta_id,
                 producto_id=int(str(det["producto_id"])),
-                cantidad=int(str(det["cantidad"])),
+                cantidad=Decimal(str(det["cantidad"])),
                 precio_unitario_bs=Decimal(str(det["precio_unitario_bs"])),
                 subtotal_bs=Decimal(str(det["subtotal_bs"])),
             )
@@ -255,7 +255,7 @@ class VentaController:
             if not producto:
                 msg = f"Producto ID {det['producto_id']} no existe."
                 raise ValueError(msg)
-            cantidad_det = int(str(det["cantidad"]))
+            cantidad_det = Decimal(str(det["cantidad"]))
             if producto.stock_actual < cantidad_det:
                 msg = (
                     f"Stock insuficiente para {producto.nombre_producto}. "

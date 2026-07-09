@@ -41,6 +41,10 @@ from .constantes import RANGO_SPINBOX_MAX as RANGO_SPINBOX_MAX
 from .constantes import TIPO_MOVIMIENTO_AJUSTE as TIPO_MOVIMIENTO_AJUSTE
 from .constantes import TIPO_MOVIMIENTO_ENTRADA as TIPO_MOVIMIENTO_ENTRADA
 from .constantes import TIPO_MOVIMIENTO_SALIDA as TIPO_MOVIMIENTO_SALIDA
+from .constantes import TIPO_VENTA_GRAMOS as TIPO_VENTA_GRAMOS
+from .constantes import TIPO_VENTA_PESO as TIPO_VENTA_PESO
+from .constantes import TIPO_VENTA_UNIDAD as TIPO_VENTA_UNIDAD
+from .constantes import TIPOS_VENTA as TIPOS_VENTA
 from .fecha import ahora as ahora
 from .fecha import hoy as hoy
 
@@ -56,6 +60,7 @@ from .moneda import SIMBOLO_USD as SIMBOLO_USD
 from .moneda import configurar_spinbox_bs as configurar_spinbox_bs
 from .moneda import configurar_spinbox_usd as configurar_spinbox_usd
 from .moneda import formatear_bs as formatear_bs
+from .moneda import formatear_stock as formatear_stock
 from .moneda import formatear_usd as formatear_usd
 from .moneda import formatear_usd_texto as formatear_usd_texto
 from .moneda import redondear_moneda as redondear_moneda

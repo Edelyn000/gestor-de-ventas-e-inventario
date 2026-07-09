@@ -24,12 +24,13 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 # SQLModel: consultas a la BD.
 #   - Session: la sesion de conexion.
 #   - select: construye consultas SELECT.
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from sistema_financiero.utils import ahora
 from sistema_financiero.utils import hoy as fecha_hoy
 
-from ..models import Producto, ReporteDiario, Venta, VentaDetalle, obtener_sesion
+from ..models import Producto, ReporteDiario, Venta, obtener_sesion
 
 # Importamos los modelos que necesitamos consultar.
 #   - Producto: para contar stock bajo/sin stock.
@@ -141,7 +142,9 @@ class ReporteService:
             hasta = datetime(hoy.year, hoy.month, hoy.day, 23, 59, 59)
 
             ventas = session.exec(
-                select(Venta).where(
+                select(Venta)
+                .options(selectinload(Venta.detalles))  # type: ignore[arg-type]
+                .where(
                     Venta.fecha_venta >= desde,
                     Venta.fecha_venta <= hasta,
                     Venta.estado == "COMPLETADA",
@@ -174,11 +177,8 @@ class ReporteService:
                 bio_pago += v.bio_pago
 
                 # Contar la cantidad de productos en esta venta.
-                # Obtenemos los detalles (lineas de productos).
-                detalles = session.exec(
-                    select(VentaDetalle).where(VentaDetalle.venta_id == v.idventa),
-                ).all()
-                cantidad_productos += sum(d.cantidad for d in detalles)
+                # Los detalles se cargaron con selectinload arriba.
+                cantidad_productos += int(sum(d.cantidad for d in v.detalles))
 
             # ----------------------------------------------------------
             # PASO 3: Contar alertas de stock
@@ -544,7 +544,7 @@ class ReporteService:
         # Productos con stock bajo (stock_actual > 0 pero <= stock_minimo).
         fila = 2
         for p in stock_bajo:
-            datos: list[str | int] = [
+            datos: list[str | int | Decimal] = [
                 p.nombre_producto,
                 p.categoria or "",
                 p.stock_actual,

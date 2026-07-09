@@ -371,9 +371,10 @@ class AuthService:
         id_usuario: int,
         usuario: str | None = None,
         nombre_completo: str | None = None,
+        rol: str | None = None,
         db_session: Session | None = None,
     ) -> Usuario | None:
-        """Actualiza los datos de un usuario (nombre, usuario).
+        """Actualiza los datos de un usuario (nombre, usuario, rol).
         db_session: sesion opcional para tests con BD en memoria."""
         with obtener_sesion(db_session) as session:
             user = session.get(Usuario, id_usuario)
@@ -395,6 +396,9 @@ class AuthService:
 
             if nombre_completo is not None:
                 user.nombre_completo = nombre_completo.strip()
+
+            if rol is not None:
+                user.rol = rol.strip().upper()
 
             session.add(user)
             session.commit()

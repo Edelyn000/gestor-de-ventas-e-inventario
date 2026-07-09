@@ -1,5 +1,6 @@
 # ============================================================
 # ARCHIVO: tests/test_ui.py
+# mypy: allow-untyped-calls = True
 # ============================================================
 # Tests para los componentes visuales (PyQt6) de la aplicacion.
 #
@@ -30,6 +31,7 @@ from unittest.mock import MagicMock
 import pytest
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QComboBox, QDialog, QLabel, QLineEdit, QPushButton, QTableWidget
+from pytestqt.qtbot import QtBot
 
 # Importamos los componentes UI que vamos a probar.
 from sistema_financiero.models.modelos import Producto, Usuario
@@ -79,7 +81,7 @@ def usuario_admin() -> Usuario:
 class TestVentanaLogin:
     """Pruebas para la ventana de inicio de sesion (VentanaLogin)."""
 
-    def test_crear_dialogo(self, qtbot):
+    def test_crear_dialogo(self, qtbot: QtBot) -> None:
         """Verifica que VentanaLogin se crea con el titulo correcto.
 
         Crea el dialogo y comprueba:
@@ -92,7 +94,7 @@ class TestVentanaLogin:
         # Verificar titulo de la ventana.
         assert "Iniciar Sesión" in dialogo.windowTitle()
 
-    def test_widgets_existen(self, qtbot):
+    def test_widgets_existen(self, qtbot: QtBot) -> None:
         """Verifica que los widgets del login se crearon correctamente.
 
         Comprueba que los campos de texto y botones existen y son
@@ -112,7 +114,7 @@ class TestVentanaLogin:
         # Verificar que la contrasena oculta el texto (EchoMode.Password).
         assert dialogo.txt_contrasena.echoMode() == QLineEdit.EchoMode.Password
 
-    def test_validacion_campos_vacios(self, qtbot, monkeypatch):
+    def test_validacion_campos_vacios(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verifica que el login rechaza campos vacios.
 
         Simula hacer clic en "Ingresar" sin escribir nada y verifica
@@ -142,13 +144,13 @@ class TestVentanaLogin:
         # Verificar que se llamo a QMessageBox.warning (hay campos vacios).
         mock_warning.assert_called_once()
 
-    def test_validar_login_incorrecto(self, qtbot, monkeypatch):
+    def test_validar_login_incorrecto(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verifica que credenciales incorrectas muestran error.
 
         Escribe un usuario y contrasena que no existen en la BD y
         verifica que se muestra el mensaje de error.
 
-        monkeypatch: reemplazamos get_session para que devuelva
+        monkeypatch: reemplazamos obtener_sesion para que devuelva
         una sesion que no encuentra ningun usuario.
         """
         dialogo = VentanaLogin()
@@ -161,22 +163,22 @@ class TestVentanaLogin:
             mock_warning,
         )
 
-        # Reemplazar get_session para que devuelva un context manager
+        # Reemplazar obtener_sesion para que devuelva un context manager
         # con una sesion mockeada que no encuentra ningun usuario.
-        # get_session es un context manager (usa "with get_session() as session").
+        # obtener_sesion es un context manager (usa "with obtener_sesion() as session").
         # Creamos un MagicMock que funciona como context manager usando __enter__.
         mock_session = MagicMock()
         mock_session.exec.return_value.first.return_value = None
 
         class MockContextManager:
-            def __enter__(self):
+            def __enter__(self) -> MockContextManager:
                 return mock_session
 
-            def __exit__(self, *args):
+            def __exit__(self, *args: object) -> None:
                 pass
 
         monkeypatch.setattr(
-            "sistema_financiero.ui.ventana_login.get_session",
+            "sistema_financiero.ui.ventana_login.obtener_sesion",
             MockContextManager,
         )
 
@@ -203,7 +205,7 @@ class TestVentanaLogin:
 class TestVentanaPrincipal:
     """Pruebas para la ventana principal (VentanaPrincipal)."""
 
-    def test_crear_ventana(self, qtbot, usuario_admin):
+    def test_crear_ventana(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que VentanaPrincipal se crea con el titulo correcto.
 
         Crea la ventana principal con un usuario simulado y verifica
@@ -215,7 +217,7 @@ class TestVentanaPrincipal:
         # El titulo debe contener el nombre completo del usuario.
         assert "Administrador" in ventana.windowTitle()
 
-    def test_barra_navegacion_existe(self, qtbot, usuario_admin):
+    def test_barra_navegacion_existe(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que la barra lateral de navegacion se creo.
 
         La barra de navegacion es un QListWidget con los nombres
@@ -244,7 +246,7 @@ class TestVentanaPrincipal:
             "Reportes",
         ]
 
-    def test_paginas_existen(self, qtbot, usuario_admin):
+    def test_paginas_existen(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que las 5 paginas del sistema estan en el QStackedWidget.
 
         VentanaPrincipal usa un QStackedWidget que contiene una pagina
@@ -256,7 +258,7 @@ class TestVentanaPrincipal:
         # El QStackedWidget debe tener 5 paginas (una por modulo).
         assert ventana.paginas.count() == 5
 
-    def test_cambiar_pagina(self, qtbot, usuario_admin):
+    def test_cambiar_pagina(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que se puede cambiar de pagina usando la barra lateral.
 
         Simula la seleccion de cada item de navegacion y verifica
@@ -273,7 +275,7 @@ class TestVentanaPrincipal:
             # Verificar que la pagina activa es la que elegimos.
             assert ventana.paginas.currentIndex() == i
 
-    def test_controladores_creados(self, qtbot, usuario_admin):
+    def test_controladores_creados(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que los controladores se crearon al iniciar VentanaPrincipal.
 
         VentanaPrincipal crea los 5 controladores/servicios en su __init__.
@@ -307,7 +309,7 @@ class TestVentanaPrincipal:
 class TestFormularioProducto:
     """Pruebas para el dialogo de crear/editar productos (FormularioProducto)."""
 
-    def test_crear_dialogo_modo_crear(self, qtbot):
+    def test_crear_dialogo_modo_crear(self, qtbot: QtBot) -> None:
         """Verifica que FormularioProducto se abre en modo crear.
 
         Modo crear = sin pasarle un producto existente.
@@ -318,7 +320,7 @@ class TestFormularioProducto:
 
         assert "Agregar producto" in dialogo.windowTitle()
 
-    def test_crear_dialogo_modo_editar(self, qtbot):
+    def test_crear_dialogo_modo_editar(self, qtbot: QtBot) -> None:
         """Verifica que FormularioProducto se abre en modo editar.
 
         Modo editar = pasandole un producto existente.
@@ -330,8 +332,8 @@ class TestFormularioProducto:
             precio_compra=Decimal("1.00"),
             precio_venta_bs=Decimal("1.50"),
             precio_venta_usd=Decimal("0.50"),
-            stock_actual=10,
-            stock_minimo=5,
+            stock_actual=Decimal("10"),
+            stock_minimo=Decimal("5"),
             unidad="KG",
         )
         dialogo = FormularioProducto(producto=producto)
@@ -340,7 +342,7 @@ class TestFormularioProducto:
         assert "Editar producto" in dialogo.windowTitle()
         assert "Arroz" in dialogo.windowTitle()
 
-    def test_campos_existen_en_modo_crear(self, qtbot):
+    def test_campos_existen_en_modo_crear(self, qtbot: QtBot) -> None:
         """Verifica que los campos del formulario existen en modo crear.
 
         Comprueba que FormularioProducto tiene todos los atributos
@@ -363,7 +365,7 @@ class TestFormularioProducto:
         for campo in campos:
             assert hasattr(dialogo, campo), f"Falta el campo: {campo}"
 
-    def test_campos_precargados_en_editar(self, qtbot):
+    def test_campos_precargados_en_editar(self, qtbot: QtBot) -> None:
         """Verifica que los campos se precargan en modo editar.
 
         Crea un producto, abre el dialogo en modo editar y verifica
@@ -375,8 +377,8 @@ class TestFormularioProducto:
             precio_compra=Decimal("0.80"),
             precio_venta_bs=Decimal("1.20"),
             precio_venta_usd=Decimal("0.40"),
-            stock_actual=50,
-            stock_minimo=10,
+            stock_actual=Decimal("50"),
+            stock_minimo=Decimal("10"),
             unidad="LTS",
         )
         dialogo = FormularioProducto(producto=producto)
@@ -387,7 +389,7 @@ class TestFormularioProducto:
         assert dialogo.txt_categoria.text() == "LACTEOS"
         assert dialogo.txt_unidad.text() == "LTS"
 
-    def test_validacion_nombre_vacio(self, qtbot, monkeypatch):
+    def test_validacion_nombre_vacio(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verifica que el dialogo rechaza guardar sin nombre.
 
         Simula hacer clic en Guardar sin escribir el nombre y
@@ -424,14 +426,14 @@ class TestFormularioProducto:
 class TestFormularioVenta:
     """Pruebas para el dialogo de nueva venta (FormularioVenta)."""
 
-    def test_crear_dialogo(self, qtbot):
+    def test_crear_dialogo(self, qtbot: QtBot) -> None:
         """Verifica que FormularioVenta se crea con el titulo correcto."""
         dialogo = FormularioVenta()
         qtbot.addWidget(dialogo)
 
         assert "Nueva Venta" in dialogo.windowTitle()
 
-    def test_widgets_principales_existen(self, qtbot):
+    def test_widgets_principales_existen(self, qtbot: QtBot) -> None:
         """Verifica que los widgets principales del dialogo existen.
 
         FormularioVenta tiene: combo de productos, spin de cantidad,
@@ -453,7 +455,7 @@ class TestFormularioVenta:
         assert hasattr(dialogo, "spin_pago_movil")
         assert hasattr(dialogo, "spin_bio_pago")
 
-    def test_boton_finalizar_existe(self, qtbot):
+    def test_boton_finalizar_existe(self, qtbot: QtBot) -> None:
         """Verifica que el boton 'Finalizar Venta' esta en el dialogo."""
         dialogo = FormularioVenta()
         qtbot.addWidget(dialogo)
@@ -464,7 +466,7 @@ class TestFormularioVenta:
         btn_finalizar = [b for b in botones if b.text() == "Finalizar Venta"]
         assert len(btn_finalizar) > 0
 
-    def test_venta_vacia_muestra_error(self, qtbot, monkeypatch):
+    def test_venta_vacia_muestra_error(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verifica que Finalizar Venta sin productos muestra error.
 
         Sin agregar productos, hacer clic en Finalizar Venta debe
@@ -505,8 +507,8 @@ def producto_ejemplo() -> Producto:
         precio_compra=Decimal("1.00"),
         precio_venta_bs=Decimal("1.50"),
         precio_venta_usd=Decimal("0.50"),
-        stock_actual=10,
-        stock_minimo=5,
+        stock_actual=Decimal("10"),
+        stock_minimo=Decimal("5"),
         unidad="KG",
     )
 
@@ -533,14 +535,14 @@ def movimiento_ejemplo(producto_ejemplo: Producto) -> MagicMock:
 class TestFormularioCambioContrasena:
     """Pruebas para el dialogo de cambio de contrasena/usuario."""
 
-    def test_crear_dialogo(self, qtbot, usuario_admin):
+    def test_crear_dialogo(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que el dialogo se crea con el titulo correcto."""
         dialogo = FormularioCambioContrasena(usuario=usuario_admin)
         qtbot.addWidget(dialogo)
 
         assert "Cambiar Contraseña / Usuario" in dialogo.windowTitle()
 
-    def test_widgets_existen(self, qtbot, usuario_admin):
+    def test_widgets_existen(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que los campos del formulario existen."""
         dialogo = FormularioCambioContrasena(usuario=usuario_admin)
         qtbot.addWidget(dialogo)
@@ -555,14 +557,16 @@ class TestFormularioCambioContrasena:
         assert dialogo.txt_contrasena_actual.echoMode() == QLineEdit.EchoMode.Password
         assert dialogo.txt_nueva_contrasena.echoMode() == QLineEdit.EchoMode.Password
 
-    def test_campos_precargados(self, qtbot, usuario_admin):
+    def test_campos_precargados(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que los campos se precargan con datos del usuario."""
         dialogo = FormularioCambioContrasena(usuario=usuario_admin)
         qtbot.addWidget(dialogo)
 
         assert dialogo.txt_nombre_completo.text() == "Administrador"
 
-    def test_guardar_sin_contrasena_actual(self, qtbot, usuario_admin, monkeypatch):
+    def test_guardar_sin_contrasena_actual(
+        self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Verifica que rechaza guardar sin escribir la contrasena actual."""
         dialogo = FormularioCambioContrasena(usuario=usuario_admin)
         qtbot.addWidget(dialogo)
@@ -580,7 +584,9 @@ class TestFormularioCambioContrasena:
 
         mock_warning.assert_called_once()
 
-    def test_guardar_contrasena_incorrecta(self, qtbot, usuario_admin, monkeypatch):
+    def test_guardar_contrasena_incorrecta(
+        self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Verifica que contrasena actual incorrecta muestra error."""
         dialogo = FormularioCambioContrasena(usuario=usuario_admin)
         qtbot.addWidget(dialogo)
@@ -602,7 +608,9 @@ class TestFormularioCambioContrasena:
 
         mock_warning.assert_called_once()
 
-    def test_guardar_sin_cambios(self, qtbot, usuario_admin, monkeypatch):
+    def test_guardar_sin_cambios(
+        self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Verifica que sin cambios muestra mensaje 'No se realizaron cambios'."""
         dialogo = FormularioCambioContrasena(usuario=usuario_admin)
         qtbot.addWidget(dialogo)
@@ -624,7 +632,9 @@ class TestFormularioCambioContrasena:
 
         mock_info.assert_called_once()
 
-    def test_guardar_exitoso(self, qtbot, usuario_admin, monkeypatch):
+    def test_guardar_exitoso(
+        self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Verifica que cambiar nombre completo guarda exitosamente."""
         dialogo = FormularioCambioContrasena(usuario=usuario_admin)
         qtbot.addWidget(dialogo)
@@ -658,7 +668,7 @@ class TestFormularioCambioContrasena:
 class TestInventarioPagina:
     """Pruebas para la pagina de inventario."""
 
-    def test_crear_pagina(self, qtbot, producto_ejemplo):
+    def test_crear_pagina(self, qtbot: QtBot, producto_ejemplo: Producto) -> None:
         """Verifica que la pagina se crea sin errores."""
         mock_controlador_inv = MagicMock()
         mock_controlador_prod = MagicMock()
@@ -671,7 +681,7 @@ class TestInventarioPagina:
         assert label is not None
         assert "Inventario" in label.text()
 
-    def test_widgets_existen(self, qtbot, producto_ejemplo):
+    def test_widgets_existen(self, qtbot: QtBot, producto_ejemplo: Producto) -> None:
         """Verifica que los widgets principales existen."""
         mock_controlador_inv = MagicMock()
         mock_controlador_prod = MagicMock()
@@ -691,7 +701,7 @@ class TestInventarioPagina:
         assert "Ajuste" in botones
         assert "Refrescar" in botones
 
-    def test_combo_poblado(self, qtbot, producto_ejemplo):
+    def test_combo_poblado(self, qtbot: QtBot, producto_ejemplo: Producto) -> None:
         """Verifica que el combo de productos se puebla correctamente."""
         mock_controlador_inv = MagicMock()
         mock_controlador_prod = MagicMock()
@@ -704,7 +714,7 @@ class TestInventarioPagina:
         assert pagina.cmb_producto_inventario.itemText(0) == "Todos los productos"
         assert "Arroz" in pagina.cmb_producto_inventario.itemText(1)
 
-    def test_tabla_movimientos_vacia(self, qtbot, producto_ejemplo):
+    def test_tabla_movimientos_vacia(self, qtbot: QtBot, producto_ejemplo: Producto) -> None:
         """Verifica que la tabla se muestra vacia cuando no hay movimientos."""
         mock_controlador_inv = MagicMock()
         mock_controlador_inv.movimientos_recientes.return_value = []
@@ -716,7 +726,9 @@ class TestInventarioPagina:
 
         assert pagina.tabla_movimientos.rowCount() == 0
 
-    def test_tabla_movimientos_poblada(self, qtbot, producto_ejemplo, movimiento_ejemplo):
+    def test_tabla_movimientos_poblada(
+        self, qtbot: QtBot, producto_ejemplo: Producto, movimiento_ejemplo: MagicMock
+    ) -> None:
         """Verifica que la tabla muestra datos de movimientos."""
         mock_controlador_inv = MagicMock()
         mock_controlador_inv.movimientos_recientes.return_value = [movimiento_ejemplo]
@@ -734,7 +746,9 @@ class TestInventarioPagina:
         assert item_tipo is not None, "item(0,3) es None"
         assert item_tipo.text() == "ENTRADA"
 
-    def test_dialogo_entrada_flujo_exitoso(self, qtbot, monkeypatch, producto_ejemplo):
+    def test_dialogo_entrada_flujo_exitoso(
+        self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, producto_ejemplo: Producto
+    ) -> None:
         """Verifica que el boton Entrada llama a registrar_entrada."""
         mock_controlador_inv = MagicMock()
         mock_controlador_prod = MagicMock()
@@ -780,11 +794,13 @@ class TestInventarioPagina:
                 break
 
         mock_controlador_inv.registrar_entrada.assert_called_once_with(
-            producto_id=1, cantidad=5, motivo="COMPRA", observaciones=None,
+            producto_id=1, cantidad=Decimal("5"), motivo="COMPRA", observaciones=None,
         )
         mock_info.assert_called_once()
 
-    def test_dialogo_salida_flujo_exitoso(self, qtbot, monkeypatch, producto_ejemplo):
+    def test_dialogo_salida_flujo_exitoso(
+        self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, producto_ejemplo: Producto
+    ) -> None:
         """Verifica que el boton Salida llama a registrar_salida."""
         mock_controlador_inv = MagicMock()
         mock_controlador_prod = MagicMock()
@@ -830,11 +846,13 @@ class TestInventarioPagina:
                 break
 
         mock_controlador_inv.registrar_salida.assert_called_once_with(
-            producto_id=1, cantidad=3, motivo="VENTA", observaciones=None,
+            producto_id=1, cantidad=Decimal("3"), motivo="VENTA", observaciones=None,
         )
         mock_info.assert_called_once()
 
-    def test_dialogo_ajuste_flujo_exitoso(self, qtbot, monkeypatch, producto_ejemplo):
+    def test_dialogo_ajuste_flujo_exitoso(
+        self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, producto_ejemplo: Producto
+    ) -> None:
         """Verifica que el boton Ajuste llama a registrar_ajuste."""
         mock_controlador_inv = MagicMock()
         mock_controlador_prod = MagicMock()
@@ -880,12 +898,14 @@ class TestInventarioPagina:
                 break
 
         mock_controlador_inv.registrar_ajuste.assert_called_once_with(
-            producto_id=1, stock_fisico=8, motivo="INVENTARIO",
+            producto_id=1, stock_fisico=Decimal("8"), motivo="INVENTARIO",
             observaciones="Ajuste por inventario",
         )
         mock_info.assert_called_once()
 
-    def test_dialogo_cancelado(self, qtbot, monkeypatch, producto_ejemplo):
+    def test_dialogo_cancelado(
+        self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, producto_ejemplo: Producto
+    ) -> None:
         """Verifica que cancelar el dialogo no llama a los servicios."""
         mock_controlador_inv = MagicMock()
         mock_controlador_prod = MagicMock()
@@ -908,7 +928,9 @@ class TestInventarioPagina:
         mock_controlador_inv.registrar_salida.assert_not_called()
         mock_controlador_inv.registrar_ajuste.assert_not_called()
 
-    def test_dialogo_producto_no_seleccionado(self, qtbot, monkeypatch, producto_ejemplo):
+    def test_dialogo_producto_no_seleccionado(
+        self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, producto_ejemplo: Producto
+    ) -> None:
         """Verifica que sin producto seleccionado muestra advertencia."""
         mock_controlador_inv = MagicMock()
         mock_controlador_prod = MagicMock()
@@ -951,7 +973,9 @@ class TestInventarioPagina:
         mock_warning.assert_called_once()
         mock_controlador_inv.registrar_entrada.assert_not_called()
 
-    def test_tabla_refrescada_al_cambiar_producto(self, qtbot, producto_ejemplo):
+    def test_tabla_refrescada_al_cambiar_producto(
+        self, qtbot: QtBot, producto_ejemplo: Producto
+    ) -> None:
         """Verifica que cambiar el combo refresca la tabla con historial del producto."""
         mock_controlador_inv = MagicMock()
         mock_controlador_prod = MagicMock()

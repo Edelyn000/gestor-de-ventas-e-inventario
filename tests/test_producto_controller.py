@@ -22,6 +22,7 @@ from decimal import Decimal
 
 # pytest: necesitamos pytest.raises para probar errores.
 import pytest
+from sqlmodel import Session
 
 # ProductoController: el servicio que vamos a probar.
 from sistema_financiero.core.producto_controller import ProductoController
@@ -39,7 +40,7 @@ from sistema_financiero.models import Producto
 #   2. Llamar a producto_controller.crear(producto, db_session=session).
 #   3. Verificar que el producto devuelto tenga ID (se guardo).
 # ============================================================
-def test_crear_producto_exitoso(session, producto_controller: ProductoController) -> None:
+def test_crear_producto_exitoso(session: Session, producto_controller: ProductoController) -> None:
     """
     Prueba que crear() guarde un producto correctamente.
     """
@@ -64,8 +65,8 @@ def test_crear_producto_exitoso(session, producto_controller: ProductoController
         precio_compra=Decimal("1.50"),
         precio_venta_bs=Decimal("2.50"),
         precio_venta_usd=Decimal("0.50"),
-        stock_actual=100,
-        stock_minimo=10,
+        stock_actual=Decimal("100"),
+        stock_minimo=Decimal("10"),
         unidad="KILO",
     )
 
@@ -100,7 +101,9 @@ def test_crear_producto_exitoso(session, producto_controller: ProductoController
 # TEST: test_crear_producto_sin_nombre
 # ¿QUE PRUEBA? Que NO se pueda crear un producto sin nombre.
 # ============================================================
-def test_crear_producto_sin_nombre(session, producto_controller: ProductoController) -> None:
+def test_crear_producto_sin_nombre(
+    session: Session, producto_controller: ProductoController
+) -> None:
     """
     Prueba que crear() rechace un producto sin nombre.
     """
@@ -120,7 +123,9 @@ def test_crear_producto_sin_nombre(session, producto_controller: ProductoControl
 # TEST: test_crear_producto_precio_negativo
 # ¿QUE PRUEBA? Que NO se permitan precios negativos.
 # ============================================================
-def test_crear_producto_precio_negativo(session, producto_controller: ProductoController) -> None:
+def test_crear_producto_precio_negativo(
+    session: Session, producto_controller: ProductoController
+) -> None:
     """
     Prueba que crear() rechace un producto con precio negativo.
     """
@@ -139,7 +144,7 @@ def test_crear_producto_precio_negativo(session, producto_controller: ProductoCo
 # ¿QUE PRUEBA? Que el stock_minimo no pueda ser 0.
 # ============================================================
 def test_crear_producto_stock_minimo_invalido(
-    session, producto_controller: ProductoController) -> None:
+    session: Session, producto_controller: ProductoController) -> None:
     """
     Prueba que crear() rechace stock_minimo < 1.
     """
@@ -147,7 +152,7 @@ def test_crear_producto_stock_minimo_invalido(
         nombre_producto="LECHE",
         precio_venta_bs=Decimal("3.00"),
         precio_venta_usd=Decimal("0.60"),
-        stock_minimo=0,  # Invalido: debe ser al menos 1.
+        stock_minimo=Decimal("0"),  # Invalido: debe ser al menos 1.
     )
 
     with pytest.raises(ValueError):
@@ -158,20 +163,16 @@ def test_crear_producto_stock_minimo_invalido(
 # TEST: test_obtener_por_id
 # ¿QUE PRUEBA? Que obtener_por_id() encuentre un producto existente.
 # ============================================================
-def test_obtener_por_id(session, producto_controller: ProductoController) -> None:
-    """
-    Prueba que obtener_por_id() retorne el producto correcto.
-    """
-    # Primero creamos un producto.
+def test_obtener_por_id(session: Session, producto_controller: ProductoController) -> None:
     producto = Producto(
         nombre_producto="CAFE",
         precio_venta_bs=Decimal("5.00"),
         precio_venta_usd=Decimal("1.00"),
     )
     creado = producto_controller.crear(producto, db_session=session)
+    assert creado.idproducto is not None
 
-    # Ahora lo buscamos por su ID.
-    encontrado = producto_controller.obtener_por_id(creado.idproducto, db_session=session)  # type: ignore[arg-type]
+    encontrado = producto_controller.obtener_por_id(creado.idproducto, db_session=session)
 
     # Debe encontrarlo y tener el mismo nombre.
     assert encontrado is not None
@@ -182,7 +183,9 @@ def test_obtener_por_id(session, producto_controller: ProductoController) -> Non
 # TEST: test_obtener_por_id_inexistente
 # ¿QUE PRUEBA? Que obtener_por_id() retorne None si no existe.
 # ============================================================
-def test_obtener_por_id_inexistente(session, producto_controller: ProductoController) -> None:
+def test_obtener_por_id_inexistente(
+    session: Session, producto_controller: ProductoController
+) -> None:
     """
     Prueba que obtener_por_id() retorne None para un ID que no existe.
     """
@@ -194,7 +197,7 @@ def test_obtener_por_id_inexistente(session, producto_controller: ProductoContro
 # TEST: test_listar_todos
 # ¿QUE PRUEBA? Que listar_todos() devuelva todos los productos ordenados.
 # ============================================================
-def test_listar_todos(session, producto_controller: ProductoController) -> None:
+def test_listar_todos(session: Session, producto_controller: ProductoController) -> None:
     """
     Prueba que listar_todos() devuelva los productos ordenados alfabeticamente.
     """
@@ -227,7 +230,7 @@ def test_listar_todos(session, producto_controller: ProductoController) -> None:
 # TEST: test_buscar_por_nombre
 # ¿QUE PRUEBA? Que buscar() encuentre productos por nombre parcial.
 # ============================================================
-def test_buscar_por_nombre(session, producto_controller: ProductoController) -> None:
+def test_buscar_por_nombre(session: Session, producto_controller: ProductoController) -> None:
     """
     Prueba que buscar() encuentre productos usando busqueda parcial.
     """
@@ -249,7 +252,7 @@ def test_buscar_por_nombre(session, producto_controller: ProductoController) -> 
 # TEST: test_buscar_por_categoria
 # ¿QUE PRUEBA? Que buscar() tambien busque en el campo categoria.
 # ============================================================
-def test_buscar_por_categoria(session, producto_controller: ProductoController) -> None:
+def test_buscar_por_categoria(session: Session, producto_controller: ProductoController) -> None:
     """
     Prueba que buscar() encuentre productos por categoria.
     """
@@ -271,7 +274,7 @@ def test_buscar_por_categoria(session, producto_controller: ProductoController) 
 # TEST: test_buscar_sin_resultados
 # ¿QUE PRUEBA? Que buscar() devuelva lista vacia si no hay coincidencias.
 # ============================================================
-def test_buscar_sin_resultados(session, producto_controller: ProductoController) -> None:
+def test_buscar_sin_resultados(session: Session, producto_controller: ProductoController) -> None:
     """
     Prueba que buscar() devuelva una lista vacia si no hay resultados.
     """
@@ -283,7 +286,7 @@ def test_buscar_sin_resultados(session, producto_controller: ProductoController)
 # TEST: test_actualizar_producto
 # ¿QUE PRUEBA? Que actualizar() modifique los campos de un producto.
 # ============================================================
-def test_actualizar_producto(session, producto_controller: ProductoController) -> None:
+def test_actualizar_producto(session: Session, producto_controller: ProductoController) -> None:
     """
     Prueba que actualizar() modifique campos por clave=valor.
     """
@@ -291,25 +294,21 @@ def test_actualizar_producto(session, producto_controller: ProductoController) -
         nombre_producto="ACEITE",
         precio_venta_bs=Decimal("5.00"),
         precio_venta_usd=Decimal("1.00"),
-        stock_actual=20,
+        stock_actual=Decimal("20"),
     )
     creado = producto_controller.crear(producto, db_session=session)
+    assert creado.idproducto is not None
 
-    # Actualizar el precio y el stock usando **kwargs.
-    # **kwargs significa "argumentos con nombre" (keyword arguments).
-    # Ejemplo: actualizar(1, precio_venta_bs=Decimal("6.00"), stock_actual=15)
     actualizado = producto_controller.actualizar(
-        creado.idproducto,  # type: ignore[arg-type]
+        creado.idproducto,
         precio_venta_bs=Decimal("6.00"),
-        stock_actual=15,
+        stock_actual=Decimal("15"),
         db_session=session,
     )
 
     assert actualizado is not None
     assert actualizado.precio_venta_bs == Decimal("6.00")
-    stock_esperado = 15
-    assert actualizado.stock_actual == stock_esperado
-    # El nombre NO deberia haber cambiado.
+    assert actualizado.stock_actual == Decimal("15")
     assert actualizado.nombre_producto == "ACEITE"
 
 
@@ -317,7 +316,9 @@ def test_actualizar_producto(session, producto_controller: ProductoController) -
 # TEST: test_actualizar_producto_inexistente
 # ¿QUE PRUEBA? Que actualizar() retorne None si el producto no existe.
 # ============================================================
-def test_actualizar_producto_inexistente(session, producto_controller: ProductoController) -> None:
+def test_actualizar_producto_inexistente(
+    session: Session, producto_controller: ProductoController
+) -> None:
     """
     Prueba que actualizar() retorne None para un ID inexistente.
     """
@@ -330,7 +331,7 @@ def test_actualizar_producto_inexistente(session, producto_controller: ProductoC
 # TEST: test_eliminar_producto
 # ¿QUE PRUEBA? Que eliminar() borre un producto y retorne True.
 # ============================================================
-def test_eliminar_producto(session, producto_controller: ProductoController) -> None:
+def test_eliminar_producto(session: Session, producto_controller: ProductoController) -> None:
     """
     Prueba que eliminar() borre un producto exitosamente.
     """
@@ -341,12 +342,12 @@ def test_eliminar_producto(session, producto_controller: ProductoController) -> 
     )
     creado = producto_controller.crear(producto, db_session=session)
 
-    # Eliminar el producto.
-    resultado = producto_controller.eliminar(creado.idproducto, db_session=session)  # type: ignore[arg-type]
+    assert creado.idproducto is not None
+
+    resultado = producto_controller.eliminar(creado.idproducto, db_session=session)
     assert resultado is True, "eliminar() debe retornar True si se elimino"
 
-    # Verificar que ya no exista.
-    no_encontrado = producto_controller.obtener_por_id(creado.idproducto, db_session=session)  # type: ignore[arg-type]
+    no_encontrado = producto_controller.obtener_por_id(creado.idproducto, db_session=session)
     assert no_encontrado is None, "El producto ya no debe existir"
 
 
@@ -354,7 +355,9 @@ def test_eliminar_producto(session, producto_controller: ProductoController) -> 
 # TEST: test_eliminar_producto_inexistente
 # ¿QUE PRUEBA? Que eliminar() retorne False si el producto no existe.
 # ============================================================
-def test_eliminar_producto_inexistente(session, producto_controller: ProductoController) -> None:
+def test_eliminar_producto_inexistente(
+    session: Session, producto_controller: ProductoController
+) -> None:
     """
     Prueba que eliminar() retorne False para un ID inexistente.
     """
@@ -366,7 +369,7 @@ def test_eliminar_producto_inexistente(session, producto_controller: ProductoCon
 # TEST: test_obtener_categorias
 # ¿QUE PRUEBA? Que obtener_categorias() devuelva categorias unicas.
 # ============================================================
-def test_obtener_categorias(session, producto_controller: ProductoController) -> None:
+def test_obtener_categorias(session: Session, producto_controller: ProductoController) -> None:
     """
     Prueba que obtener_categorias() devuelva categorias sin repetir.
     """
@@ -393,7 +396,7 @@ def test_obtener_categorias(session, producto_controller: ProductoController) ->
 # ¿QUE PRUEBA? Que productos_stock_bajo() detecte los correctos.
 # La condicion: stock_actual > 0 Y stock_actual <= stock_minimo.
 # ============================================================
-def test_productos_stock_bajo(session, producto_controller: ProductoController) -> None:
+def test_productos_stock_bajo(session: Session, producto_controller: ProductoController) -> None:
     """
     Prueba que productos_stock_bajo() filtre correctamente.
     """
@@ -402,8 +405,8 @@ def test_productos_stock_bajo(session, producto_controller: ProductoController) 
         nombre_producto="PROD_BAJO",
         precio_venta_bs=Decimal("1"),
         precio_venta_usd=Decimal("0.20"),
-        stock_actual=3,
-        stock_minimo=5,  # 3 <= 5 → stock bajo
+        stock_actual=Decimal("3"),
+        stock_minimo=Decimal("5"),  # 3 <= 5 → stock bajo
     ), db_session=session)
 
     # Producto con stock normal.
@@ -411,8 +414,8 @@ def test_productos_stock_bajo(session, producto_controller: ProductoController) 
         nombre_producto="PROD_NORMAL",
         precio_venta_bs=Decimal("2"),
         precio_venta_usd=Decimal("0.40"),
-        stock_actual=20,
-        stock_minimo=5,  # 20 > 5 → stock normal
+        stock_actual=Decimal("20"),
+        stock_minimo=Decimal("5"),  # 20 > 5 → stock normal
     ), db_session=session)
 
     bajos = producto_controller.productos_stock_bajo(db_session=session)
@@ -426,7 +429,7 @@ def test_productos_stock_bajo(session, producto_controller: ProductoController) 
 # TEST: test_productos_sin_stock
 # ¿QUE PRUEBA? Que productos_sin_stock() detecte stock_actual == 0.
 # ============================================================
-def test_productos_sin_stock(session, producto_controller: ProductoController) -> None:
+def test_productos_sin_stock(session: Session, producto_controller: ProductoController) -> None:
     """
     Prueba que productos_sin_stock() detecte productos agotados.
     """
@@ -435,7 +438,7 @@ def test_productos_sin_stock(session, producto_controller: ProductoController) -
         nombre_producto="PROD_AGOTADO",
         precio_venta_bs=Decimal("1"),
         precio_venta_usd=Decimal("0.20"),
-        stock_actual=0,  # Sin stock.
+        stock_actual=Decimal("0"),  # Sin stock.
     ), db_session=session)
 
     sin_stock = producto_controller.productos_sin_stock(db_session=session)

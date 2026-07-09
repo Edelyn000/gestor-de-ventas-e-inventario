@@ -39,9 +39,9 @@ class ProductoController:
             msg = "El stock no puede ser negativo."
             raise ValueError(msg)
 
-        # Validar que el stock mínimo sea al menos 1.
-        if producto.stock_minimo < 1:
-            msg = "El stock minimo debe ser al menos 1."
+        # Validar que el stock mínimo sea al menos 0.001 (1g para UNIDAD se maneja como 1.000).
+        if producto.stock_minimo < Decimal("0.001"):
+            msg = "El stock minimo debe ser al menos 0.001."
             raise ValueError(msg)
 
         # Normalizar el nombre y categoría a mayúsculas para búsquedas.
@@ -97,7 +97,7 @@ class ProductoController:
                 .where(
                     or_(
                         Producto.nombre_producto.ilike(f"%{termino}%"),  # type: ignore[attr-defined]
-                        Producto.categoria.ilike(f"%{termino}%"),  # type: ignore[attr-defined]
+                        Producto.categoria.ilike(f"%{termino}%"),  # type: ignore[union-attr]
                     ),
                 )
                 .order_by(Producto.nombre_producto)
@@ -134,7 +134,7 @@ class ProductoController:
                     raise ValueError(msg)
 
                 # Validar stock actual no negativo.
-                if clave == "stock_actual" and int(str(valor)) < 0:
+                if clave == "stock_actual" and Decimal(str(valor)) < 0:
                     msg = "El stock no puede ser negativo."
                     raise ValueError(msg)
 
@@ -177,7 +177,7 @@ class ProductoController:
             stmt = (
                 select(Producto.categoria)
                 .distinct()
-                .where(Producto.categoria.isnot(None))  # type: ignore[attr-defined]
+                .where(Producto.categoria.isnot(None))  # type: ignore[union-attr]
                 .order_by(Producto.categoria)
             )
             resultados = session.exec(stmt).all()

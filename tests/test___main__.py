@@ -1,7 +1,10 @@
+from collections.abc import Generator
 from contextlib import contextmanager
 
 import bcrypt
 import pytest
+import pytest_mock
+from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from sistema_financiero.db import seed_admin
@@ -9,7 +12,7 @@ from sistema_financiero.models import Usuario
 
 
 @pytest.fixture()
-def _mock_obtener_sesion(mocker):
+def _mock_obtener_sesion(mocker: pytest_mock.MockerFixture) -> Engine:
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -17,7 +20,7 @@ def _mock_obtener_sesion(mocker):
     SQLModel.metadata.create_all(engine)
 
     @contextmanager
-    def _fake_obtener_sesion(session=None):
+    def _fake_obtener_sesion(session: Session | None = None) -> Generator[Session]:
         if session is not None:
             yield session
         else:
@@ -31,7 +34,7 @@ def _mock_obtener_sesion(mocker):
     return engine
 
 
-def test_seed_admin_crea_admin(_mock_obtener_sesion):
+def test_seed_admin_crea_admin(_mock_obtener_sesion: Engine) -> None:
     with Session(_mock_obtener_sesion) as session:
         assert session.exec(select(Usuario)).first() is None
 
@@ -46,7 +49,7 @@ def test_seed_admin_crea_admin(_mock_obtener_sesion):
         assert bcrypt.checkpw(b"admin", admin.contrasena.encode("utf-8"))
 
 
-def test_seed_admin_no_duplica(_mock_obtener_sesion):
+def test_seed_admin_no_duplica(_mock_obtener_sesion: Engine) -> None:
     with Session(_mock_obtener_sesion) as session:
         admin = Usuario(
             usuario="admin",

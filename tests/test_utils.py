@@ -48,7 +48,7 @@ from sistema_financiero.utils import (
 # CONSTANTES
 # ============================================================
 class TestConstantes:
-    def test_metodos_pago_todos_definidos(self):
+    def test_metodos_pago_todos_definidos(self) -> None:
         assert METODO_PAGO_EFECTIVO_BS == "efectivo_bs"
         assert METODO_PAGO_EFECTIVO_USD == "efectivo_usd"
         assert METODO_PAGO_TARJETA == "tarjeta"
@@ -62,16 +62,16 @@ class TestConstantes:
             "bio_pago",
         ]
 
-    def test_estados_venta(self):
+    def test_estados_venta(self) -> None:
         assert ESTADO_VENTA_COMPLETADA == "COMPLETADA"
         assert ESTADO_VENTA_ANULADA == "ANULADA"
 
-    def test_tipos_movimiento(self):
+    def test_tipos_movimiento(self) -> None:
         assert TIPO_MOVIMIENTO_ENTRADA == "ENTRADA"
         assert TIPO_MOVIMIENTO_SALIDA == "SALIDA"
         assert TIPO_MOVIMIENTO_AJUSTE == "AJUSTE"
 
-    def test_motivos_movimiento(self):
+    def test_motivos_movimiento(self) -> None:
         assert MOTIVO_COMPRA == "COMPRA"
         assert MOTIVO_VENTA == "VENTA"
         assert MOTIVO_DEVOLUCION == "DEVOLUCION"
@@ -79,13 +79,13 @@ class TestConstantes:
         assert MOTIVO_AJUSTE == "AJUSTE"
         assert MOTIVO_INVENTARIO_FISICO == "INVENTARIO FISICO"
 
-    def test_prefijo_factura(self):
+    def test_prefijo_factura(self) -> None:
         assert PREFIJO_FACTURA == "FAC"
 
-    def test_longitud_minima_contrasena(self):
+    def test_longitud_minima_contrasena(self) -> None:
         assert LONGITUD_MINIMA_CONTRASENA == 4
 
-    def test_rango_spinbox(self):
+    def test_rango_spinbox(self) -> None:
         assert RANGO_SPINBOX_MAX == 999999
 
 
@@ -93,13 +93,13 @@ class TestConstantes:
 # MONEDA
 # ============================================================
 class TestMoneda:
-    def test_decimal_cero(self):
+    def test_decimal_cero(self) -> None:
         assert Decimal("0.00") == DECIMAL_CERO
 
-    def test_decimal_centimo(self):
+    def test_decimal_centimo(self) -> None:
         assert Decimal("0.01") == DECIMAL_CENTIMO
 
-    def test_simbolos(self):
+    def test_simbolos(self) -> None:
         assert SIMBOLO_BS == "Bs."
         assert SIMBOLO_USD == "$"
 
@@ -112,27 +112,27 @@ class TestMoneda:
             (Decimal("99.9999"), 3, True, "Bs. 99.9999" if False else "Bs. 100.000"),
         ],
     )
-    def test_formatear_bs(self, valor, decimales, miles, esperado):
+    def test_formatear_bs(self, valor: Decimal, decimales: int, miles: bool, esperado: str) -> None:
         assert formatear_bs(valor, decimales, miles) == esperado
 
-    def test_formatear_bs_por_defecto(self):
+    def test_formatear_bs_por_defecto(self) -> None:
         assert formatear_bs(Decimal("1500.50")) == "Bs. 1,500.50"
 
-    def test_formatear_usd(self):
+    def test_formatear_usd(self) -> None:
         assert formatear_usd(Decimal("50.00")) == "$ 50.00"
         assert formatear_usd(Decimal("1234.56")) == "$ 1,234.56"
         assert formatear_usd(Decimal("0.00"), miles=False) == "$ 0.00"
 
-    def test_formatear_usd_texto(self):
+    def test_formatear_usd_texto(self) -> None:
         assert formatear_usd_texto(Decimal("50.00")) == "USD 50.00"
         assert formatear_usd_texto(Decimal("1234.56")) == "USD 1,234.56"
 
-    def test_redondear_moneda(self):
+    def test_redondear_moneda(self) -> None:
         assert redondear_moneda(Decimal("10.003")) == Decimal("10.00")
         assert redondear_moneda(Decimal("10.006")) == Decimal("10.01")
         assert redondear_moneda(Decimal("0.999")) == Decimal("1.00")
 
-    def test_redondear_moneda_con_division(self):
+    def test_redondear_moneda_con_division(self) -> None:
         resultado = redondear_moneda(Decimal("10.00") / Decimal("3"))
         assert resultado == Decimal("3.33")
 
@@ -141,65 +141,65 @@ class TestMoneda:
 # VALIDACION
 # ============================================================
 class TestValidacion:
-    def test_validar_no_vacio_ok(self):
+    def test_validar_no_vacio_ok(self) -> None:
         assert validar_no_vacio("hola", "campo") is None
 
-    def test_validar_no_vacio_none(self):
+    def test_validar_no_vacio_none(self) -> None:
         with pytest.raises(ValueError, match="El campo es obligatorio."):
             validar_no_vacio(None, "campo")
 
-    def test_validar_no_vacio_vacio(self):
+    def test_validar_no_vacio_vacio(self) -> None:
         with pytest.raises(ValueError, match="El nombre es obligatorio."):
             validar_no_vacio("", "nombre")
 
-    def test_validar_no_vacio_espacios(self):
+    def test_validar_no_vacio_espacios(self) -> None:
         with pytest.raises(ValueError, match="El campo es obligatorio."):
             validar_no_vacio("   ", "campo")
 
-    def test_validar_longitud_minima_ok(self):
+    def test_validar_longitud_minima_ok(self) -> None:
         assert validar_longitud_minima("12345", 4, "contrasena") is None
 
-    def test_validar_longitud_minima_exacta(self):
+    def test_validar_longitud_minima_exacta(self) -> None:
         assert validar_longitud_minima("1234", 4, "contrasena") is None
 
-    def test_validar_longitud_minima_falla(self):
+    def test_validar_longitud_minima_falla(self) -> None:
         with pytest.raises(ValueError, match="La contrasena debe tener al menos 4 caracteres."):
             validar_longitud_minima("123", 4, "contrasena")
 
-    def test_validar_no_negativo_ok(self):
+    def test_validar_no_negativo_ok(self) -> None:
         assert validar_no_negativo(0, "precio") is None
         assert validar_no_negativo(Decimal("0.00"), "precio") is None
         assert validar_no_negativo(5, "stock") is None
 
-    def test_validar_no_negativo_falla(self):
+    def test_validar_no_negativo_falla(self) -> None:
         with pytest.raises(ValueError, match="El precio no puede ser negativo."):
             validar_no_negativo(-1, "precio")
         with pytest.raises(ValueError, match="El precio no puede ser negativo."):
             validar_no_negativo(Decimal("-0.01"), "precio")
 
-    def test_validar_positivo_ok(self):
+    def test_validar_positivo_ok(self) -> None:
         assert validar_positivo(1, "cantidad") is None
         assert validar_positivo(Decimal("0.01"), "cantidad") is None
 
-    def test_validar_positivo_cero(self):
+    def test_validar_positivo_cero(self) -> None:
         with pytest.raises(ValueError, match="La cantidad debe ser mayor a cero."):
             validar_positivo(0, "cantidad")
 
-    def test_validar_positivo_negativo(self):
+    def test_validar_positivo_negativo(self) -> None:
         with pytest.raises(ValueError, match="La cantidad debe ser mayor a cero."):
             validar_positivo(-5, "cantidad")
 
-    def test_validar_existe_ok(self):
+    def test_validar_existe_ok(self) -> None:
         assert validar_existe("algo", "Producto") is None
 
-    def test_validar_existe_none(self):
+    def test_validar_existe_none(self) -> None:
         with pytest.raises(ValueError, match="Producto no existe."):
             validar_existe(None, "Producto")
 
-    def test_validar_pagos_cubren_total_ok(self):
+    def test_validar_pagos_cubren_total_ok(self) -> None:
         assert validar_pagos_cubren_total(Decimal("100"), Decimal("100")) is None
         assert validar_pagos_cubren_total(Decimal("150"), Decimal("100")) is None
 
-    def test_validar_pagos_cubren_total_insuficiente(self):
+    def test_validar_pagos_cubren_total_insuficiente(self) -> None:
         with pytest.raises(ValueError, match="La suma de los metodos de pago"):
             validar_pagos_cubren_total(Decimal("50"), Decimal("100"))

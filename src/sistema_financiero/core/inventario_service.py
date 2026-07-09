@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -25,7 +27,7 @@ class InventarioService:
     def registrar_entrada(
         self,
         producto_id: int,
-        cantidad: int,
+        cantidad: Decimal,
         motivo: str,
         referencia_id: int | None = None,
         observaciones: str | None = None,
@@ -34,7 +36,7 @@ class InventarioService:
         """Registra una entrada de stock (compra, devolucion, etc.).
         Incrementa el stock_actual del producto y crea un movimiento de auditoria."""
         # Validar cantidad positiva.
-        if cantidad <= 0:
+        if cantidad <= Decimal("0"):
             msg = "La cantidad debe ser mayor a cero."
             raise ValueError(msg)
 
@@ -75,7 +77,7 @@ class InventarioService:
     def registrar_salida(
         self,
         producto_id: int,
-        cantidad: int,
+        cantidad: Decimal,
         motivo: str,
         referencia_id: int | None = None,
         observaciones: str | None = None,
@@ -133,7 +135,7 @@ class InventarioService:
     def registrar_ajuste(
         self,
         producto_id: int,
-        stock_fisico: int,
+        stock_fisico: Decimal,
         motivo: str = "AJUSTE",
         observaciones: str | None = None,
         db_session: Session | None = None,
@@ -188,14 +190,14 @@ class InventarioService:
                 select(MovimientoInventario)
                 .options(selectinload(MovimientoInventario.producto))  # type: ignore[arg-type]
                 .where(MovimientoInventario.producto_id == producto_id)
-                .order_by(MovimientoInventario.fecha_movimiento.desc())  # type: ignore[attr-defined]
+                .order_by(MovimientoInventario.fecha_movimiento.desc())  # type: ignore[union-attr]
             )
             return list(session.exec(stmt).all())
 
     def stock_disponible(
         self,
         producto_id: int,
-        cantidad: int,
+        cantidad: Decimal,
         db_session: Session | None = None,
     ) -> bool:
         """Verifica si hay stock suficiente para una cantidad dada."""
@@ -215,7 +217,7 @@ class InventarioService:
             stmt = (
                 select(MovimientoInventario)
                 .options(selectinload(MovimientoInventario.producto))  # type: ignore[arg-type]
-                .order_by(MovimientoInventario.fecha_movimiento.desc())  # type: ignore[attr-defined]
+                .order_by(MovimientoInventario.fecha_movimiento.desc())  # type: ignore[union-attr]
                 .limit(limite)
             )
             return list(session.exec(stmt).all())

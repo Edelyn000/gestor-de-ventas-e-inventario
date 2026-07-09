@@ -36,12 +36,13 @@
 # Si ves "I001 Import block is un-sorted", ejecuta:
 #     poetry run ruff check --fix tests/
 # Eso ordena los imports automaticamente.
-import pytest
-
 # Importamos tipos de SQLModel para crear la BD en memoria.
 #   - Session: permite hacer consultas y transacciones.
 #   - SQLModel: tiene la configuracion de todas las tablas.
 #   - create_engine: crea el motor de BD (en este caso, en memoria).
+from collections.abc import Generator
+
+import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
 # Importamos los servicios que vamos a probar.
@@ -70,7 +71,7 @@ from sistema_financiero.core.venta_controller import VentaController
 #   4. Cuando el test termina, salimos del "with" y se cierra la BD.
 # ============================================================
 @pytest.fixture()
-def session():
+def session() -> Generator[Session]:
     """Crea una BD SQLite en memoria y todas las tablas para pruebas."""
     # "check_same_thread=False": necesario porque pytest puede
     # ejecutar tests en paralelo (aunque no lo hacemos aqui).

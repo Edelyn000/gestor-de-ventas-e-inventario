@@ -118,3 +118,23 @@ LONGITUD_MINIMA_CONTRASENA: int = 4
 # Limite superior para QDoubleSpinBox en la UI de ventas.
 # ----------------------------------------------------------
 RANGO_SPINBOX_MAX: int = 999999
+
+
+# ----------------------------------------------------------
+# TIPOS DE VENTA DE PRODUCTO
+# UNIDAD → Se vende por pieza entera (huevos, aceite, pasta).
+#           Stock y cantidad en enteros.
+# PESO   → Se vende por kilogramos (carne, pollo, verduras).
+#           Stock en kg, cantidad en kg (decimal).
+# GRAMOS → Se vende por gramos (condimentos, especias).
+#           Stock en kg, cantidad en gramos (decimal).
+# ----------------------------------------------------------
+TIPO_VENTA_UNIDAD: str = "UNIDAD"
+TIPO_VENTA_PESO: str = "PESO"
+TIPO_VENTA_GRAMOS: str = "GRAMOS"
+
+TIPOS_VENTA: list[str] = [
+    TIPO_VENTA_UNIDAD,
+    TIPO_VENTA_PESO,
+    TIPO_VENTA_GRAMOS,
+]

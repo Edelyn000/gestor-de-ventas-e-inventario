@@ -2,18 +2,16 @@
 # ARCHIVO: ui/formulario_venta.py  (DIALOGO DE NUEVA VENTA)
 # ============================================================
 # Este dialogo guia al usuario paso a paso para crear una venta.
-# Antes estaba dentro de interfaz.py, lo extraemos a su propio
-# archivo para mantener el codigo mas organizado.
 #
 # Flujo:
 #   1. SELECCIONAR PRODUCTOS:
-#      - Elige un producto de un QComboBox (desplegable con todos los productos).
-#      - Indica la cantidad con un QSpinBox.
+#      - Elige un producto de un QComboBox.
+#      - Indica la cantidad con un QDoubleSpinBox.
 #      - Clic "Agregar" → se agrega a la tabla de productos de la venta.
 #
 #   2. REVISAR PRODUCTOS AGREGADOS:
 #      - La tabla muestra: producto, cantidad, precio unitario, subtotal.
-#      - Se puede eliminar un producto de la venta si me equivoco.
+#      - Se puede eliminar un producto de la venta.
 #      - El total se actualiza automaticamente.
 #
 #   3. METODO DE PAGO:
@@ -23,25 +21,9 @@
 #   4. FINALIZAR:
 #      - Clic "Finalizar Venta" → VentaController.crear() → descuenta stock.
 #
-# Layout visual:
-#   ┌──────────────────────────────────────────────────┐
-#   │  Producto: [QComboBox v]  Cant: [5] [Agregar]   │
-#   ├──────────────────────────────────────────────────┤
-#   │  Productos de la venta:                          │
-#   │  ┌──────────┬──────┬────────┬──────────┬──────┐ │
-#   │  │ Producto │ Cant │ P.Unit │ Subtotal │ Elim │ │
-#   │  ├──────────┼──────┼────────┼──────────┼──────┤ │
-#   │  │ Arroz    │  2   │ 1.50   │  3.00    │ [X]  │ │
-#   │  │ Aceite   │  1   │ 2.50   │  2.50    │ [X]  │ │
-#   │  └──────────┴──────┴────────┴──────────┴──────┘ │
-#   │  TOTAL: Bs. 5.50                                 │
-#   ├──────────────────────────────────────────────────┤
-#   │  Metodo de Pago:                                 │
-#   │  Efectivo Bs: [____] USD: [____]                 │
-#   │  Tarjeta: [_____] PagoMovil: [___] BioPago:[__] │
-#   ├──────────────────────────────────────────────────┤
-#   │           [Cancelar]  [Finalizar Venta]          │
-#   └──────────────────────────────────────────────────┘
+# --- NO TOCAR: nombre de la clase (FormularioVenta), firma del __init__,
+#     logica de crear venta (_finalizar_venta), controladores.
+# --- MODIFICABLE: layout, estilos, textos, columnas de tabla, colores de botones.
 # ============================================================
 from decimal import Decimal
 from typing import TypedDict
@@ -57,7 +39,6 @@ from PyQt6.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
-    QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -67,13 +48,20 @@ from PyQt6.QtWidgets import (
 from ..core.producto_controller import ProductoController
 from ..core.tasa_cambio_service import TasaCambioService
 from ..core.venta_controller import VentaController
-from ..utils import configurar_spinbox_bs, configurar_spinbox_usd, formatear_bs
+from ..utils import (
+    TIPO_VENTA_PESO,
+    configurar_spinbox_bs,
+    configurar_spinbox_usd,
+    formatear_bs,
+    formatear_stock,
+)
 
 
+# --- NO TOCAR: TypedDicts para tipado estricto de datos de venta.
 class ProductoVenta(TypedDict):
     idproducto: int | None
     nombre: str
-    cantidad: int
+    cantidad: Decimal
     precio: Decimal
     subtotal: Decimal
 
@@ -86,10 +74,9 @@ class MetodoPago(TypedDict):
     bio_pago: Decimal
 
 
+# ============ DIALOGO DE NUEVA VENTA ============
 class FormularioVenta(QDialog):
-    # __init__: recibe los controladores como parametros en lugar de obtenerlos
-    # via self.parent(). Esto es MAS CLARO porque se ve explicitamente que
-    # controladores usa y evita errores de tipado con PyQt6.
+    # --- NO TOCAR: firma del constructor (recibe controladores).
     def __init__(
         self,
         parent: QWidget | None = None,
@@ -97,39 +84,30 @@ class FormularioVenta(QDialog):
         controlador_ventas: VentaController | None = None,
         controlador_tasas: TasaCambioService | None = None,
     ) -> None:
-        # Llamar al constructor de QDialog.
         super().__init__(parent)
 
-        # Guardar los controladores para usarlos en los metodos.
+        # --- NO TOCAR: almacenamiento de controladores.
         self.controlador_productos = controlador_productos
         self.controlador_ventas = controlador_ventas
         self.controlador_tasas = controlador_tasas
 
-        # Configuracion basica de la ventana.
+        # --- MODIFICABLE: titulo y tamaño de la ventana.
         self.setWindowTitle("Nueva Venta")
-        self.resize(700, 600)  # Mas grande porque tiene muchos componentes.
-        self.setStyleSheet("background-color: white;")
+        self.resize(700, 600)
 
-        # Lista temporal: aqui guardamos los productos que se van agregando
-        #   antes de enviarlos al controlador.
-        # Cada elemento es un dict con: idproducto, nombre, cantidad, precio, subtotal.
+        # --- NO TOCAR: estado interno de la venta.
         self.productos_venta: list[ProductoVenta] = []
-
-        # Total acumulado de la venta en bolivares.
         self.total_bs = Decimal("0.00")
 
-        # Construir la interfaz grafica.
+        # --- NO TOCAR: construccion del UI y carga inicial.
         self._setup_ui()
-
-        # Cargar los productos en el QComboBox para que el usuario pueda elegirlos.
         self._cargar_combo_productos()
-
-        # Actualizar la tasa de cambio mostrada.
         self._actualizar_tasa()
 
     # ------------------------------------------------------------------
     # _setup_ui: construye todos los widgets del dialogo
     # ------------------------------------------------------------------
+    # --- MODIFICABLE COMPLETAMENTE: layout, grupos, campos, estilos.
     def _setup_ui(self) -> None:
         """Crea los widgets del dialogo de nueva venta."""
         layout = QVBoxLayout(self)
@@ -140,6 +118,7 @@ class FormularioVenta(QDialog):
         layout.addSpacing(10)
         self._crear_botones(layout)
 
+    # --- MODIFICABLE: grupo de seleccion de producto (textos, tamanos).
     def _crear_seccion_seleccion_producto(self, layout: QVBoxLayout) -> None:
         grupo_producto = QGroupBox("Agregar Producto")
         grupo_layout = QHBoxLayout(grupo_producto)
@@ -147,20 +126,28 @@ class FormularioVenta(QDialog):
         self.combo_producto = QComboBox()
         self.combo_producto.setMinimumWidth(300)
         self.combo_producto.setPlaceholderText("Selecciona un producto...")
+        # --- NO TOCAR: conexion al ajuste de cantidad segun producto.
+        self.combo_producto.currentIndexChanged.connect(self._ajustar_spin_cantidad)
         grupo_layout.addWidget(self.combo_producto)
 
-        self.spin_cantidad = QSpinBox()
-        self.spin_cantidad.setRange(1, 9999)
+        self.spin_cantidad = QDoubleSpinBox()
+        # --- MODIFICABLE: rango, decimales, step y valor por defecto.
+        self.spin_cantidad.setRange(0.001, 9999)
+        self.spin_cantidad.setDecimals(3)
+        self.spin_cantidad.setSingleStep(1)
         self.spin_cantidad.setValue(1)
         grupo_layout.addWidget(QLabel("Cant:"))
         grupo_layout.addWidget(self.spin_cantidad)
 
+        # --- MODIFICABLE: texto del boton Agregar.
         btn_agregar = QPushButton("Agregar")
+        # --- NO TOCAR: conexion a _agregar_producto_venta.
         btn_agregar.clicked.connect(self._agregar_producto_venta)
         grupo_layout.addWidget(btn_agregar)
 
         layout.addWidget(grupo_producto)
 
+    # --- MODIFICABLE: tabla de productos (columnas, anchos, estilos).
     def _crear_seccion_tabla_y_total(self, layout: QVBoxLayout) -> None:
         layout.addSpacing(10)
         layout.addWidget(QLabel("Productos de la venta:"))
@@ -184,14 +171,17 @@ class FormularioVenta(QDialog):
 
         layout.addWidget(self.tabla_productos_venta, 1)
 
+        # --- MODIFICABLE: formato y estilo del label de total.
         self.lbl_total = QLabel(f"Total: {formatear_bs(Decimal('0.00'))}")
         self.lbl_total.setStyleSheet("font-size: 18px; font-weight: bold;")
         layout.addWidget(self.lbl_total)
 
+        # --- MODIFICABLE: estilo del label de tasa.
         self.lbl_tasa = QLabel("Tasa BCV: ---")
-        self.lbl_tasa.setStyleSheet("color: #666;")
+        self.lbl_tasa.setStyleSheet("color: #a6adc8;")
         layout.addWidget(self.lbl_tasa)
 
+    # --- MODIFICABLE: campos de metodo de pago (etiquetas, metodos de pago disponibles).
     def _crear_seccion_pago(self, layout: QVBoxLayout) -> None:
         layout.addSpacing(10)
         grupo_pago = QGroupBox("Metodo de Pago")
@@ -219,6 +209,7 @@ class FormularioVenta(QDialog):
 
         layout.addWidget(grupo_pago)
 
+    # --- MODIFICABLE: textos y estilos de botones (Cancelar, Finalizar Venta).
     def _crear_botones(self, layout: QVBoxLayout) -> None:
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
@@ -227,10 +218,13 @@ class FormularioVenta(QDialog):
         btn_cancelar.clicked.connect(self.reject)
         btn_layout.addWidget(btn_cancelar)
 
+        # --- MODIFICABLE: estilo y texto del boton de finalizar.
         btn_finalizar = QPushButton("Finalizar Venta")
         btn_finalizar.setStyleSheet(
-            "background-color: #4CAF50; color: white; font-weight: bold; padding: 10px 20px;",
+            "background-color: #a6e3a1; color: #1e1e2e;"
+            " font-weight: bold; padding: 10px 20px; border-radius: 4px;",
         )
+        # --- NO TOCAR: conexion a _finalizar_venta.
         btn_finalizar.clicked.connect(self._finalizar_venta)
         btn_layout.addWidget(btn_finalizar)
 
@@ -239,33 +233,30 @@ class FormularioVenta(QDialog):
     # ------------------------------------------------------------------
     # _cargar_combo_productos: llena el QComboBox con todos los productos
     # ------------------------------------------------------------------
+    # --- MODIFICABLE: formato del texto de cada item en el combo.
     def _cargar_combo_productos(self) -> None:
         """Carga la lista de productos en el QComboBox."""
         if not self.controlador_productos:
             return
 
-        # Obtener todos los productos.
+        # --- NO TOCAR: llamada al controlador para listar productos.
         productos = self.controlador_productos.listar_todos()
-
-        # Limpiar el combo por si ya tenia datos.
         self.combo_producto.clear()
 
-        # Agregar cada producto como un item.
-        # setItemData: guardamos el ID del producto como "user data"
-        #   para recuperarlo despues sin tener que parsear el texto.
         for p in productos:
-            texto = f"{p.nombre_producto} (Stock: {p.stock_actual})"
+            stock_str = formatear_stock(p.stock_actual)
+            texto = f"{p.nombre_producto} (Stock: {stock_str}) [{p.tipo_venta or 'UNIDAD'}]"
             self.combo_producto.addItem(texto, p.idproducto)
 
     # ------------------------------------------------------------------
     # _actualizar_tasa: muestra la tasa de cambio activa en la UI
     # ------------------------------------------------------------------
+    # --- MODIFICABLE: texto de la tasa. NO TOCAR la llamada a tasa_activa().
     def _actualizar_tasa(self) -> None:
         """Actualiza el label de la tasa de cambio."""
         if not self.controlador_tasas:
             return
-        # ADVERTENCIA: tasa_activa() cierra la sesión. tasa.tasa_venta y tasa.fecha
-        # son columnas directas (seguras). TasaCambio no tiene relaciones lazy.
+        # ADVERTENCIA: tasa_activa() cierra la sesión. Solo columnas directas.
         tasa = self.controlador_tasas.tasa_activa()
         if tasa:
             texto = f"Tasa BCV: {formatear_bs(tasa.tasa_venta)} / USD  (activa: {tasa.fecha})"
@@ -273,32 +264,50 @@ class FormularioVenta(QDialog):
         else:
             self.lbl_tasa.setText("Tasa BCV: No hay tasa activa registrada.")
 
+    # --- MODIFICABLE: ajuste de step/decimales segun tipo de producto.
+    def _ajustar_spin_cantidad(self) -> None:
+        """Ajusta step y decimals del spin segun tipo_venta del producto seleccionado."""
+        if not self.controlador_productos:
+            return
+        idproducto = self.combo_producto.currentData()
+        if idproducto is None:
+            return
+        producto = self.controlador_productos.obtener_por_id(int(idproducto))
+        if not producto:
+            return
+        if producto.tipo_venta == TIPO_VENTA_PESO:
+            self.spin_cantidad.setSingleStep(0.1)
+            self.spin_cantidad.setDecimals(3)
+            self.spin_cantidad.setRange(0.001, 9999)
+        else:
+            self.spin_cantidad.setSingleStep(1)
+            self.spin_cantidad.setDecimals(3)
+            self.spin_cantidad.setRange(0.001, 9999)
+
     # ------------------------------------------------------------------
     # _agregar_producto_venta: agrega el producto seleccionado a la venta
     # ------------------------------------------------------------------
+    # --- NO TOCAR: logica de validacion de stock y calculo de subtotal.
     def _agregar_producto_venta(self) -> None:
         """Agrega el producto seleccionado a la lista de la venta."""
         if self.controlador_productos is None or self.controlador_ventas is None:
             msg = "Controladores no inicializados"
             raise RuntimeError(msg)
 
-        # Obtener el ID del producto seleccionado en el combo.
-        # .currentData() devuelve el "user data" que guardamos con addItem.
         idproducto = self.combo_producto.currentData()
         if idproducto is None:
             QMessageBox.warning(self, "Agregar", "Selecciona un producto.")
             return
 
-        # Obtener la cantidad del QSpinBox.
-        cantidad = self.spin_cantidad.value()
+        cantidad = Decimal(str(self.spin_cantidad.value()))
 
-        # Obtener el producto completo para saber su precio y nombre.
+        # --- NO TOCAR: obtencion del producto desde el controlador.
         producto = self.controlador_productos.obtener_por_id(int(idproducto))
         if not producto:
             QMessageBox.warning(self, "Error", "El producto no existe.")
             return
 
-        # Validar stock disponible.
+        # --- NO TOCAR: validacion de stock.
         if producto.stock_actual < cantidad:
             QMessageBox.warning(
                 self,
@@ -307,10 +316,10 @@ class FormularioVenta(QDialog):
             )
             return
 
-        # Calcular subtotal.
+        # --- NO TOCAR: calculo de subtotal.
         subtotal = producto.precio_venta_bs * Decimal(str(cantidad))
 
-        # Agregar a la lista temporal.
+        # --- NO TOCAR: agregado a lista temporal y actualizacion de total.
         self.productos_venta.append(
             {
                 "idproducto": producto.idproducto,
@@ -321,16 +330,14 @@ class FormularioVenta(QDialog):
             },
         )
 
-        # Actualizar el total acumulado.
         self.total_bs += subtotal
-
-        # Refrescar la tabla y el label de total.
         self._refrescar_tabla_productos()
         self._actualizar_total()
 
     # ------------------------------------------------------------------
     # _refrescar_tabla_productos: actualiza la tabla con los productos agregados
     # ------------------------------------------------------------------
+    # --- MODIFICABLE: formato de la tabla (como se muestran los datos, estilo boton X).
     def _refrescar_tabla_productos(self) -> None:
         """Refresca la tabla de productos de la venta."""
         self.tabla_productos_venta.setRowCount(len(self.productos_venta))
@@ -347,9 +354,7 @@ class FormularioVenta(QDialog):
             subtotal = item["subtotal"]
             self.tabla_productos_venta.setItem(fila, 3, QTableWidgetItem(formatear_bs(subtotal)))
 
-            # Boton "X" para eliminar el producto de la venta.
-            # QPushButton dentro de la tabla usando setCellWidget.
-            # Esto permite poner cualquier widget dentro de una celda.
+            # --- MODIFICABLE: estilo del boton eliminar (texto, color, forma).
             btn_eliminar = QPushButton("X")
             btn_eliminar.setStyleSheet("color: red; font-weight: bold;")
             btn_eliminar.clicked.connect(lambda _=False, f=fila: self._eliminar_producto_venta(f))
@@ -358,6 +363,7 @@ class FormularioVenta(QDialog):
     # ------------------------------------------------------------------
     # _actualizar_total: actualiza el QLabel del total y el total_usd
     # ------------------------------------------------------------------
+    # --- MODIFICABLE: formato del texto del total.
     def _actualizar_total(self) -> None:
         """Actualiza el label del total de la venta."""
         self.lbl_total.setText(f"Total: {formatear_bs(self.total_bs)}")
@@ -365,6 +371,7 @@ class FormularioVenta(QDialog):
     # ------------------------------------------------------------------
     # _eliminar_producto_venta: quita un producto de la lista temporal
     # ------------------------------------------------------------------
+    # --- NO TOCAR: logica de eliminacion y actualizacion de totales.
     def _eliminar_producto_venta(self, fila: int) -> None:
         """Elimina un producto de la lista de la venta."""
         if 0 <= fila < len(self.productos_venta):
@@ -377,17 +384,17 @@ class FormularioVenta(QDialog):
     # ------------------------------------------------------------------
     # _finalizar_venta: valida y guarda la venta en la BD
     # ------------------------------------------------------------------
+    # --- NO TOCAR: logica de finalizacion de venta (llamada al controlador).
     def _finalizar_venta(self) -> None:
         """Valida los datos y finaliza la venta."""
         if not self.productos_venta:
             QMessageBox.warning(self, "Venta vacia", "Agrega al menos un producto a la venta.")
             return
 
-        # Refrescar la tasa antes de finalizar por si cambio mientras
-        # el formulario estaba abierto. La que se aplica es la del
-        # momento de crear, no la que vio al abrir el dialogo.
+        # --- NO TOCAR: refrescar tasa antes de crear (valor del momento).
         self._actualizar_tasa()
 
+        # --- NO TOCAR: preparacion de datos para el controlador.
         productos: list[dict[str, object]] = [
             {
                 "idproducto": int(str(item["idproducto"])),
@@ -408,8 +415,10 @@ class FormularioVenta(QDialog):
             msg = "Controlador de ventas no inicializado"
             raise RuntimeError(msg)
         try:
+            # --- NO TOCAR: llamada al controlador para crear la venta.
             venta = self.controlador_ventas.crear(productos, metodo_pago)
 
+            # --- MODIFICABLE: mensaje de exito (texto, formato).
             QMessageBox.information(
                 self,
                 "Venta exitosa",

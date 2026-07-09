@@ -25,6 +25,7 @@
 
 import bcrypt
 import pytest
+from sqlmodel import Session
 
 from sistema_financiero.core.auth_service import AuthService
 from sistema_financiero.models import Usuario
@@ -47,7 +48,7 @@ from sistema_financiero.models import Usuario
 # lo ejecuta, y pasa el resultado (una sesion de BD) al test.
 
 
-def test_crear_usuario_exitoso(session):  # type: ignore[no-untyped-def]
+def test_crear_usuario_exitoso(session: Session) -> None:
     """
     Prueba que crear_usuario() cree un usuario correctamente
     y que la contrasena se guarde hasheada (no en texto plano).
@@ -121,7 +122,7 @@ def test_crear_usuario_exitoso(session):  # type: ignore[no-untyped-def]
 # Esto es util para probar que las VALIDACIONES funcionan.
 
 
-def test_crear_usuario_duplicado(session):  # type: ignore[no-untyped-def]
+def test_crear_usuario_duplicado(session: Session) -> None:
     """
     Prueba que NO se pueda crear un usuario con el mismo nombre.
     Debe lanzar ValueError con el mensaje adecuado.
@@ -148,7 +149,7 @@ def test_crear_usuario_duplicado(session):  # type: ignore[no-untyped-def]
 # TEST: test_crear_usuario_contrasena_corta
 # ¿QUE PRUEBA? Que se valide la longitud minima de la contrasena.
 # ============================================================
-def test_crear_usuario_contrasena_corta(session):  # type: ignore[no-untyped-def]
+def test_crear_usuario_contrasena_corta(session: Session) -> None:
     """
     Prueba que se rechace una contrasena con menos de 4 caracteres.
     La constante LONGITUD_MINIMA_CONTRASENA esta definida en auth_service.py.
@@ -167,7 +168,7 @@ def test_crear_usuario_contrasena_corta(session):  # type: ignore[no-untyped-def
 # TEST: test_crear_usuario_sin_nombre
 # ¿QUE PRUEBA? Que el nombre de usuario sea obligatorio.
 # ============================================================
-def test_crear_usuario_sin_nombre(session):  # type: ignore[no-untyped-def]
+def test_crear_usuario_sin_nombre(session: Session) -> None:
     """
     Prueba que se rechace un usuario con nombre vacio.
     """
@@ -185,7 +186,7 @@ def test_crear_usuario_sin_nombre(session):  # type: ignore[no-untyped-def]
 # ¿QUE PRUEBA? Que un usuario pueda iniciar sesion con credenciales correctas.
 # ¿QUE VERIFICA? Que retorne el objeto Usuario (no None).
 # ============================================================
-def test_verificar_login_exitoso(session):  # type: ignore[no-untyped-def]
+def test_verificar_login_exitoso(session: Session) -> None:
     """
     Prueba que verificar_login() retorne el Usuario si las
     credenciales son correctas.
@@ -215,7 +216,7 @@ def test_verificar_login_exitoso(session):  # type: ignore[no-untyped-def]
 # ¿QUE PRUEBA? Que login falle si la contrasena es incorrecta.
 # ¿QUE VERIFICA? Que retorne None (no el usuario).
 # ============================================================
-def test_verificar_login_contrasena_incorrecta(session):  # type: ignore[no-untyped-def]
+def test_verificar_login_contrasena_incorrecta(session: Session) -> None:
     """
     Prueba que el login falle si la contrasena no coincide.
     """
@@ -236,7 +237,7 @@ def test_verificar_login_contrasena_incorrecta(session):  # type: ignore[no-unty
 # TEST: test_verificar_login_usuario_inexistente
 # ¿QUE PRUEBA? Que login falle si el usuario no existe.
 # ============================================================
-def test_verificar_login_usuario_inexistente(session):  # type: ignore[no-untyped-def]
+def test_verificar_login_usuario_inexistente(session: Session) -> None:
     """
     Prueba que el login falle si el usuario no existe en la BD.
     """
@@ -254,7 +255,7 @@ def test_verificar_login_usuario_inexistente(session):  # type: ignore[no-untype
 # TEST: test_verificar_login_usuario_inactivo
 # ¿QUE PRUEBA? Que un usuario DESACTIVADO no pueda iniciar sesion.
 # ============================================================
-def test_verificar_login_usuario_inactivo(session):  # type: ignore[no-untyped-def]
+def test_verificar_login_usuario_inactivo(session: Session) -> None:
     """
     Prueba que un usuario desactivado NO pueda iniciar sesion.
     """
@@ -262,9 +263,10 @@ def test_verificar_login_usuario_inactivo(session):  # type: ignore[no-untyped-d
 
     # Crear un usuario.
     creado = servicio.crear_usuario(usuario="inactivo", contrasena="clave123", db_session=session)
+    assert creado.id is not None
 
     # Desactivarlo.
-    servicio.desactivar(creado.id, db_session=session)  # type: ignore[union-attr]
+    servicio.desactivar(creado.id, db_session=session)
 
     # Intentar login con el usuario desactivado.
     resultado = servicio.verificar_login(
@@ -278,7 +280,7 @@ def test_verificar_login_usuario_inactivo(session):  # type: ignore[no-untyped-d
 # TEST: test_cambiar_contrasena_exitoso
 # ¿QUE PRUEBA? Que un usuario pueda cambiar su propia contrasena.
 # ============================================================
-def test_cambiar_contrasena_exitoso(session):  # type: ignore[no-untyped-def]
+def test_cambiar_contrasena_exitoso(session: Session) -> None:
     """
     Prueba cambiar_contrasena(): debe cambiar la contrasena si
     la contrasena actual es correcta.
@@ -287,10 +289,11 @@ def test_cambiar_contrasena_exitoso(session):  # type: ignore[no-untyped-def]
 
     # Crear usuario.
     usuario = servicio.crear_usuario(usuario="change", contrasena="vieja123", db_session=session)
+    assert usuario.id is not None
 
     # Cambiar contrasena: necesita (id, contrasena_actual, nueva_contrasena).
     resultado = servicio.cambiar_contrasena(
-        id_usuario=usuario.id,  # type: ignore[arg-type]
+        id_usuario=usuario.id,
         contrasena_actual="vieja123",
         nueva_contrasena="nueva456",
         db_session=session)
@@ -313,7 +316,7 @@ def test_cambiar_contrasena_exitoso(session):  # type: ignore[no-untyped-def]
 # ¿QUE PRUEBA? Que un admin pueda cambiar la contrasena de otro usuario
 # SIN conocer su contrasena actual.
 # ============================================================
-def test_cambiar_contrasena_admin(session):  # type: ignore[no-untyped-def]
+def test_cambiar_contrasena_admin(session: Session) -> None:
     """
     Prueba cambiar_contrasena_admin(): debe cambiar la contrasena
     sin pedir la contrasena actual.
@@ -321,10 +324,11 @@ def test_cambiar_contrasena_admin(session):  # type: ignore[no-untyped-def]
     servicio = AuthService()
 
     usuario = servicio.crear_usuario(usuario="target", contrasena="original", db_session=session)
+    assert usuario.id is not None
 
     # Admin cambia la contrasena sin saber la actual.
     resultado = servicio.cambiar_contrasena_admin(
-        id_usuario=usuario.id,  # type: ignore[arg-type]
+        id_usuario=usuario.id,
         nueva_contrasena="reseteada",
         db_session=session)
 
@@ -339,31 +343,32 @@ def test_cambiar_contrasena_admin(session):  # type: ignore[no-untyped-def]
 # TEST: test_activar_desactivar_usuario
 # ¿QUE PRUEBA? Las funciones activar() y desactivar().
 # ============================================================
-def test_activar_desactivar_usuario(session):  # type: ignore[no-untyped-def]
+def test_activar_desactivar_usuario(session: Session) -> None:
     """
     Prueba activar() y desactivar(): control de acceso al sistema.
     """
     servicio = AuthService()
 
     usuario = servicio.crear_usuario(usuario="toggle", contrasena="clave", db_session=session)
+    assert usuario.id is not None
 
     # Verificar que este activo por defecto.
     assert usuario.activo is True
 
     # Desactivar.
-    resultado_des = servicio.desactivar(usuario.id, db_session=session)  # type: ignore[arg-type]
+    resultado_des = servicio.desactivar(usuario.id, db_session=session)
     assert resultado_des is True, "desactivar() debe retornar True"
 
     # Verificar que ahora esta inactivo, recargando desde BD.
-    usuario_recargado = servicio.obtener_por_id(usuario.id, db_session=session)  # type: ignore[arg-type]
+    usuario_recargado = servicio.obtener_por_id(usuario.id, db_session=session)
     assert usuario_recargado is not None
     assert usuario_recargado.activo is False, "El usuario debe estar inactivo"
 
     # Activar de nuevo.
-    resultado_act = servicio.activar(usuario.id, db_session=session)  # type: ignore[arg-type]
+    resultado_act = servicio.activar(usuario.id, db_session=session)
     assert resultado_act is True, "activar() debe retornar True"
 
-    usuario_recargado2 = servicio.obtener_por_id(usuario.id, db_session=session)  # type: ignore[arg-type]
+    usuario_recargado2 = servicio.obtener_por_id(usuario.id, db_session=session)
     assert usuario_recargado2 is not None
     assert usuario_recargado2.activo is True, "El usuario debe estar activo nuevamente"
 
@@ -372,7 +377,7 @@ def test_activar_desactivar_usuario(session):  # type: ignore[no-untyped-def]
 # TEST: test_desactivar_usuario_inexistente
 # ¿QUE PRUEBA? Que desactivar() retorne False si el usuario no existe.
 # ============================================================
-def test_desactivar_usuario_inexistente(session):  # type: ignore[no-untyped-def]
+def test_desactivar_usuario_inexistente(session: Session) -> None:
     """
     Prueba que desactivar() retorne False para un ID inexistente.
     """
@@ -387,15 +392,16 @@ def test_desactivar_usuario_inexistente(session):  # type: ignore[no-untyped-def
 # TEST: test_obtener_por_id_exitoso
 # ¿QUE PRUEBA? Que obtener_por_id() encuentre un usuario existente.
 # ============================================================
-def test_obtener_por_id_exitoso(session):  # type: ignore[no-untyped-def]
+def test_obtener_por_id_exitoso(session: Session) -> None:
     """
     Prueba que obtener_por_id() retorne el Usuario correcto.
     """
     servicio = AuthService()
 
     creado = servicio.crear_usuario(usuario="buscarporid", contrasena="clave", db_session=session)
+    assert creado.id is not None
 
-    resultado = servicio.obtener_por_id(creado.id, db_session=session)  # type: ignore[arg-type]
+    resultado = servicio.obtener_por_id(creado.id, db_session=session)
 
     assert resultado is not None
     assert resultado.usuario == "buscarporid"
@@ -405,7 +411,7 @@ def test_obtener_por_id_exitoso(session):  # type: ignore[no-untyped-def]
 # TEST: test_obtener_por_id_inexistente
 # ¿QUE PRUEBA? Que obtener_por_id() retorne None si no existe.
 # ============================================================
-def test_obtener_por_id_inexistente(session):  # type: ignore[no-untyped-def]
+def test_obtener_por_id_inexistente(session: Session) -> None:
     """
     Prueba que obtener_por_id() retorne None para un ID que no existe.
     """
@@ -419,7 +425,7 @@ def test_obtener_por_id_inexistente(session):  # type: ignore[no-untyped-def]
 # TEST: test_obtener_por_usuario
 # ¿QUE PRUEBA? La busqueda por nombre de usuario.
 # ============================================================
-def test_obtener_por_usuario(session):  # type: ignore[no-untyped-def]
+def test_obtener_por_usuario(session: Session) -> None:
     """
     Prueba que obtener_por_usuario() encuentre un usuario por su nombre.
     """
@@ -440,7 +446,7 @@ def test_obtener_por_usuario(session):  # type: ignore[no-untyped-def]
 # TEST: test_listar_usuarios
 # ¿QUE PRUEBA? Que listar_usuarios() devuelva todos los usuarios.
 # ============================================================
-def test_listar_usuarios(session):  # type: ignore[no-untyped-def]
+def test_listar_usuarios(session: Session) -> None:
     """
     Prueba que listar_usuarios() devuelva todos los usuarios creados.
     """
@@ -467,7 +473,7 @@ def test_listar_usuarios(session):  # type: ignore[no-untyped-def]
 # TEST: test_actualizar_usuario
 # ¿QUE PRUEBA? La funcion actualizar() que modifica nombre/usuario.
 # ============================================================
-def test_actualizar_usuario(session):  # type: ignore[no-untyped-def]
+def test_actualizar_usuario(session: Session) -> None:
     """
     Prueba que actualizar() modifique los datos de un usuario.
     """
@@ -478,10 +484,11 @@ def test_actualizar_usuario(session):  # type: ignore[no-untyped-def]
         contrasena="clave",
         nombre_completo="Nombre Original",
         db_session=session)
+    assert usuario.id is not None
 
     # Actualizar el nombre de usuario.
     actualizado = servicio.actualizar(
-        id_usuario=usuario.id,  # type: ignore[arg-type]
+        id_usuario=usuario.id,
         usuario="modificado",
         nombre_completo="Nombre Modificado",
         db_session=session)
@@ -495,7 +502,7 @@ def test_actualizar_usuario(session):  # type: ignore[no-untyped-def]
 # TEST: test_actualizar_usuario_duplicado
 # ¿QUE PRUEBA? Que actualizar() rechace nombres de usuario ya existentes.
 # ============================================================
-def test_actualizar_usuario_duplicado(session):  # type: ignore[no-untyped-def]
+def test_actualizar_usuario_duplicado(session: Session) -> None:
     """
     Prueba que actualizar() lance error si el nuevo nombre ya esta en uso.
     """
@@ -503,11 +510,12 @@ def test_actualizar_usuario_duplicado(session):  # type: ignore[no-untyped-def]
 
     servicio.crear_usuario(usuario="usuario1", contrasena="clave1", db_session=session)
     usuario2 = servicio.crear_usuario(usuario="usuario2", contrasena="clave2", db_session=session)
+    assert usuario2.id is not None
 
     # Intentar cambiar usuario2 a "usuario1" (ya existe).
     with pytest.raises(ValueError) as exc_info:
         servicio.actualizar(
-            id_usuario=usuario2.id,  # type: ignore[arg-type]
+            id_usuario=usuario2.id,
         usuario="usuario1",
         db_session=session)
 

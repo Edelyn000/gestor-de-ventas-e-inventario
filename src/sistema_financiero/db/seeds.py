@@ -4,7 +4,7 @@ from decimal import Decimal
 import bcrypt
 from sqlmodel import Session, select
 
-from sistema_financiero.utils import hoy
+from sistema_financiero.utils import TIPO_VENTA_UNIDAD, hoy
 
 from ..models import (
     Producto,
@@ -22,6 +22,7 @@ def seed_admin(session: Session | None = None) -> None:
                 usuario="admin",
                 contrasena=bcrypt.hashpw(b"admin", bcrypt.gensalt()).decode("utf-8"),
                 nombre_completo="Administrador",
+                rol="ADMINISTRADOR",
                 activo=True,
             )
             s.add(admin)
@@ -41,8 +42,9 @@ def seed_productos(session: Session | None = None) -> None:
                 precio_compra=Decimal("1.20"),
                 precio_venta_bs=Decimal("1.80"),
                 precio_venta_usd=Decimal("0.05"),
-                stock_actual=50,
-                stock_minimo=10,
+                stock_actual=Decimal("50"),
+                stock_minimo=Decimal("10"),
+                tipo_venta=TIPO_VENTA_UNIDAD,
                 unidad="UNIDAD",
             ),
             Producto(
@@ -51,8 +53,9 @@ def seed_productos(session: Session | None = None) -> None:
                 precio_compra=Decimal("0.90"),
                 precio_venta_bs=Decimal("1.50"),
                 precio_venta_usd=Decimal("0.04"),
-                stock_actual=40,
-                stock_minimo=10,
+                stock_actual=Decimal("40"),
+                stock_minimo=Decimal("10"),
+                tipo_venta=TIPO_VENTA_UNIDAD,
                 unidad="UNIDAD",
             ),
             Producto(
@@ -61,8 +64,9 @@ def seed_productos(session: Session | None = None) -> None:
                 precio_compra=Decimal("2.00"),
                 precio_venta_bs=Decimal("3.00"),
                 precio_venta_usd=Decimal("0.09"),
-                stock_actual=30,
-                stock_minimo=15,
+                stock_actual=Decimal("30"),
+                stock_minimo=Decimal("15"),
+                tipo_venta=TIPO_VENTA_UNIDAD,
                 unidad="UNIDAD",
             ),
             Producto(
@@ -71,8 +75,9 @@ def seed_productos(session: Session | None = None) -> None:
                 precio_compra=Decimal("3.50"),
                 precio_venta_bs=Decimal("5.50"),
                 precio_venta_usd=Decimal("0.15"),
-                stock_actual=20,
-                stock_minimo=8,
+                stock_actual=Decimal("20"),
+                stock_minimo=Decimal("8"),
+                tipo_venta=TIPO_VENTA_UNIDAD,
                 unidad="UNIDAD",
             ),
             Producto(
@@ -81,8 +86,9 @@ def seed_productos(session: Session | None = None) -> None:
                 precio_compra=Decimal("1.50"),
                 precio_venta_bs=Decimal("2.50"),
                 precio_venta_usd=Decimal("0.07"),
-                stock_actual=25,
-                stock_minimo=10,
+                stock_actual=Decimal("25"),
+                stock_minimo=Decimal("10"),
+                tipo_venta=TIPO_VENTA_UNIDAD,
                 unidad="UNIDAD",
             ),
             Producto(
@@ -91,8 +97,9 @@ def seed_productos(session: Session | None = None) -> None:
                 precio_compra=Decimal("3.00"),
                 precio_venta_bs=Decimal("5.00"),
                 precio_venta_usd=Decimal("0.14"),
-                stock_actual=15,
-                stock_minimo=5,
+                stock_actual=Decimal("15"),
+                stock_minimo=Decimal("5"),
+                tipo_venta=TIPO_VENTA_UNIDAD,
                 unidad="UNIDAD",
             ),
             Producto(
@@ -101,8 +108,9 @@ def seed_productos(session: Session | None = None) -> None:
                 precio_compra=Decimal("0.80"),
                 precio_venta_bs=Decimal("1.50"),
                 precio_venta_usd=Decimal("0.04"),
-                stock_actual=60,
-                stock_minimo=20,
+                stock_actual=Decimal("60"),
+                stock_minimo=Decimal("20"),
+                tipo_venta=TIPO_VENTA_UNIDAD,
                 unidad="UNIDAD",
             ),
             Producto(
@@ -111,8 +119,9 @@ def seed_productos(session: Session | None = None) -> None:
                 precio_compra=Decimal("1.80"),
                 precio_venta_bs=Decimal("3.00"),
                 precio_venta_usd=Decimal("0.08"),
-                stock_actual=35,
-                stock_minimo=10,
+                stock_actual=Decimal("35"),
+                stock_minimo=Decimal("10"),
+                tipo_venta=TIPO_VENTA_UNIDAD,
                 unidad="UNIDAD",
             ),
             Producto(
@@ -121,8 +130,9 @@ def seed_productos(session: Session | None = None) -> None:
                 precio_compra=Decimal("2.50"),
                 precio_venta_bs=Decimal("4.00"),
                 precio_venta_usd=Decimal("0.11"),
-                stock_actual=3,
-                stock_minimo=10,
+                stock_actual=Decimal("3"),
+                stock_minimo=Decimal("10"),
+                tipo_venta=TIPO_VENTA_UNIDAD,
                 unidad="UNIDAD",
             ),
             Producto(
@@ -131,8 +141,9 @@ def seed_productos(session: Session | None = None) -> None:
                 precio_compra=Decimal("2.00"),
                 precio_venta_bs=Decimal("3.50"),
                 precio_venta_usd=Decimal("0.10"),
-                stock_actual=0,
-                stock_minimo=10,
+                stock_actual=Decimal("0"),
+                stock_minimo=Decimal("10"),
+                tipo_venta=TIPO_VENTA_UNIDAD,
                 unidad="PAQUETE",
             ),
         ]
