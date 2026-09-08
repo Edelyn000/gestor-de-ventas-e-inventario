@@ -137,6 +137,7 @@ class AuthService:
         usuario: str,
         contrasena: str,
         nombre_completo: str | None = None,
+        rol: str = "VENDEDOR",
         db_session: Session | None = None,
     ) -> Usuario:
         """Crea un nuevo usuario con contrasena hasheada.
@@ -179,6 +180,7 @@ class AuthService:
                 usuario=usuario.strip().lower(),  # minusculas para uniformidad.
                 contrasena=contrasena_hash,
                 nombre_completo=nombre_completo.strip() if nombre_completo else None,
+                rol=rol.strip().upper(),
                 activo=True,
                 fecha_creacion=ahora(),
             )

@@ -43,6 +43,7 @@ from sistema_financiero.ui.formulario_venta import FormularioVenta
 # un usuario real (objeto Usuario). Lo definimos abajo.
 from sistema_financiero.ui.interfaz import VentanaPrincipal
 from sistema_financiero.ui.inventario_pagina import InventarioPagina
+from sistema_financiero.ui.usuarios_pagina import UsuariosPagina
 from sistema_financiero.ui.ventana_login import VentanaLogin
 
 # ============================================================
@@ -247,16 +248,16 @@ class TestVentanaPrincipal:
         ]
 
     def test_paginas_existen(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
-        """Verifica que las 5 paginas del sistema estan en el QStackedWidget.
+        """Verifica que las 6 paginas del sistema estan en el QStackedWidget.
 
         VentanaPrincipal usa un QStackedWidget que contiene una pagina
-        por cada modulo. Verificamos que hay 5 paginas agregadas.
+        por cada modulo (incluyendo Usuarios). Verificamos que hay 6 paginas.
         """
         ventana = VentanaPrincipal(usuario_admin)
         qtbot.addWidget(ventana)
 
-        # El QStackedWidget debe tener 5 paginas (una por modulo).
-        assert ventana.paginas.count() == 5
+        # El QStackedWidget debe tener 6 paginas (una por modulo).
+        assert ventana.paginas.count() == 6
 
     def test_cambiar_pagina(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que se puede cambiar de pagina usando la barra lateral.
@@ -794,7 +795,10 @@ class TestInventarioPagina:
                 break
 
         mock_controlador_inv.registrar_entrada.assert_called_once_with(
-            producto_id=1, cantidad=Decimal("5"), motivo="COMPRA", observaciones=None,
+            producto_id=1,
+            cantidad=Decimal("5"),
+            motivo="COMPRA",
+            observaciones=None,
         )
         mock_info.assert_called_once()
 
@@ -846,7 +850,10 @@ class TestInventarioPagina:
                 break
 
         mock_controlador_inv.registrar_salida.assert_called_once_with(
-            producto_id=1, cantidad=Decimal("3"), motivo="VENTA", observaciones=None,
+            producto_id=1,
+            cantidad=Decimal("3"),
+            motivo="VENTA",
+            observaciones=None,
         )
         mock_info.assert_called_once()
 
@@ -898,7 +905,9 @@ class TestInventarioPagina:
                 break
 
         mock_controlador_inv.registrar_ajuste.assert_called_once_with(
-            producto_id=1, stock_fisico=Decimal("8"), motivo="INVENTARIO",
+            producto_id=1,
+            stock_fisico=Decimal("8"),
+            motivo="INVENTARIO",
             observaciones="Ajuste por inventario",
         )
         mock_info.assert_called_once()
@@ -987,3 +996,161 @@ class TestInventarioPagina:
         pagina.cmb_producto_inventario.setCurrentIndex(1)
 
         mock_controlador_inv.historial_por_producto.assert_called_with(1)
+
+
+# ============================================================
+# TESTS: UsuariosPagina
+# ============================================================
+
+
+class TestUsuariosPagina:
+    """Pruebas para la pagina de gestion de usuarios."""
+
+    def test_crear_pagina(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
+        """Verifica que la pagina se crea sin errores."""
+
+        pagina = UsuariosPagina(usuario_actual=usuario_admin)
+        qtbot.addWidget(pagina)
+
+        label = pagina.findChild(QLabel)
+        assert label is not None
+        assert "Usuarios" in label.text()
+
+    def test_widgets_perfil_existen(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
+        """Verifica que los labels del perfil existen."""
+
+        pagina = UsuariosPagina(usuario_actual=usuario_admin)
+        qtbot.addWidget(pagina)
+
+        assert hasattr(pagina, "lbl_nombre")
+        assert hasattr(pagina, "lbl_usuario")
+        assert hasattr(pagina, "lbl_rol")
+        assert "Administrador" in pagina.lbl_nombre.text()
+
+    def test_botones_perfil_existen(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
+        """Verifica que los botones de perfil existen."""
+
+        pagina = UsuariosPagina(usuario_actual=usuario_admin)
+        qtbot.addWidget(pagina)
+
+        botones = [btn.text() for btn in pagina.findChildren(QPushButton)]
+        assert "Editar Perfil" in botones
+        assert "Cambiar Contraseña" in botones
+
+    def test_tabla_usuarios_vacia(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
+        """Verifica que la tabla de usuarios se crea correctamente."""
+
+        pagina = UsuariosPagina(usuario_actual=usuario_admin)
+        qtbot.addWidget(pagina)
+
+        assert hasattr(pagina, "tabla_usuarios")
+        assert pagina.tabla_usuarios.rowCount() == 0
+
+    def test_botones_admin_existen(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
+        """Verifica que los botones de admin existen."""
+
+        pagina = UsuariosPagina(usuario_actual=usuario_admin)
+        qtbot.addWidget(pagina)
+
+        botones = [btn.text() for btn in pagina.findChildren(QPushButton)]
+        assert "+ Crear Usuario" in botones
+        assert "Resetear Contraseña" in botones
+        assert "Activar / Desactivar" in botones
+
+    def test_seleccion_sin_usuario_muestra_error(
+        self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verifica que resetear sin seleccionar muestra error."""
+
+        pagina = UsuariosPagina(usuario_actual=usuario_admin)
+        qtbot.addWidget(pagina)
+
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.usuarios_pagina.QMessageBox.warning",
+            mock_warning,
+        )
+
+        for btn in pagina.findChildren(QPushButton):
+            if btn.text() == "Resetear Contraseña":
+                qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
+                break
+
+        mock_warning.assert_called_once()
+
+    def test_toggle_sin_seleccion_muestra_error(
+        self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verifica que activar/desactivar sin seleccionar muestra error."""
+
+        pagina = UsuariosPagina(usuario_actual=usuario_admin)
+        qtbot.addWidget(pagina)
+
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.usuarios_pagina.QMessageBox.warning",
+            mock_warning,
+        )
+
+        for btn in pagina.findChildren(QPushButton):
+            if btn.text() == "Activar / Desactivar":
+                qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
+                break
+
+        mock_warning.assert_called_once()
+
+
+# ============================================================
+# TESTS: VentanaPrincipal con rol ADMINISTRADOR
+# ============================================================
+
+
+class TestVentanaPrincipalAdmin:
+    """Pruebas para VentanaPrincipal con usuario ADMINISTRADOR."""
+
+    @pytest.fixture()
+    def usuario_real_admin(self) -> Usuario:
+        """Usuario con rol ADMINISTRADOR."""
+        return Usuario(
+            id=1,
+            usuario="admin",
+            contrasena="hash_falso",
+            nombre_completo="Administrador",
+            activo=True,
+            rol="ADMINISTRADOR",
+        )
+
+    def test_menu_incluye_usuarios(self, qtbot: QtBot, usuario_real_admin: Usuario) -> None:
+        """Verifica que el menu incluye 'Usuarios' para admin."""
+        ventana = VentanaPrincipal(usuario_real_admin)
+        qtbot.addWidget(ventana)
+
+        assert ventana.barra_navegacion.count() == 6
+
+        nombres = []
+        for i in range(ventana.barra_navegacion.count()):
+            item = ventana.barra_navegacion.item(i)
+            assert item is not None
+            nombres.append(item.text())
+        assert "Usuarios" in nombres
+
+    def test_paginas_con_admin(self, qtbot: QtBot, usuario_real_admin: Usuario) -> None:
+        """Verifica que hay 6 paginas para admin."""
+        ventana = VentanaPrincipal(usuario_real_admin)
+        qtbot.addWidget(ventana)
+
+        assert ventana.paginas.count() == 6
+
+    def test_menu_sin_usuarios_para_vendedor(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
+        """Verifica que el menu NO incluye 'Usuarios' para vendedor."""
+        ventana = VentanaPrincipal(usuario_admin)
+        qtbot.addWidget(ventana)
+
+        assert ventana.barra_navegacion.count() == 5
+
+        nombres = []
+        for i in range(ventana.barra_navegacion.count()):
+            item = ventana.barra_navegacion.item(i)
+            assert item is not None
+            nombres.append(item.text())
+        assert "Usuarios" not in nombres

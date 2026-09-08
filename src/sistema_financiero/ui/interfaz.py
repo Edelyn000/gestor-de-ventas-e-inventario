@@ -39,6 +39,7 @@ from .formulario_venta import FormularioVenta
 from .inventario_pagina import InventarioPagina
 from .productos_pagina import ProductosPagina
 from .reportes_pagina import ReportesPagina
+from .usuarios_pagina import UsuariosPagina
 from .ventas_pagina import VentasPagina
 
 
@@ -77,6 +78,7 @@ class VentanaPrincipal(QMainWindow):
         self.pagina_reportes: ReportesPagina = ReportesPagina(
             controlador_reportes=self.controlador_reportes,
         )
+        self.pagina_usuarios: UsuariosPagina = UsuariosPagina(usuario_actual=usuario)
 
         self._setup_ui()
 
@@ -105,6 +107,8 @@ class VentanaPrincipal(QMainWindow):
 
         # --- MODIFICABLE: nombres de los items del menu.
         items_menu = ["Dashboard", "Productos", "Ventas", "Inventario", "Reportes"]
+        if self.usuario_actual.rol == "ADMINISTRADOR":
+            items_menu.append("Usuarios")
         for nombre_item in items_menu:
             item = QListWidgetItem(nombre_item)
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -124,6 +128,7 @@ class VentanaPrincipal(QMainWindow):
         self._crear_pagina_ventas()
         self._crear_pagina_inventario()
         self._crear_pagina_reportes()
+        self._crear_pagina_usuarios()
 
         layout_principal.addWidget(self.paginas, 1)
         self.setCentralWidget(widget_central)
@@ -238,3 +243,9 @@ class VentanaPrincipal(QMainWindow):
     # --- NO TOCAR: agregar pagina al stack.
     def _crear_pagina_reportes(self) -> None:
         self.paginas.addWidget(self.pagina_reportes)
+
+    # ------------------------------------------------------------------
+    # PAGINA: Usuarios (solo admin)
+    # ------------------------------------------------------------------
+    def _crear_pagina_usuarios(self) -> None:
+        self.paginas.addWidget(self.pagina_usuarios)

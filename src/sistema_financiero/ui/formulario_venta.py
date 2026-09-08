@@ -132,7 +132,7 @@ class FormularioVenta(QDialog):
 
         self.spin_cantidad = QDoubleSpinBox()
         # --- MODIFICABLE: rango, decimales, step y valor por defecto.
-        self.spin_cantidad.setRange(0.001, 9999)
+        self.spin_cantidad.setRange(0, 9999)
         self.spin_cantidad.setDecimals(3)
         self.spin_cantidad.setSingleStep(1)
         self.spin_cantidad.setValue(1)
@@ -181,7 +181,7 @@ class FormularioVenta(QDialog):
         self.lbl_tasa.setStyleSheet("color: #a6adc8;")
         layout.addWidget(self.lbl_tasa)
 
-    # --- MODIFICABLE: campos de metodo de pago (etiquetas, metodos de pago disponibles).
+    # --- MODIFICABLE: campos de metodo de pago (etiquetas, metodos de pago disponibles).aqui estoy
     def _crear_seccion_pago(self, layout: QVBoxLayout) -> None:
         layout.addSpacing(10)
         grupo_pago = QGroupBox("Metodo de Pago")
@@ -344,10 +344,14 @@ class FormularioVenta(QDialog):
 
         for fila, item in enumerate(self.productos_venta):
             self.tabla_productos_venta.setItem(
-                fila, 0, QTableWidgetItem(item["nombre"]),
+                fila,
+                0,
+                QTableWidgetItem(item["nombre"]),
             )
             self.tabla_productos_venta.setItem(
-                fila, 1, QTableWidgetItem(str(item["cantidad"])),
+                fila,
+                1,
+                QTableWidgetItem(str(item["cantidad"])),
             )
             precio = item["precio"]
             self.tabla_productos_venta.setItem(fila, 2, QTableWidgetItem(formatear_bs(precio)))
@@ -433,7 +437,8 @@ class FormularioVenta(QDialog):
             QMessageBox.warning(self, "Error", str(e))
         except Exception:
             QMessageBox.critical(
-                self, "Error inesperado", "No se pudo crear la venta.",
+                self,
+                "Error inesperado",
+                "No se pudo crear la venta.",
             )
             raise
-

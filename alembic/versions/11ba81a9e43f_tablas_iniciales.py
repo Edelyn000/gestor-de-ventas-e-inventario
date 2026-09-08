@@ -5,19 +5,19 @@ Revises:
 Create Date: 2026-06-17 08:40:37.548811
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
-from sqlalchemy import engine_from_config
 from sqlalchemy.engine.reflection import Inspector
 
+from alembic import op
 from sistema_financiero.models.conexion import engine
 
 revision: str = "11ba81a9e43f"
-down_revision: Union[str, Sequence[str], None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -40,7 +40,12 @@ def upgrade() -> None:
         sa.Column("fecha_ingreso", sa.DATETIME(), nullable=True),
         sa.PrimaryKeyConstraint("idproducto"),
     )
-    op.create_index(op.f("ix_productos_nombre_producto"), "productos", ["nombre_producto"], unique=False)
+    op.create_index(
+        op.f("ix_productos_nombre_producto"),
+        "productos",
+        ["nombre_producto"],
+        unique=False,
+    )
     op.create_index(op.f("ix_productos_categoria"), "productos", ["categoria"], unique=False)
 
     op.create_table(
