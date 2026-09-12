@@ -111,13 +111,33 @@ class TasaCambioService:
 
     def obtener_desde_bcv(self) -> TasaCambio | None:
         """Obtiene la tasa actual desde el BCV via servicios/bcv.py
-        y la registra en la BD. Retorna None si no se pudo obtener."""
+        y la registra/actualiza en la BD. Retorna None si no se pudo obtener."""
         try:
             tasa_actual = bcv_obtener_tasa()
             hoy_dt = hoy()
             tasa_redondeada = tasa_actual.quantize(Decimal("0.01"))
-            return self.registrar(
-                fecha=hoy_dt, tasa_venta=tasa_redondeada, tasa_compra=tasa_redondeada,
-            )
-        except (ImportError, ValueError, ConnectionError):
+
+            with obtener_sesion() as session:
+                existente = session.exec(
+                    select(TasaCambio).where(TasaCambio.fecha == hoy_dt)
+                ).first()
+
+                if existente:
+                    # Actualizar tasa existente
+                    existente.tasa_venta = tasa_redondeada
+                    existente.tasa_compra = tasa_redondeada
+                    existente.activa = True
+                    existente.fecha_registro = ahora()
+                    session.add(existente)
+                    session.commit()
+                    session.refresh(existente)
+                    return existente
+                else:
+                    # Crear nueva tasa
+                    return self.registrar(
+                        fecha=hoy_dt,
+                        tasa_venta=tasa_redondeada,
+                        tasa_compra=tasa_redondeada,
+                    )
+        except ImportError, ValueError, ConnectionError:
             return None

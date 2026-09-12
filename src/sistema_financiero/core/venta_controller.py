@@ -9,7 +9,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from sistema_financiero.utils import ahora
 
@@ -82,8 +82,8 @@ class VentaController:
         tasa = self.tasas.tasa_activa(db_session)
         detalles_lista, total_bs = self._procesar_detalles(productos, db_session)
         total_usd = self._calcular_total_usd(total_bs, tasa)
-        efectivo_bs, efectivo_usd, tarjeta, pago_movil, bio_pago = (
-            self._procesar_pago(metodo_pago, total_bs, tasa)
+        efectivo_bs, efectivo_usd, tarjeta, pago_movil, bio_pago = self._procesar_pago(
+            metodo_pago, total_bs, tasa
         )
         numero_factura = self._generar_numero_factura(db_session)
 
@@ -155,12 +155,14 @@ class VentaController:
             precio_unitario = producto.precio_venta_bs
             subtotal = precio_unitario * Decimal(str(cantidad))
 
-            detalles_lista.append({
-                "producto_id": producto_id,
-                "cantidad": cantidad,
-                "precio_unitario_bs": precio_unitario,
-                "subtotal_bs": subtotal,
-            })
+            detalles_lista.append(
+                {
+                    "producto_id": producto_id,
+                    "cantidad": cantidad,
+                    "precio_unitario_bs": precio_unitario,
+                    "subtotal_bs": subtotal,
+                }
+            )
             total_bs += subtotal
 
         return detalles_lista, total_bs
@@ -196,9 +198,7 @@ class VentaController:
                 "Vaya al Dashboard para que se cargue automaticamente."
             )
             raise ValueError(msg)
-        efectivo_usd_en_bs = (
-            efectivo_usd * tasa.tasa_venta if tasa else Decimal("0.00")
-        )
+        efectivo_usd_en_bs = efectivo_usd * tasa.tasa_venta if tasa else Decimal("0.00")
         suma_pagos = efectivo_bs + efectivo_usd_en_bs + tarjeta + pago_movil + bio_pago
         if suma_pagos < total_bs:
             msg = (
@@ -365,7 +365,9 @@ class VentaController:
         """Busca una venta por su numero de factura.
         db_session: sesion opcional para tests con BD en memoria."""
         with obtener_sesion(db_session) as session:
-            return session.exec(select(Venta).where(Venta.numero_factura == numero_factura)).first()
+            return session.exec(
+                select(Venta).where(col(Venta.numero_factura) == numero_factura)
+            ).first()
 
     # ------------------------------------------------------------------
     # historial_por_fecha(): ventas de un rango de fechas

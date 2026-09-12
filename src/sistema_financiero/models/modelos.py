@@ -1,9 +1,10 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey
-from sqlmodel import Column, Field, Relationship, SQLModel
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlmodel import Field, Relationship
 
+from sistema_financiero.db.base import Base
 from sistema_financiero.utils import TIPO_VENTA_UNIDAD
 from sistema_financiero.utils.fecha import ahora
 
@@ -20,7 +21,7 @@ from sistema_financiero.utils.fecha import ahora
 #   PESO   → stock en kg (decimal), cantidad en kg en ventas.
 #   GRAMOS → stock en kg (decimal), cantidad en gramos.
 # ============================================================
-class Producto(SQLModel, table=True):
+class Producto(Base, table=True):  # type: ignore[call-arg,misc]
     idproducto: int | None = Field(default=None, primary_key=True)
     nombre_producto: str = Field(max_length=200, index=True)
     categoria: str | None = Field(default=None, max_length=100, index=True)
@@ -29,10 +30,14 @@ class Producto(SQLModel, table=True):
     precio_venta_bs: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
     precio_venta_usd: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
     stock_actual: Decimal = Field(
-        default=Decimal("0.000"), max_digits=10, decimal_places=3,
+        default=Decimal("0.000"),
+        max_digits=10,
+        decimal_places=3,
     )
     stock_minimo: Decimal = Field(
-        default=Decimal("5.000"), max_digits=10, decimal_places=3,
+        default=Decimal("5.000"),
+        max_digits=10,
+        decimal_places=3,
     )
     unidad: str = Field(default="UNIDAD", max_length=20)
     fecha_ingreso: datetime | None = Field(default=None)
@@ -48,11 +53,18 @@ class Producto(SQLModel, table=True):
 # recibidos por cada metodo de pago (efectivo, tarjeta,
 # pago movil, bio-pago). El estado puede ser COMPLETADA o
 # ANULADA.
+# Se asocia opcionalmente a una caja abierta.
 # ============================================================
-class Venta(SQLModel, table=True):
-    idventa: int | None = Field(default=None, primary_key=True)
+class Venta(Base, table=True, __tablename__="venta", __table_args__={"extend_existing": True}):  # type: ignore[call-arg,misc]
+    idventa: int | None = Field(
+        default=None,
+        sa_column=Column(Integer, primary_key=True),
+    )
     numero_factura: str | None = Field(default=None, max_length=50, unique=True)
-    fecha_venta: datetime = Field(default=ahora)
+    fecha_venta: datetime = Field(
+        default_factory=ahora,
+        sa_column=Column(DateTime, nullable=False, default=ahora),
+    )
     total_bs: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
     total_usd: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
     tasa_cambio: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
@@ -61,7 +73,14 @@ class Venta(SQLModel, table=True):
     tarjeta: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
     pago_movil: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
     bio_pago: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
-    estado: str = Field(default="COMPLETADA", max_length=20)
+    estado: str = Field(
+        default="COMPLETADA",
+        sa_column=Column(String(20), nullable=False, default="COMPLETADA"),
+    )
+    caja_id: int | None = Field(
+        default=None,
+        sa_column=Column(Integer, ForeignKey("caja.id"), nullable=True),
+    )  # FK a la caja abierta (opcional)
 
     detalles: list[VentaDetalle] = Relationship(back_populates="venta")
 
@@ -72,7 +91,7 @@ class Venta(SQLModel, table=True):
 # cantidad comprada, su precio unitario en VES y el subtotal.
 # Sirve como tabla intermedia entre Venta y Producto (N:M).
 # ============================================================
-class VentaDetalle(SQLModel, table=True):
+class VentaDetalle(Base, table=True):  # type: ignore[call-arg,misc]
     id: int | None = Field(default=None, primary_key=True)
     venta_id: int = Field(
         sa_column=Column(ForeignKey("venta.idventa", ondelete="CASCADE")),
@@ -94,7 +113,7 @@ class VentaDetalle(SQLModel, table=True):
 # el tipo (ENTRADA/SALIDA/AJUSTE), motivo, cantidad, y los
 # valores de stock anterior/nuevo para trazabilidad.
 # ============================================================
-class MovimientoInventario(SQLModel, table=True):
+class MovimientoInventario(Base, table=True):  # type: ignore[call-arg,misc]
     id: int | None = Field(default=None, primary_key=True)
     producto_id: int = Field(
         sa_column=Column(ForeignKey("producto.idproducto", ondelete="CASCADE")),
@@ -117,7 +136,7 @@ class MovimientoInventario(SQLModel, table=True):
 # Solo una tasa puede estar activa por dia. Se usa al
 # momento de registrar ventas para la conversion de moneda.
 # ============================================================
-class TasaCambio(SQLModel, table=True):
+class TasaCambio(Base, table=True):  # type: ignore[call-arg,misc]
     id: int | None = Field(default=None, primary_key=True)
     fecha: date = Field(index=True, unique=True)
     tasa_venta: Decimal = Field(max_digits=10, decimal_places=2)
@@ -133,7 +152,7 @@ class TasaCambio(SQLModel, table=True):
 # (NUNCA en texto plano). Solo los usuarios activos pueden
 # iniciar sesion.
 # ============================================================
-class Usuario(SQLModel, table=True):
+class Usuario(Base, table=True):  # type: ignore[call-arg,misc]
     id: int | None = Field(default=None, primary_key=True)
     usuario: str = Field(max_length=50, unique=True, index=True)
     contrasena: str = Field(max_length=255)
@@ -150,7 +169,7 @@ class Usuario(SQLModel, table=True):
 # vendidos, y alertas de stock bajo/sin stock.
 # Se genera automaticamente al final del dia.
 # ============================================================
-class ReporteDiario(SQLModel, table=True):
+class ReporteDiario(Base, table=True):  # type: ignore[call-arg,misc]
     id: int | None = Field(default=None, primary_key=True)
     fecha: date = Field(index=True, unique=True)
     total_ventas_bs: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
@@ -165,3 +184,64 @@ class ReporteDiario(SQLModel, table=True):
     pago_movil: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
     bio_pago: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
     fecha_generacion: datetime | None = Field(default=None)
+
+
+# ============================================================
+# MODELO: Caja
+# Registro de apertura y cierre de caja.
+# Almacena el monto inicial, el conteo fisico al cierre,
+# sobrantes/faltantes y el estado (ABIERTA/CERRADA).
+# Una sola caja por momento de trabajo.
+# ============================================================
+class Caja(Base, table=True, __tablename__="caja"):  # type: ignore[call-arg,misc]
+    id: int | None = Field(
+        default=None,
+        sa_column=Column(Integer, primary_key=True),
+    )
+    fecha_apertura: datetime = Field(
+        default_factory=ahora,
+        sa_column=Column(DateTime, nullable=False, default=ahora),
+    )
+    monto_apertura_bs: Decimal = Field(
+        default=Decimal("0.00"), max_digits=12, decimal_places=2
+    )  # Siempre en bolívares
+    fecha_cierre: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime, nullable=True),
+    )
+    monto_cierre_bs: Decimal | None = Field(
+        default=None, max_digits=12, decimal_places=2
+    )  # Total en bolívares al cerrar
+    estado: str = Field(
+        default="ABIERTA",
+        sa_column=Column(String(20), nullable=False, default="ABIERTA", index=True),
+    )
+    usuario_id: int = Field(
+        sa_column=Column(Integer, ForeignKey("usuario.id"), nullable=False),
+    )
+    total_ventas_bs: Decimal | None = Field(
+        default=None, max_digits=12, decimal_places=2
+    )  # Total ventas del turno en Bs.
+    total_ventas_usd: Decimal | None = Field(
+        default=None, max_digits=12, decimal_places=2
+    )  # Total ventas del turno en USD
+    cantidad_ventas: int | None = Field(default=None)  # Cantidad de ventas en el turno
+    efectivo_bs: Decimal | None = Field(
+        default=None, max_digits=12, decimal_places=2
+    )  # Efectivo en bolívares recibido
+    efectivo_usd: Decimal | None = Field(
+        default=None, max_digits=12, decimal_places=2
+    )  # Efectivo en dólares recibido
+    tarjeta: Decimal | None = Field(
+        default=None, max_digits=12, decimal_places=2
+    )  # Tarjeta recibida
+    pago_movil: Decimal | None = Field(
+        default=None, max_digits=12, decimal_places=2
+    )  # Pago móvil recibido
+    bio_pago: Decimal | None = Field(
+        default=None, max_digits=12, decimal_places=2
+    )  # BioPago recibido
+    sobrante_faltante_bs: Decimal | None = Field(
+        default=None, max_digits=12, decimal_places=2
+    )  # Diferencia (físico - sistema)
+    observaciones: str | None = Field(default=None, max_length=500)
