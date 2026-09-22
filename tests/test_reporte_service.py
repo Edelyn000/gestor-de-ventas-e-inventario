@@ -5,16 +5,36 @@ from pathlib import Path
 import pytest
 from sqlmodel import Session
 
+from sistema_financiero.core.caja_service import CajaService
 from sistema_financiero.core.reporte_service import ReporteService
 from sistema_financiero.core.tasa_cambio_service import TasaCambioService
 from sistema_financiero.core.venta_controller import VentaController
-from sistema_financiero.models import Producto
+from sistema_financiero.models import Producto, Usuario
 from sistema_financiero.utils import hoy
 
 
+def _abrir_caja(session: Session) -> None:
+    """Abre una caja en la sesion (requisito para registrar ventas)."""
+    caja_sk = CajaService(db_session=session)
+    if caja_sk.obtener_caja_abierta() is None:
+        usuario = Usuario(
+            usuario="admin_reporte",
+            contrasena="hash_falso",
+            nombre_completo="Admin Reporte",
+        )
+        session.add(usuario)
+        session.commit()
+        session.refresh(usuario)
+        assert usuario.id is not None
+        caja_sk.abrir_caja(monto_apertura_bs=Decimal("100.00"), usuario_id=usuario.id)
+
+
 def _crear_producto(
-    session: Session, nombre: str = "PROD", stock: Decimal = Decimal("20"),
-    stock_minimo: Decimal = Decimal("5"), precio_bs: Decimal = Decimal("10.00"),
+    session: Session,
+    nombre: str = "PROD",
+    stock: Decimal = Decimal("20"),
+    stock_minimo: Decimal = Decimal("5"),
+    precio_bs: Decimal = Decimal("10.00"),
 ) -> Producto:
     producto = Producto(
         nombre_producto=nombre,
@@ -31,7 +51,9 @@ def _crear_producto(
 
 
 def _crear_tasa_y_venta(
-    session: Session, producto_id: int, cantidad: int = 2,
+    session: Session,
+    producto_id: int,
+    cantidad: int = 2,
     precio_bs: Decimal = Decimal("10.00"),
 ) -> VentaController:
     ts = TasaCambioService()
@@ -42,6 +64,7 @@ def _crear_tasa_y_venta(
         activa=True,
         db_session=session,
     )
+    _abrir_caja(session)
     vc = VentaController()
     vc.crear(
         productos=[{"idproducto": producto_id, "cantidad": cantidad}],
@@ -77,6 +100,7 @@ def test_generar_reporte_con_ventas(session: Session) -> None:
     assert reporte.efectivo_bs == Decimal("30.00")
     assert reporte.efectivo_usd == Decimal("0.00")
     assert reporte.tarjeta == Decimal("0.00")
+    assert reporte.transferencia == Decimal("0.00")
 
 
 def test_generar_reporte_con_varias_ventas(session: Session) -> None:
@@ -89,6 +113,7 @@ def test_generar_reporte_con_varias_ventas(session: Session) -> None:
         activa=True,
         db_session=session,
     )
+    _abrir_caja(session)
     vc = VentaController()
     vc.crear(
         productos=[{"idproducto": producto.idproducto, "cantidad": 2}],
@@ -109,6 +134,36 @@ def test_generar_reporte_con_varias_ventas(session: Session) -> None:
     assert reporte.cantidad_productos_vendidos == 5
 
 
+def test_generar_reporte_con_transferencia(session: Session) -> None:
+    """Una venta pagada por transferencia se consolida en el reporte."""
+    producto = _crear_producto(session, precio_bs=Decimal("10.00"))
+    assert producto.idproducto is not None
+    _abrir_caja(session)
+    ts = TasaCambioService()
+    ts.registrar(
+        fecha=hoy(),
+        tasa_venta=Decimal("50.00"),
+        tasa_compra=Decimal("50.00"),
+        activa=True,
+        db_session=session,
+    )
+    vc = VentaController()
+    vc.crear(
+        productos=[{"idproducto": producto.idproducto, "cantidad": 2}],
+        metodo_pago={
+            "efectivo_bs": Decimal("0.00"),
+            "transferencia": Decimal("20.00"),
+        },
+        db_session=session,
+    )
+
+    rs = ReporteService()
+    reporte = rs.generar_reporte(fecha_param=hoy(), db_session=session)
+
+    assert reporte.transferencia == Decimal("20.00")
+    assert reporte.efectivo_bs == Decimal("0.00")
+
+
 def test_generar_reporte_stock_bajo_y_sin_stock(session: Session) -> None:
     _crear_producto(session, nombre="BAJO", stock=Decimal("3"), stock_minimo=Decimal("5"))
     _crear_producto(session, nombre="SIN", stock=Decimal("0"), stock_minimo=Decimal("5"))
@@ -126,9 +181,7 @@ def test_generar_reporte_regenerar(session: Session) -> None:
     rs.generar_reporte(fecha_param=hoy(), db_session=session)
     rs.generar_reporte(fecha_param=hoy(), db_session=session)
 
-    historial = rs.listar_por_rango(
-        desde=hoy(), hasta=hoy(), db_session=session
-    )
+    historial = rs.listar_por_rango(desde=hoy(), hasta=hoy(), db_session=session)
     assert len(historial) == 1
 
 

@@ -1,11 +1,11 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import ClassVar
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
-from sqlmodel import Field, Relationship
+from sqlmodel import Field, Relationship, SQLModel
 
-from sistema_financiero.db.base import Base
-from sistema_financiero.utils import TIPO_VENTA_UNIDAD
+from sistema_financiero.utils import MONEDA_BS, TIPO_VENTA_UNIDAD
 from sistema_financiero.utils.fecha import ahora
 
 
@@ -21,7 +21,7 @@ from sistema_financiero.utils.fecha import ahora
 #   PESO   → stock en kg (decimal), cantidad en kg en ventas.
 #   GRAMOS → stock en kg (decimal), cantidad en gramos.
 # ============================================================
-class Producto(Base, table=True):  # type: ignore[call-arg,misc]
+class Producto(SQLModel, table=True):
     idproducto: int | None = Field(default=None, primary_key=True)
     nombre_producto: str = Field(max_length=200, index=True)
     categoria: str | None = Field(default=None, max_length=100, index=True)
@@ -55,7 +55,7 @@ class Producto(Base, table=True):  # type: ignore[call-arg,misc]
 # ANULADA.
 # Se asocia opcionalmente a una caja abierta.
 # ============================================================
-class Venta(Base, table=True, __tablename__="venta", __table_args__={"extend_existing": True}):  # type: ignore[call-arg,misc]
+class Venta(SQLModel, table=True, __tablename__="venta", __table_args__={"extend_existing": True}):
     idventa: int | None = Field(
         default=None,
         sa_column=Column(Integer, primary_key=True),
@@ -73,6 +73,7 @@ class Venta(Base, table=True, __tablename__="venta", __table_args__={"extend_exi
     tarjeta: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
     pago_movil: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
     bio_pago: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+    transferencia: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
     estado: str = Field(
         default="COMPLETADA",
         sa_column=Column(String(20), nullable=False, default="COMPLETADA"),
@@ -83,6 +84,10 @@ class Venta(Base, table=True, __tablename__="venta", __table_args__={"extend_exi
     )  # FK a la caja abierta (opcional)
 
     detalles: list[VentaDetalle] = Relationship(back_populates="venta")
+    # Detalle de cada pago recibido (tabla venta_pago). Las columnas
+    # efectivo_bs/efectivo_usd/... siguen siendo el RESUMEN por metodo;
+    # venta_pago guarda el desglose (multi-pago) y la referencia.
+    pagos: list[PagoVenta] = Relationship(back_populates="venta")
 
 
 # ============================================================
@@ -91,7 +96,7 @@ class Venta(Base, table=True, __tablename__="venta", __table_args__={"extend_exi
 # cantidad comprada, su precio unitario en VES y el subtotal.
 # Sirve como tabla intermedia entre Venta y Producto (N:M).
 # ============================================================
-class VentaDetalle(Base, table=True):  # type: ignore[call-arg,misc]
+class VentaDetalle(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     venta_id: int = Field(
         sa_column=Column(ForeignKey("venta.idventa", ondelete="CASCADE")),
@@ -108,12 +113,60 @@ class VentaDetalle(Base, table=True):  # type: ignore[call-arg,misc]
 
 
 # ============================================================
+# MODELO: PagoVenta (tabla venta_pago)
+# Desglose de pagos de una venta: permite cobrar con VARIOS
+# metodos a la vez (multi-pago). Cada fila es UN pago.
+#
+# Regla de negocio: se registra el MONTO APLICADO (no lo que
+# entrega el cliente), asi que la suma de monto_bs de todos
+# los pagos es exactamente Venta.total_bs.
+#   monto      → monto aplicado en SU moneda (USD si el metodo
+#                es efectivo_usd; Bs en el resto).
+#   monto_bs   → equivalente aplicado en bolivares (lo que
+#                cubre de la venta).
+#   tasa_cambio→ snapshot de la tasa usada al cobrar, para que
+#                el equivalente siga siendo auditable.
+#
+# Las columnas de pago de Venta siguen siendo el resumen por
+# metodo (caja/reportes/Excel las leen tal cual).
+# ============================================================
+class PagoVenta(SQLModel, table=True):
+    # OJO: __tablename__ debe ir EN EL CUERPO de la clase; pasarlo como
+    # kwarg (table=True, __tablename__="...") se IGNORA en silencio.
+    __tablename__: ClassVar[str] = "venta_pago"
+
+    idpago: int | None = Field(
+        default=None,
+        sa_column=Column(Integer, primary_key=True),
+    )
+    venta_id: int = Field(
+        sa_column=Column(
+            ForeignKey("venta.idventa", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+    )
+    metodo: str = Field(max_length=20, index=True)  # efectivo_bs, efectivo_usd, ...
+    moneda: str = Field(default=MONEDA_BS, max_length=5)  # BS | USD
+    monto: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+    monto_bs: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
+    tasa_cambio: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
+    referencia: str | None = Field(default=None, max_length=100)
+    fecha_pago: datetime = Field(
+        default_factory=ahora,
+        sa_column=Column(DateTime, nullable=False, default=ahora),
+    )
+
+    venta: Venta | None = Relationship(back_populates="pagos")
+
+
+# ============================================================
 # MODELO: MovimientoInventario
 # Auditoria de stock: registra cada cambio de inventario con
 # el tipo (ENTRADA/SALIDA/AJUSTE), motivo, cantidad, y los
 # valores de stock anterior/nuevo para trazabilidad.
 # ============================================================
-class MovimientoInventario(Base, table=True):  # type: ignore[call-arg,misc]
+class MovimientoInventario(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     producto_id: int = Field(
         sa_column=Column(ForeignKey("producto.idproducto", ondelete="CASCADE")),
@@ -136,7 +189,7 @@ class MovimientoInventario(Base, table=True):  # type: ignore[call-arg,misc]
 # Solo una tasa puede estar activa por dia. Se usa al
 # momento de registrar ventas para la conversion de moneda.
 # ============================================================
-class TasaCambio(Base, table=True):  # type: ignore[call-arg,misc]
+class TasaCambio(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     fecha: date = Field(index=True, unique=True)
     tasa_venta: Decimal = Field(max_digits=10, decimal_places=2)
@@ -152,7 +205,7 @@ class TasaCambio(Base, table=True):  # type: ignore[call-arg,misc]
 # (NUNCA en texto plano). Solo los usuarios activos pueden
 # iniciar sesion.
 # ============================================================
-class Usuario(Base, table=True):  # type: ignore[call-arg,misc]
+class Usuario(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     usuario: str = Field(max_length=50, unique=True, index=True)
     contrasena: str = Field(max_length=255)
@@ -169,7 +222,7 @@ class Usuario(Base, table=True):  # type: ignore[call-arg,misc]
 # vendidos, y alertas de stock bajo/sin stock.
 # Se genera automaticamente al final del dia.
 # ============================================================
-class ReporteDiario(Base, table=True):  # type: ignore[call-arg,misc]
+class ReporteDiario(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     fecha: date = Field(index=True, unique=True)
     total_ventas_bs: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
@@ -183,6 +236,7 @@ class ReporteDiario(Base, table=True):  # type: ignore[call-arg,misc]
     tarjeta: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
     pago_movil: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
     bio_pago: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
+    transferencia: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
     fecha_generacion: datetime | None = Field(default=None)
 
 
@@ -193,7 +247,7 @@ class ReporteDiario(Base, table=True):  # type: ignore[call-arg,misc]
 # sobrantes/faltantes y el estado (ABIERTA/CERRADA).
 # Una sola caja por momento de trabajo.
 # ============================================================
-class Caja(Base, table=True, __tablename__="caja"):  # type: ignore[call-arg,misc]
+class Caja(SQLModel, table=True, __tablename__="caja"):
     id: int | None = Field(
         default=None,
         sa_column=Column(Integer, primary_key=True),
@@ -241,6 +295,9 @@ class Caja(Base, table=True, __tablename__="caja"):  # type: ignore[call-arg,mis
     bio_pago: Decimal | None = Field(
         default=None, max_digits=12, decimal_places=2
     )  # BioPago recibido
+    transferencia: Decimal | None = Field(
+        default=None, max_digits=12, decimal_places=2
+    )  # Transferencia recibida
     sobrante_faltante_bs: Decimal | None = Field(
         default=None, max_digits=12, decimal_places=2
     )  # Diferencia (físico - sistema)

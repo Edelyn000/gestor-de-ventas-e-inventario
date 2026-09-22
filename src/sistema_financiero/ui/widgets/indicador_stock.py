@@ -9,10 +9,10 @@ from PyQt6.QtWidgets import QLabel
 class IndicadorStock(QLabel):
     """QLabel coloreado que muestra el estado del stock."""
 
-    # --- MODIFICABLE: colores para cada estado.
-    COLOR_BAJO = QColor("#FF9800")
-    COLOR_SIN_STOCK = QColor("#f44336")
-    COLOR_OK = QColor("#4CAF50")
+    # --- MODIFICABLE: colores para cada estado (paleta de marca).
+    COLOR_BAJO = QColor("#d97706")
+    COLOR_SIN_STOCK = QColor("#dc2626")
+    COLOR_OK = QColor("#16a34a")
 
     # --- NO TOCAR: firma del constructor.
     def __init__(self, stock_actual: int = 0, stock_minimo: int = 0) -> None:

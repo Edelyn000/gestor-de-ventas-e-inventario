@@ -7,7 +7,7 @@ import pytest_mock
 from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from sistema_financiero.db import seed_admin
+from sistema_financiero.db.seeds import seed_admin
 from sistema_financiero.models import Usuario
 
 

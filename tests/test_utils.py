@@ -2,6 +2,7 @@
 
 Todas son funciones puras (sin BD, sin UI) excepto
 configurar_spinbox_bs/usd que requieren QDoubleSpinBox."""
+
 from decimal import Decimal
 
 import pytest
@@ -17,6 +18,7 @@ from sistema_financiero.utils import (
     METODO_PAGO_EFECTIVO_USD,
     METODO_PAGO_PAGO_MOVIL,
     METODO_PAGO_TARJETA,
+    METODO_PAGO_TRANSFERENCIA,
     METODOS_PAGO,
     MOTIVO_AJUSTE,
     MOTIVO_COMPRA,
@@ -28,10 +30,13 @@ from sistema_financiero.utils import (
     RANGO_SPINBOX_MAX,
     SIMBOLO_BS,
     SIMBOLO_USD,
+    SUFIJO_BS,
+    SUFIJO_USD,
     TIPO_MOVIMIENTO_AJUSTE,
     TIPO_MOVIMIENTO_ENTRADA,
     TIPO_MOVIMIENTO_SALIDA,
     formatear_bs,
+    formatear_stock,
     formatear_usd,
     formatear_usd_texto,
     redondear_moneda,
@@ -54,12 +59,14 @@ class TestConstantes:
         assert METODO_PAGO_TARJETA == "tarjeta"
         assert METODO_PAGO_PAGO_MOVIL == "pago_movil"
         assert METODO_PAGO_BIO_PAGO == "bio_pago"
+        assert METODO_PAGO_TRANSFERENCIA == "transferencia"
         assert METODOS_PAGO == [
             "efectivo_bs",
             "efectivo_usd",
             "tarjeta",
             "pago_movil",
             "bio_pago",
+            "transferencia",
         ]
 
     def test_estados_venta(self) -> None:
@@ -102,30 +109,37 @@ class TestMoneda:
     def test_simbolos(self) -> None:
         assert SIMBOLO_BS == "Bs."
         assert SIMBOLO_USD == "$"
+        assert SUFIJO_BS == " Bs."
+        assert SUFIJO_USD == " $"
 
     @pytest.mark.parametrize(
         ("valor", "decimales", "miles", "esperado"),
         [
-            (Decimal("1234.50"), 2, True, "Bs. 1,234.50"),
-            (Decimal("0.00"), 2, True, "Bs. 0.00"),
-            (Decimal("1000"), 2, False, "Bs. 1000.00"),
-            (Decimal("99.9999"), 3, True, "Bs. 99.9999" if False else "Bs. 100.000"),
+            (Decimal("1234.50"), 2, True, "1.234,50 Bs."),
+            (Decimal("0.00"), 2, True, "0,00 Bs."),
+            (Decimal("1000"), 2, False, "1000,00 Bs."),
+            (Decimal("99.9999"), 3, True, "100,000 Bs."),
         ],
     )
     def test_formatear_bs(self, valor: Decimal, decimales: int, miles: bool, esperado: str) -> None:
         assert formatear_bs(valor, decimales, miles) == esperado
 
     def test_formatear_bs_por_defecto(self) -> None:
-        assert formatear_bs(Decimal("1500.50")) == "Bs. 1,500.50"
+        assert formatear_bs(Decimal("1500.50")) == "1.500,50 Bs."
 
     def test_formatear_usd(self) -> None:
-        assert formatear_usd(Decimal("50.00")) == "$ 50.00"
-        assert formatear_usd(Decimal("1234.56")) == "$ 1,234.56"
-        assert formatear_usd(Decimal("0.00"), miles=False) == "$ 0.00"
+        assert formatear_usd(Decimal("50.00")) == "50.00 $"
+        assert formatear_usd(Decimal("1234.56")) == "1,234.56 $"
+        assert formatear_usd(Decimal("0.00"), miles=False) == "0.00 $"
 
     def test_formatear_usd_texto(self) -> None:
-        assert formatear_usd_texto(Decimal("50.00")) == "USD 50.00"
-        assert formatear_usd_texto(Decimal("1234.56")) == "USD 1,234.56"
+        assert formatear_usd_texto(Decimal("50.00")) == "50.00 USD"
+        assert formatear_usd_texto(Decimal("1234.56")) == "1,234.56 USD"
+
+    def test_formatear_stock(self) -> None:
+        assert formatear_stock(Decimal("5")) == "5,000"
+        assert formatear_stock(Decimal("0.5")) == "0,500"
+        assert formatear_stock(Decimal("1.25")) == "1,250"
 
     def test_redondear_moneda(self) -> None:
         assert redondear_moneda(Decimal("10.003")) == Decimal("10.00")

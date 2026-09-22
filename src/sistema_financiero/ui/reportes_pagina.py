@@ -16,7 +16,6 @@
 from datetime import date
 
 from PyQt6.QtCore import QDate
-from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QDateEdit,
     QFileDialog,
@@ -31,7 +30,8 @@ from PyQt6.QtWidgets import (
 
 from ..core.reporte_service import ReporteService
 from ..utils import formatear_bs, formatear_usd_texto, hoy
-from .widgets import TablaProductos
+from ..utils.logging_setup import registrar_excepcion
+from .widgets import TablaProductos, TituloPagina
 
 
 # ============ PAGINA DE REPORTES ============
@@ -48,13 +48,8 @@ class ReportesPagina(QWidget):
         layout.setSpacing(15)
 
         # [Titulo]
-        # --- MODIFICABLE: texto, fuente, tamaño.
-        lbl_titulo = QLabel("Reportes")
-        fuente = QFont()
-        fuente.setPointSize(24)
-        fuente.setBold(True)
-        lbl_titulo.setFont(fuente)
-        layout.addWidget(lbl_titulo)
+        # --- MODIFICABLE: texto del titulo (tarjeta con barra lateral).
+        layout.addWidget(TituloPagina("Reportes"))
 
         # [Barra de herramientas: filtro de fechas + botones]
         # --- MODIFICABLE: estilos, textos, colores de botones.
@@ -78,30 +73,18 @@ class ReportesPagina(QWidget):
         barra.addSpacing(20)
 
         btn_cerrar_dia = QPushButton("Cerrar Dia")
-        btn_cerrar_dia.setStyleSheet(
-            "QPushButton { background-color: #4CAF50; color: white;"
-            " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #45a049; }",
-        )
+        btn_cerrar_dia.setProperty("rol", "primario")
         # --- NO TOCAR: conexion a _cerrar_dia.
         btn_cerrar_dia.clicked.connect(self._cerrar_dia)
         barra.addWidget(btn_cerrar_dia)
 
         btn_exportar = QPushButton("Exportar Excel")
-        btn_exportar.setStyleSheet(
-            "QPushButton { background-color: #2196F3; color: white;"
-            " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #0b7dda; }",
-        )
+        btn_exportar.setProperty("rol", "informacion")
         btn_exportar.clicked.connect(self._exportar_reporte_excel)
         barra.addWidget(btn_exportar)
 
         btn_regenerar = QPushButton("Regenerar")
-        btn_regenerar.setStyleSheet(
-            "QPushButton { background-color: #FF9800; color: white;"
-            " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #e68a00; }",
-        )
+        btn_regenerar.setProperty("rol", "alerta")
         btn_regenerar.clicked.connect(self._regenerar_reporte)
         barra.addWidget(btn_regenerar)
 
@@ -143,10 +126,14 @@ class ReportesPagina(QWidget):
             self.tabla_reportes.setItem(fila, 0, QTableWidgetItem(str(rep.id or "")))
             self.tabla_reportes.setItem(fila, 1, QTableWidgetItem(rep.fecha.isoformat()))
             self.tabla_reportes.setItem(
-                fila, 2, QTableWidgetItem(formatear_bs(rep.total_ventas_bs)),
+                fila,
+                2,
+                QTableWidgetItem(formatear_bs(rep.total_ventas_bs)),
             )
             self.tabla_reportes.setItem(
-                fila, 3, QTableWidgetItem(formatear_usd_texto(rep.total_ventas_usd)),
+                fila,
+                3,
+                QTableWidgetItem(formatear_usd_texto(rep.total_ventas_usd)),
             )
             self.tabla_reportes.setItem(fila, 4, QTableWidgetItem(str(rep.cantidad_ventas)))
             self.tabla_reportes.setItem(fila, 5, QTableWidgetItem(str(rep.productos_stock_bajo)))
@@ -171,9 +158,9 @@ class ReportesPagina(QWidget):
                 f"Total Bs.: {formatear_bs(reporte.total_ventas_bs)}",
             )
             self._refrescar_tabla_reportes()
-        except Exception:
-            QMessageBox.critical(self, "Error", "Error al generar reporte.")
-            raise
+        except Exception as e:
+            registrar_excepcion(e, "_cerrar_dia")
+            QMessageBox.critical(self, "Error", f"Error al generar reporte.\n{e}")
 
     # --- NO TOCAR: logica de regeneracion de reporte.
     def _regenerar_reporte(self) -> None:
@@ -190,7 +177,7 @@ class ReportesPagina(QWidget):
         try:
             partes = fecha_texto.split("-")
             fecha_reporte = date(int(partes[0]), int(partes[1]), int(partes[2]))
-        except (IndexError, ValueError):
+        except IndexError, ValueError:
             QMessageBox.warning(self, "Error", "Fecha de reporte invalida.")
             return
 
@@ -213,9 +200,9 @@ class ReportesPagina(QWidget):
                 f"Reporte del {reporte.fecha} regenerado correctamente.",
             )
             self._refrescar_tabla_reportes()
-        except Exception:
-            QMessageBox.critical(self, "Error", "Error al regenerar reporte.")
-            raise
+        except Exception as e:
+            registrar_excepcion(e, "_regenerar_reporte")
+            QMessageBox.critical(self, "Error", f"Error al regenerar reporte.\n{e}")
 
     # --- NO TOCAR: logica de exportacion a Excel.
     # --- MODIFICABLE: nombre de archivo por defecto, filtro de archivos.
@@ -249,6 +236,6 @@ class ReportesPagina(QWidget):
                 "Exportado",
                 f"Reporte exportado correctamente a:\n{ruta}",
             )
-        except Exception:
-            QMessageBox.critical(self, "Error", "Error al exportar.")
-            raise
+        except Exception as e:
+            registrar_excepcion(e, "_exportar_reporte_excel")
+            QMessageBox.critical(self, "Error", f"Error al exportar.\n{e}")

@@ -59,6 +59,7 @@ from ..utils import (
     configurar_spinbox_usd,
     formatear_bs,
 )
+from ..utils.logging_setup import registrar_excepcion
 
 
 # ============ DIALOGO CREAR/EDITAR PRODUCTO ============
@@ -182,6 +183,7 @@ class FormularioProducto(QDialog):
         btn_layout.addWidget(btn_cancelar)
 
         btn_guardar = QPushButton("Guardar")
+        btn_guardar.setProperty("rol", "primario")
         # --- NO TOCAR: _guardar conecta con el controlador.
         btn_guardar.clicked.connect(self._guardar)
         btn_layout.addWidget(btn_guardar)
@@ -232,11 +234,11 @@ class FormularioProducto(QDialog):
             self.lbl_tasa.setText(
                 f"Tasa: {formatear_bs(tasa.tasa_venta)} / USD  (al {tasa.fecha})",
             )
-            self.lbl_tasa.setStyleSheet("color: #a6adc8; font-size: 11px;")
+            self.lbl_tasa.setStyleSheet("color: #6b7280; font-size: 11px;")
         else:
             # --- MODIFICABLE: mensaje cuando no hay tasa activa.
             self.lbl_tasa.setText("No hay tasa activa. Los precios no se sincronizaran.")
-            self.lbl_tasa.setStyleSheet("color: #585b70; font-size: 11px;")
+            self.lbl_tasa.setStyleSheet("color: #6b7280; font-size: 11px;")
 
     # ------------------------------------------------------------------
     # _actualizar_usd_desde_bs: al cambiar Bs → calcular USD
@@ -247,7 +249,13 @@ class FormularioProducto(QDialog):
             return
         # ADVERTENCIA: tasa_activa() cierra la sesión. Solo columnas directas.
         tasa = self.controlador_tasas.tasa_activa()
-        if tasa and tasa.tasa_venta > 0 and valor_bs > 0:
+        if valor_bs <= 0:
+            # Sin precio en Bs: el equivalente en USD se limpia (0).
+            self._actualizando = True
+            self.spin_precio_venta_usd.setValue(0.0)
+            self._actualizando = False
+            return
+        if tasa and tasa.tasa_venta > 0:
             self._actualizando = True
             usd = valor_bs / float(tasa.tasa_venta)
             self.spin_precio_venta_usd.setValue(round(usd, 2))
@@ -262,7 +270,13 @@ class FormularioProducto(QDialog):
             return
         # ADVERTENCIA: tasa_activa() cierra la sesión. Solo columnas directas.
         tasa = self.controlador_tasas.tasa_activa()
-        if tasa and tasa.tasa_venta > 0 and valor_usd > 0:
+        if valor_usd <= 0:
+            # Sin precio en USD: el equivalente en Bs se limpia (0).
+            self._actualizando = True
+            self.spin_precio_venta_bs.setValue(0.0)
+            self._actualizando = False
+            return
+        if tasa and tasa.tasa_venta > 0:
             self._actualizando = True
             bs = valor_usd * float(tasa.tasa_venta)
             self.spin_precio_venta_bs.setValue(round(bs, 2))
@@ -361,9 +375,10 @@ class FormularioProducto(QDialog):
 
         except ValueError as e:
             QMessageBox.warning(self, "Error de validacion", str(e))
-        except Exception:
+        except Exception as e:
+            registrar_excepcion(e, "FormularioProducto._guardar")
             QMessageBox.critical(
-                self, "Error inesperado", "No se pudo guardar el producto.",
+                self,
+                "Error inesperado",
+                f"No se pudo guardar el producto.\n{e}",
             )
-            raise
-

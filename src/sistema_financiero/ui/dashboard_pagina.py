@@ -14,7 +14,7 @@ from decimal import Decimal
 from typing import cast
 
 from PyQt6.QtCore import QThread, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -30,7 +30,7 @@ from ..core.tasa_cambio_service import TasaCambioService
 from ..models import Producto, TasaCambio, Venta, obtener_sesion
 from ..utils import ahora, formatear_bs, formatear_stock
 from ..utils import hoy as fecha_hoy
-from .widgets import TablaProductos
+from .widgets import TablaProductos, TituloPagina
 
 
 # ============ HILO PARA CONSULTA BCV ASINCRONA ============
@@ -65,13 +65,8 @@ class DashboardPagina(QWidget):
         layout.setSpacing(20)
 
         # [Titulo del dashboard]
-        # --- MODIFICABLE: texto del titulo, fuente, color.
-        lbl_titulo = QLabel("Dashboard")
-        fuente_titulo = QFont()
-        fuente_titulo.setPointSize(24)
-        fuente_titulo.setBold(True)
-        lbl_titulo.setFont(fuente_titulo)
-        layout.addWidget(lbl_titulo)
+        # --- MODIFICABLE: texto del titulo (tarjeta con barra lateral).
+        layout.addWidget(TituloPagina("Dashboard"))
 
         # [Tarjetas de resumen numerico]
         layout.addLayout(self._crear_tarjetas_resumen())
@@ -79,7 +74,7 @@ class DashboardPagina(QWidget):
         # [Seccion de productos con stock bajo]
         # --- MODIFICABLE: texto, estilo de la etiqueta.
         lbl_stock = QLabel("Productos con Stock Bajo")
-        lbl_stock.setStyleSheet("font-size: 14px; font-weight: bold; color: #cdd6f4;")
+        lbl_stock.setProperty("rol", "seccion")
         layout.addWidget(lbl_stock)
 
         # --- MODIFICABLE: columnas, anchos de la tabla de stock bajo.
@@ -112,10 +107,19 @@ class DashboardPagina(QWidget):
 
         self._dashboard_labels = {}
 
+        # [Acento por tarjeta: guia visual del tipo de dato (ver ui/estilos.py)]
+        acentos = {
+            "ventas_hoy": "azul",
+            "stock_bajo": "naranja",
+            "sin_stock": "rojo",
+            "tasa_bcv": "verde",
+        }
+
         for clave, titulo, _icono in datos_tarjetas:
             tarjeta = QFrame()
-            # --- MODIFICABLE: estilo de la tarjeta (borde, fondo, etc.).
-            tarjeta.setStyleSheet("")
+            # --- MODIFICABLE: estilo de la tarjeta (borde, fondo) en ui/estilos.py.
+            tarjeta.setProperty("rol", "tarjeta")
+            tarjeta.setProperty("acento", acentos[clave])
             tarjeta.setMinimumHeight(100)
 
             layout_tarjeta = QVBoxLayout(tarjeta)
@@ -124,12 +128,12 @@ class DashboardPagina(QWidget):
 
             # --- MODIFICABLE: texto y color del titulo de la tarjeta.
             lbl_titulo_tarjeta = QLabel(titulo)
-            lbl_titulo_tarjeta.setStyleSheet("color: #a6adc8; font-size: 12px;")
+            lbl_titulo_tarjeta.setProperty("rol", "titulo_tarjeta")
             layout_tarjeta.addWidget(lbl_titulo_tarjeta)
 
             # --- MODIFICABLE: estilo del valor numerico.
             lbl_valor = QLabel("—")
-            lbl_valor.setStyleSheet("font-size: 18px; font-weight: bold; color: #cdd6f4;")
+            lbl_valor.setProperty("rol", "valor_tarjeta")
             layout_tarjeta.addWidget(lbl_valor)
 
             self._dashboard_labels[clave] = lbl_valor
@@ -218,6 +222,10 @@ class DashboardPagina(QWidget):
             self.tabla_stock_bajo.setItem(fila, 3, QTableWidgetItem(stock_min))
             estado = "SIN STOCK" if prod.stock_actual == 0 else "STOCK BAJO"
             item_estado = QTableWidgetItem(estado)
+            # --- MODIFICABLE: color del estado (sin stock rojo, stock bajo naranja).
+            item_estado.setForeground(
+                QColor("#dc2626") if estado == "SIN STOCK" else QColor("#d97706"),
+            )
             self.tabla_stock_bajo.setItem(fila, 4, item_estado)
 
         self.tabla_stock_bajo.resizeColumnsToContents()

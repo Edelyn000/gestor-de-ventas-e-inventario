@@ -12,21 +12,25 @@
 #   metodo_pago[METODO_PAGO_EFECTIVO_BS] = Decimal("100.00")
 # ============================================================
 
+from decimal import Decimal
+
 # ----------------------------------------------------------
 # METODOS DE PAGO
-# Son los 5 metodos de pago que acepta el sistema:
+# Son los 6 metodos de pago que acepta el sistema:
 #   efectivo_bs  → Bolivares en efectivo.
 #   efectivo_usd → Dolares en efectivo.
 #   tarjeta      → Tarjeta de debito/credito (en Bs).
 #   pago_movil   → Pago movil (en Bs).
 #   bio_pago     → BioPago (en Bs).
+#   transferencia→ Transferencia bancaria (en Bs).
 #
 # Cada metodo de pago se identifica con un string que
 # funciona como clave en los diccionarios. Se usa en:
 #   - VentaController.crear() para recibir los montos.
 #   - Venta.efectivo_bs, Venta.tarjeta, etc. (modelo ORM).
+#   - PagoVenta.metodo (desglose multi-pago).
 #   - ReporteDiario.efectivo_bs, ReporteDiario.tarjeta, etc.
-#   - interfaz.py para crear los QDoubleSpinBox de pago.
+#   - UI del POS para construir los botones de metodo de pago.
 #   - reporte_service.py para los encabezados de Excel.
 # ----------------------------------------------------------
 METODO_PAGO_EFECTIVO_BS: str = "efectivo_bs"
@@ -34,15 +38,44 @@ METODO_PAGO_EFECTIVO_USD: str = "efectivo_usd"
 METODO_PAGO_TARJETA: str = "tarjeta"
 METODO_PAGO_PAGO_MOVIL: str = "pago_movil"
 METODO_PAGO_BIO_PAGO: str = "bio_pago"
+METODO_PAGO_TRANSFERENCIA: str = "transferencia"
 
 # Lista completa de metodos de pago para iterar.
+# El orden es el que muestra la UI del POS (efectivo primero).
 METODOS_PAGO: list[str] = [
     METODO_PAGO_EFECTIVO_BS,
     METODO_PAGO_EFECTIVO_USD,
     METODO_PAGO_TARJETA,
     METODO_PAGO_PAGO_MOVIL,
     METODO_PAGO_BIO_PAGO,
+    METODO_PAGO_TRANSFERENCIA,
 ]
+
+
+# ----------------------------------------------------------
+# MONEDAS
+# Moneda de un pago (PagoVenta.moneda) y de los montos que
+# recibe la UI. El metodo "efectivo_usd" se cobra en USD; el
+# resto de los metodos opera en bolivares.
+# ----------------------------------------------------------
+MONEDA_BS: str = "BS"
+MONEDA_USD: str = "USD"
+
+# Metodos de pago que se cobran en dolares.
+METODOS_PAGO_USD: list[str] = [METODO_PAGO_EFECTIVO_USD]
+
+
+# ----------------------------------------------------------
+# TOLERANCIA DE REDONDEO EN PAGOS
+# Diferencia maxima (en Bs.) que se acepta entre la suma de
+# los metodos de pago y el total de la venta.
+#
+# ¿Por que existe? El equivalente en USD que ve el cajero
+# esta redondeado a centimos, y al reconvertirlo a Bs. puede
+# quedar 1 centimo por debajo del total. Sin esta tolerancia
+# la venta se rechazaba por un centimo ("no cubre el total").
+# ----------------------------------------------------------
+TOLERANCIA_REDONDEO: Decimal = Decimal("0.01")
 
 
 # ----------------------------------------------------------

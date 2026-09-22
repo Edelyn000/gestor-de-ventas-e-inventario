@@ -12,7 +12,6 @@
 # --- NO TOCAR: nombre de la clase (UsuariosPagina), firma del __init__.
 # --- MODIFICABLE: estilos, colores, fuentes, textos, columnas.
 # ============================================================
-from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -29,8 +28,9 @@ from PyQt6.QtWidgets import (
 
 from ..core.auth_service import AuthService
 from ..models import Usuario
+from ..utils.logging_setup import registrar_excepcion
 from .formulario_cambio_contrasena import FormularioCambioContrasena
-from .widgets import TablaProductos
+from .widgets import TablaProductos, TituloPagina
 
 
 # ============ PAGINA DE USUARIOS ============
@@ -48,13 +48,8 @@ class UsuariosPagina(QWidget):
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
 
-        # --- MODIFICABLE: texto, fuente, tamano del titulo.
-        lbl_titulo = QLabel("Usuarios")
-        fuente = QFont()
-        fuente.setPointSize(24)
-        fuente.setBold(True)
-        lbl_titulo.setFont(fuente)
-        layout.addWidget(lbl_titulo)
+        # --- MODIFICABLE: texto del titulo (tarjeta con barra lateral).
+        layout.addWidget(TituloPagina("Usuarios"))
 
         # --- Seccion Mi perfil.
         layout.addWidget(self._crear_seccion_perfil())
@@ -76,7 +71,7 @@ class UsuariosPagina(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
 
         lbl_seccion = QLabel("Mi perfil")
-        lbl_seccion.setStyleSheet("font-size: 16px; font-weight: bold; color: #89b4fa;")
+        lbl_seccion.setProperty("rol", "seccion_grande")
         lay.addWidget(lbl_seccion)
 
         info = QVBoxLayout()
@@ -118,7 +113,7 @@ class UsuariosPagina(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
 
         lbl_seccion = QLabel("Otros usuarios")
-        lbl_seccion.setStyleSheet("font-size: 16px; font-weight: bold; color: #89b4fa;")
+        lbl_seccion.setProperty("rol", "seccion_grande")
         lay.addWidget(lbl_seccion)
 
         # --- MODIFICABLE: columnas y anchos de la tabla.
@@ -136,10 +131,7 @@ class UsuariosPagina(QWidget):
         btn_layout = QHBoxLayout()
 
         btn_crear = QPushButton("+ Crear Usuario")
-        btn_crear.setStyleSheet(
-            "background-color: #4CAF50; color: white;"
-            " font-weight: bold; padding: 8px 16px; border-radius: 4px;",
-        )
+        btn_crear.setProperty("rol", "primario")
         btn_crear.clicked.connect(self._crear_usuario)
         btn_layout.addWidget(btn_crear)
 
@@ -307,10 +299,7 @@ class DialogoCrearUsuario(QDialog):
         btn_layout.addWidget(btn_cancelar)
 
         btn_crear = QPushButton("Crear")
-        btn_crear.setStyleSheet(
-            "background-color: #4CAF50; color: white;"
-            " font-weight: bold; padding: 8px 16px; border-radius: 4px;",
-        )
+        btn_crear.setProperty("rol", "primario")
         btn_crear.clicked.connect(self._crear)
         btn_layout.addWidget(btn_crear)
 
@@ -337,6 +326,9 @@ class DialogoCrearUsuario(QDialog):
             self.accept()
         except ValueError as e:
             QMessageBox.warning(self, "Error", str(e))
+        except Exception as e:
+            registrar_excepcion(e, "DialogoCrearUsuario._crear")
+            QMessageBox.critical(self, "Error inesperado", f"No se pudo crear el usuario.\n{e}")
 
 
 # ============================================================
@@ -380,10 +372,7 @@ class DialogoResetContrasena(QDialog):
         btn_layout.addWidget(btn_cancelar)
 
         btn_guardar = QPushButton("Guardar")
-        btn_guardar.setStyleSheet(
-            "background-color: #89b4fa; color: #1e1e2e;"
-            " font-weight: bold; padding: 8px 16px; border-radius: 4px;",
-        )
+        btn_guardar.setProperty("rol", "guardar")
         btn_guardar.clicked.connect(self._guardar)
         btn_layout.addWidget(btn_guardar)
 
@@ -397,7 +386,8 @@ class DialogoResetContrasena(QDialog):
 
         try:
             ok = self.auth_service.cambiar_contrasena_admin(
-                self.id_usuario, nueva,
+                self.id_usuario,
+                nueva,
             )
             if ok:
                 QMessageBox.information(self, "Exito", "Contraseña actualizada.")
@@ -406,3 +396,8 @@ class DialogoResetContrasena(QDialog):
                 QMessageBox.warning(self, "Error", "No se pudo actualizar la contraseña.")
         except ValueError as e:
             QMessageBox.warning(self, "Error", str(e))
+        except Exception as e:
+            registrar_excepcion(e, "DialogoResetContrasena._guardar")
+            QMessageBox.critical(
+                self, "Error inesperado", f"No se pudo actualizar la contraseña.\n{e}"
+            )

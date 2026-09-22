@@ -21,14 +21,15 @@
 #
 # QUE NO SE DEBE TOCAR:
 #   - Nombre de la clase (InventarioPagina).
-#   - Firma del __init__ (controlador_inventario, controlador_productos).
+#   - Firma del __init__ (controlador_inventario, controlador_productos) —
+#     se agrego al final un parametro OPCIONAL mostrar_titulo=True (los
+#     llamadores con 2 argumentos no cambian).
 #   - Metodos _cargar_productos_en_combo y _refrescar_tabla_movimientos
 #     (llamados al inicio y tras cada operacion).
 # ============================================================
 from decimal import Decimal
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -48,7 +49,8 @@ from PyQt6.QtWidgets import (
 from ..core.inventario_service import InventarioService
 from ..core.producto_controller import ProductoController
 from ..utils import formatear_stock
-from .widgets import TablaProductos
+from ..utils.logging_setup import registrar_excepcion
+from .widgets import TablaProductos, TituloPagina
 
 
 class InventarioPagina(QWidget):
@@ -57,6 +59,7 @@ class InventarioPagina(QWidget):
         self,
         controlador_inventario: InventarioService,
         controlador_productos: ProductoController,
+        mostrar_titulo: bool = True,
     ) -> None:
         super().__init__()
 
@@ -66,17 +69,18 @@ class InventarioPagina(QWidget):
 
         # --- MODIFICABLE: layout, margenes, espaciado.
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(30, 30, 30, 30)
+        if mostrar_titulo:
+            layout.setContentsMargins(30, 30, 30, 30)
+        else:
+            # Al embeberse como pestana de la pagina de Productos, la pagina
+            # contenedora ya aporta margenes y el titulo (evita doble margen).
+            layout.setContentsMargins(0, 10, 0, 0)
         layout.setSpacing(15)
 
         # [Titulo de la pagina]
-        # --- MODIFICABLE: texto, fuente, tamaño del titulo.
-        lbl_titulo = QLabel("Inventario")
-        fuente = QFont()
-        fuente.setPointSize(24)
-        fuente.setBold(True)
-        lbl_titulo.setFont(fuente)
-        layout.addWidget(lbl_titulo)
+        # --- MODIFICABLE: texto del titulo (tarjeta con barra lateral).
+        if mostrar_titulo:
+            layout.addWidget(TituloPagina("Inventario"))
 
         # [Barra de herramientas: combo + botones]
         # --- MODIFICABLE: estilos de botones, colores, textos, fuente.
@@ -91,40 +95,24 @@ class InventarioPagina(QWidget):
         barra.addWidget(self.cmb_producto_inventario)
         barra.addSpacing(20)
 
-        # --- MODIFICABLE: estilos y textos de los botones de accion.
+        # --- MODIFICABLE: textos de los botones de accion (colores en ui/estilos.py).
         btn_entrada = QPushButton("Entrada")
-        btn_entrada.setStyleSheet(
-            "QPushButton { background-color: #4CAF50; color: white;"
-            " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #45a049; }",
-        )
+        btn_entrada.setProperty("rol", "accion")
         btn_entrada.clicked.connect(lambda: self._mostrar_dialogo_movimiento("ENTRADA"))
         barra.addWidget(btn_entrada)
 
         btn_salida = QPushButton("Salida")
-        btn_salida.setStyleSheet(
-            "QPushButton { background-color: #f44336; color: white;"
-            " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #da190b; }",
-        )
+        btn_salida.setProperty("rol", "peligro")
         btn_salida.clicked.connect(lambda: self._mostrar_dialogo_movimiento("SALIDA"))
         barra.addWidget(btn_salida)
 
         btn_ajuste = QPushButton("Ajuste")
-        btn_ajuste.setStyleSheet(
-            "QPushButton { background-color: #FF9800; color: white;"
-            " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #e68a00; }",
-        )
+        btn_ajuste.setProperty("rol", "alerta")
         btn_ajuste.clicked.connect(lambda: self._mostrar_dialogo_movimiento("AJUSTE"))
         barra.addWidget(btn_ajuste)
 
         btn_refrescar = QPushButton("Refrescar")
-        btn_refrescar.setStyleSheet(
-            "QPushButton { background-color: #2196F3; color: white;"
-            " padding: 8px 16px; border-radius: 5px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #0b7dda; }",
-        )
+        btn_refrescar.setProperty("rol", "informacion")
         btn_refrescar.clicked.connect(self._refrescar_tabla_movimientos)
         barra.addWidget(btn_refrescar)
 
@@ -182,16 +170,14 @@ class InventarioPagina(QWidget):
             nombre = mov.producto.nombre_producto if mov.producto else "-"
             self.tabla_movimientos.setItem(fila, 2, QTableWidgetItem(nombre))
             item_tipo = QTableWidgetItem(mov.tipo)
-            # --- MODIFICABLE: colores de los tipos de movimiento.
+            # --- MODIFICABLE: colores de los tipos de movimiento (solo texto,
+            #     sin fondo: los fondos de color chillones quitaban legibilidad).
             if mov.tipo == "ENTRADA":
-                item_tipo.setBackground(Qt.GlobalColor.green)
-                item_tipo.setForeground(Qt.GlobalColor.white)
+                item_tipo.setForeground(QColor("#16a34a"))
             elif mov.tipo == "SALIDA":
-                item_tipo.setBackground(Qt.GlobalColor.red)
-                item_tipo.setForeground(Qt.GlobalColor.white)
+                item_tipo.setForeground(QColor("#dc2626"))
             else:
-                item_tipo.setBackground(Qt.GlobalColor.darkYellow)
-                item_tipo.setForeground(Qt.GlobalColor.white)
+                item_tipo.setForeground(QColor("#d97706"))
             self.tabla_movimientos.setItem(fila, 3, item_tipo)
             self.tabla_movimientos.setItem(fila, 4, QTableWidgetItem(str(mov.cantidad)))
             self.tabla_movimientos.setItem(fila, 5, QTableWidgetItem(str(mov.stock_anterior)))
@@ -267,6 +253,11 @@ class InventarioPagina(QWidget):
 
         except ValueError as e:
             QMessageBox.warning(dialogo, "Error", str(e))
+        except Exception as e:
+            registrar_excepcion(e, "_confirmar_movimiento")
+            QMessageBox.critical(
+                dialogo, "Error inesperado", f"No se pudo registrar el movimiento.\n{e}"
+            )
 
     # --- MODIFICABLE: campos del formulario (etiquetas, items del combo de motivos,
     #     placeholders, rangos de cantidad).
@@ -312,3 +303,14 @@ class InventarioPagina(QWidget):
         layout.addLayout(form)
 
         return cmb_producto, spin_cantidad, cmb_motivo, txt_observaciones
+
+    # --- MODIFICABLE: metodos publicos de refresco (usados cuando la pagina
+    #     se embebe como pestana "Movimientos" de ProductosPagina).
+    def refrescar_combo(self) -> None:
+        """Recarga el combo de productos (tras crear/editar/eliminar uno)."""
+        self._cargar_productos_en_combo()
+
+    def refrescar_pestana(self) -> None:
+        """Refresca combo y tabla de movimientos al mostrarse la pestana."""
+        self._cargar_productos_en_combo()
+        self._refrescar_tabla_movimientos()

@@ -76,7 +76,7 @@ _COL_ESTADO: int = 5
 #   - generar_reporte(): consolida LAS VENTAS de un dia en un ReporteDiario.
 #   - obtener_por_fecha(): busca si ya existe un reporte para una fecha.
 #   - listar_por_rango(): historial de reportes entre dos fechas.
-#   - exportar_excel(): crea un archivo .xlsx con formato profesional.
+#   - exportar_excel(): crea un archivo .xlsx con formato professional.
 #
 # QUE NO HACE:
 #   - No modifica ventas ni productos.
@@ -96,7 +96,7 @@ class ReporteService:
     # ------------------------------------------------------------------
     # generar_reporte(): genera (o regenera) el reporte diario
     # ------------------------------------------------------------------
-    # Parametros:
+    # Parameters:
     #   - fecha_param: la fecha del reporte (default = hoy).
     #
     # QUE HACE:
@@ -112,7 +112,7 @@ class ReporteService:
     #     de haber cerrado el dia.
     #
     # Por que eliminar y no actualizar?
-    #   - Es mas simple que calcular diferencias.
+    #   - Es mas simple que calculator diferencias.
     #   - El reporte se genera desde cero con los datos actuales.
     # ------------------------------------------------------------------
     def generar_reporte(
@@ -165,6 +165,7 @@ class ReporteService:
             tarjeta = Decimal("0.00")
             pago_movil = Decimal("0.00")
             bio_pago = Decimal("0.00")
+            transferencia = Decimal("0.00")
 
             # Recorrer cada venta y sumar sus montos.
             for v in ventas:
@@ -175,6 +176,7 @@ class ReporteService:
                 tarjeta += v.tarjeta
                 pago_movil += v.pago_movil
                 bio_pago += v.bio_pago
+                transferencia += v.transferencia
 
                 # Contar la cantidad de productos en esta venta.
                 # Los detalles se cargaron con selectinload arriba.
@@ -215,6 +217,7 @@ class ReporteService:
                 tarjeta=tarjeta,
                 pago_movil=pago_movil,
                 bio_pago=bio_pago,
+                transferencia=transferencia,
                 fecha_generacion=ahora(),
             )
             session.add(reporte)
@@ -288,7 +291,8 @@ class ReporteService:
         db_session: sesion opcional para tests con BD en memoria."""
         # Cargar datos desde la BD (reporte, ventas, stock).
         reporte_opt, ventas, stock_bajo, sin_stock = self._cargar_datos_reporte(
-            reporte_id, db_session,
+            reporte_id,
+            db_session,
         )
         if reporte_opt is None:
             msg = f"No existe el reporte con ID {reporte_id}"
@@ -448,6 +452,7 @@ class ReporteService:
             ("Tarjeta", formatear_bs(reporte.tarjeta)),
             ("Pago Movil", formatear_bs(reporte.pago_movil)),
             ("BioPago", formatear_bs(reporte.bio_pago)),
+            ("Transferencia", formatear_bs(reporte.transferencia)),
             ("", ""),
             ("— Alertas de Stock —", ""),
             ("Productos Stock Bajo", str(reporte.productos_stock_bajo)),
@@ -488,6 +493,7 @@ class ReporteService:
             "Tarjeta",
             "PagoMovil",
             "BioPago",
+            "Transferencia",
         ]
         for col, enc in enumerate(enc_ventas, start=1):
             celda = ws.cell(row=1, column=col, value=enc)
@@ -508,6 +514,7 @@ class ReporteService:
                 float(v.tarjeta),
                 float(v.pago_movil),
                 float(v.bio_pago),
+                float(v.transferencia),
             ]
             for col, val in enumerate(datos, start=1):
                 celda = ws.cell(row=i, column=col, value=val)
@@ -516,7 +523,7 @@ class ReporteService:
                     celda.number_format = "#,##0.00"
 
         # Ajustar ancho de columnas.
-        for col, ancho in enumerate([20, 10, 12, 12, 12, 12, 12, 12, 12], start=1):
+        for col, ancho in enumerate([20, 10, 12, 12, 12, 12, 12, 12, 12, 12], start=1):
             ws.column_dimensions[chr(64 + col)].width = ancho
 
     # ------------------------------------------------------------------

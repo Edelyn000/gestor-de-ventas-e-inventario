@@ -60,9 +60,11 @@ from sistema_financiero.ui.formulario_venta import FormularioVenta
 # un usuario real (objeto Usuario). Lo definimos abajo.
 from sistema_financiero.ui.interfaz import VentanaPrincipal
 from sistema_financiero.ui.inventario_pagina import InventarioPagina
+from sistema_financiero.ui.productos_pagina import ProductosPagina
 from sistema_financiero.ui.usuarios_pagina import UsuariosPagina
 from sistema_financiero.ui.ventana_login import VentanaLogin
 from sistema_financiero.ui.ventas_pagina import VentasPagina
+from sistema_financiero.ui.widgets import TituloPagina
 from sistema_financiero.utils import METODOS_PAGO
 
 # ============================================================
@@ -401,9 +403,10 @@ class TestVentanaPrincipal:
         # Verificar que el atributo barra_navegacion existe.
         assert hasattr(ventana, "barra_navegacion")
 
-        # Debe tener 5 items: Dashboard, Ventas, Productos, Inventario, Reportes.
-        # (La caja esta UNIDA a la pagina de Ventas: un solo item.)
-        assert ventana.barra_navegacion.count() == 5
+        # Debe tener 4 items: Dashboard, Ventas, Productos, Reportes.
+        # (La caja esta UNIDA a la pagina de Ventas y el inventario UNIDO a
+        # la pagina de Productos, pestana "Movimientos": un solo item c/u.)
+        assert ventana.barra_navegacion.count() == 4
 
         # Verificar los nombres de los items.
         nombres = []
@@ -415,22 +418,54 @@ class TestVentanaPrincipal:
             "Dashboard",
             "Ventas",
             "Productos",
-            "Inventario",
             "Reportes",
         ]
 
     def test_paginas_existen(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
-        """Verifica que las 6 paginas del sistema estan en el QStackedWidget.
+        """Verifica que las 5 paginas del sistema estan en el QStackedWidget.
 
         VentanaPrincipal usa un QStackedWidget que contiene una pagina
-        por cada modulo (incluyendo Usuarios). Verificamos que hay 6 paginas
-        (la caja vive dentro de la pagina de Ventas, no es una pagina aparte).
+        por cada modulo (incluyendo Usuarios). Verificamos que hay 5 paginas
+        (la caja vive dentro de la pagina de Ventas y el inventario dentro
+        de la pagina de Productos: no son paginas aparte).
         """
         ventana = VentanaPrincipal(usuario_admin)
         qtbot.addWidget(ventana)
 
-        # El QStackedWidget debe tener 6 paginas (una por modulo).
-        assert ventana.paginas.count() == 6
+        # El QStackedWidget debe tener 5 paginas (una por modulo).
+        assert ventana.paginas.count() == 5
+
+    def test_cabecera_aplicacion_existe(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
+        """La barra superior (header) existe y muestra titulo + usuario.
+
+        El header es un QFrame con rol "cabecera_aplicacion" (fondo azul
+        #1e3a8a) que va encima del menu lateral y las paginas.
+        """
+        ventana = VentanaPrincipal(usuario_admin)
+        qtbot.addWidget(ventana)
+
+        assert hasattr(ventana, "cabecera_aplicacion")
+        cabecera = ventana.cabecera_aplicacion
+        assert cabecera.property("rol") == "cabecera_aplicacion"
+
+        textos = [etiqueta.text() for etiqueta in cabecera.findChildren(QLabel)]
+        assert "ABASTO PA' QUE JESUS" in textos
+        assert "Administrador" in textos
+
+    def test_paginas_tienen_titulo_con_barra_lateral(
+        self, qtbot: QtBot, usuario_admin: Usuario
+    ) -> None:
+        """Cada pagina lleva un TituloPagina (tarjeta con barra #2563eb)."""
+        ventana = VentanaPrincipal(usuario_admin)
+        qtbot.addWidget(ventana)
+
+        titulos = ventana.findChildren(TituloPagina)
+        # 5 paginas, un titulo cada una (el inventario esta embebido en
+        # Productos como pestana "Movimientos" sin titulo propio).
+        assert len(titulos) == 5
+        assert all(t.property("rol") == "titulo_pagina" for t in titulos)
+        textos = {etiqueta.text() for t in titulos for etiqueta in t.findChildren(QLabel)}
+        assert {"Dashboard", "Ventas", "Productos", "Reportes", "Usuarios"} <= textos
 
     def test_cambiar_pagina(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que se puede cambiar de pagina usando la barra lateral.
@@ -480,6 +515,19 @@ class TestVentanaPrincipal:
 #   - Modo CREAR: campos vacios, se puede escribir en ellos.
 #   - Modo EDITAR: campos precargados con datos del producto.
 # ============================================================
+
+
+class TestTituloPagina:
+    """Pruebas del widget reutilizable TituloPagina (tarjeta con barra)."""
+
+    def test_titulo_pagina_rol_y_texto(self, qtbot: QtBot) -> None:
+        """El titulo expone el rol del QSS y muestra el texto recibido."""
+        titulo = TituloPagina("Dashboard")
+        qtbot.addWidget(titulo)
+
+        assert titulo.property("rol") == "titulo_pagina"
+        textos = [etiqueta.text() for etiqueta in titulo.findChildren(QLabel)]
+        assert textos == ["Dashboard"]
 
 
 class TestFormularioProducto:
@@ -656,8 +704,6 @@ class TestFormularioVenta:
         # Widgets del ticket.
         assert hasattr(dialogo, "tabla_productos_venta")
         assert hasattr(dialogo, "lbl_total")
-        assert hasattr(dialogo, "lbl_subtotal")
-        assert hasattr(dialogo, "lbl_iva")
         assert hasattr(dialogo, "lbl_total_usd")
 
         # Widgets del desglose de pago (multi-pago).
@@ -943,12 +989,11 @@ class TestFormularioVenta:
         assert dialogo.tabla_productos_venta.rowCount() == 0
         assert dialogo.grupo_pago.isHidden()
 
-    def test_totales_iva_informativo(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Verifica el desglose: subtotal sin IVA + IVA 16% = total.
+    def test_total_sin_desglose_iva(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Verifica que el TOTAL muestra el precio completo (sin desglose IVA).
 
-        El concepto elegido: los precios YA incluyen IVA, por lo que el
-        total cobrado es la suma de subtotales y el desglose se calcula
-        hacia atras (base = total / 1.16).
+        Los precios YA incluyen IVA: el total cobrado es la suma de
+        subtotales y ya no se muestra el desglose informativo (base/IVA).
         """
         producto = Producto(
             idproducto=1,
@@ -966,9 +1011,6 @@ class TestFormularioVenta:
 
         # Total cobrado = precio (IVA incluido).
         assert dialogo.total_bs == Decimal("11.60")
-        # Base sin IVA = 11.60 / 1.16 = 10.00; IVA = 1.60.
-        assert "10,00" in dialogo.lbl_subtotal.text()
-        assert "1,60" in dialogo.lbl_iva.text()
         assert "11,60" in dialogo.lbl_total.text()
 
     def test_total_usd_con_tasa(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1645,7 +1687,9 @@ class TestInventarioPagina:
         pagina = InventarioPagina(mock_controlador_inv, mock_controlador_prod)
         qtbot.addWidget(pagina)
 
-        label = pagina.findChild(QLabel)
+        titulo = pagina.findChild(TituloPagina)
+        assert titulo is not None
+        label = titulo.findChild(QLabel)
         assert label is not None
         assert "Inventario" in label.text()
 
@@ -1966,6 +2010,84 @@ class TestInventarioPagina:
 
 
 # ============================================================
+# TESTS: ProductosPagina (Catalogo + pestana Movimientos)
+# ============================================================
+
+
+class TestProductosPagina:
+    """Pruebas para la pagina de productos con inventario embebido."""
+
+    def test_crear_pagina_con_pestanas(self, qtbot: QtBot, producto_ejemplo: Producto) -> None:
+        """La pagina creada tiene QTabWidget con pestanas Catalogo y Movimientos."""
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+        mock_controlador_inv = MagicMock()
+        mock_controlador_inv.movimientos_recientes.return_value = []
+
+        pagina = ProductosPagina(mock_controlador_prod, mock_controlador_inv)
+        qtbot.addWidget(pagina)
+
+        assert hasattr(pagina, "pestanas")
+        assert pagina.pestanas.count() == 2
+        assert pagina.pestanas.tabText(0) == "Catálogo"
+        assert pagina.pestanas.tabText(1) == "Movimientos"
+
+        # El titulo de la pagina es "Productos" (tarjeta con barra lateral).
+        titulo = pagina.findChild(TituloPagina)
+        assert titulo is not None
+        label = titulo.findChild(QLabel)
+        assert label is not None
+        assert "Productos" in label.text()
+
+        # Los widgets del catalogo siguen existiendo.
+        assert hasattr(pagina, "tabla_productos")
+        assert isinstance(pagina.tabla_productos, QTableWidget)
+        botones = [btn.text() for btn in pagina.findChildren(QPushButton)]
+        assert "Agregar" in botones
+        assert "Editar" in botones
+        assert "Eliminar" in botones
+
+    def test_pagina_embebe_inventario(self, qtbot: QtBot, producto_ejemplo: Producto) -> None:
+        """La pestana Movimientos contiene una InventarioPagina funcional."""
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+        mock_controlador_inv = MagicMock()
+        mock_controlador_inv.movimientos_recientes.return_value = []
+
+        pagina = ProductosPagina(mock_controlador_prod, mock_controlador_inv)
+        qtbot.addWidget(pagina)
+
+        # La InventarioPagina embebida NO lleva su propio TituloPagina
+        # (el titulo lo da la pestana "Movimientos").
+        sub_paginas = pagina.findChildren(InventarioPagina)
+        assert len(sub_paginas) == 1
+        sub = sub_paginas[0]
+        assert sub.findChild(TituloPagina) is None
+
+        # El combo de movimientos se puebla con "Todos los productos" + producto.
+        assert sub.cmb_producto_inventario.count() == 2
+        assert sub.cmb_producto_inventario.itemText(0) == "Todos los productos"
+        assert "Arroz" in sub.cmb_producto_inventario.itemText(1)
+
+        # Cambiar a la pestana Movimientos refresca combo + historial.
+        pagina.pestanas.setCurrentIndex(1)
+        mock_controlador_inv.movimientos_recientes.assert_called()
+
+    def test_sin_controlador_inventario_no_crea_pestana_movimientos(
+        self, qtbot: QtBot, producto_ejemplo: Producto
+    ) -> None:
+        """Sin controlador de inventario: solo existe la pestana Catalogo."""
+        mock_controlador_prod = MagicMock()
+        mock_controlador_prod.listar_todos.return_value = [producto_ejemplo]
+
+        pagina = ProductosPagina(mock_controlador_prod)
+        qtbot.addWidget(pagina)
+
+        assert pagina.pestanas.count() == 1
+        assert pagina.pestanas.tabText(0) == "Catálogo"
+
+
+# ============================================================
 # TESTS: UsuariosPagina
 # ============================================================
 
@@ -1979,7 +2101,9 @@ class TestUsuariosPagina:
         pagina = UsuariosPagina(usuario_actual=usuario_admin)
         qtbot.addWidget(pagina)
 
-        label = pagina.findChild(QLabel)
+        titulo = pagina.findChild(TituloPagina)
+        assert titulo is not None
+        label = titulo.findChild(QLabel)
         assert label is not None
         assert "Usuarios" in label.text()
 
@@ -2092,7 +2216,9 @@ class TestVentanaPrincipalAdmin:
         ventana = VentanaPrincipal(usuario_real_admin)
         qtbot.addWidget(ventana)
 
-        assert ventana.barra_navegacion.count() == 6
+        # 5 items: Dashboard, Ventas, Productos, Reportes + Usuarios
+        # (la caja esta unida a Ventas y el inventario a Productos).
+        assert ventana.barra_navegacion.count() == 5
 
         nombres = []
         for i in range(ventana.barra_navegacion.count()):
@@ -2102,18 +2228,19 @@ class TestVentanaPrincipalAdmin:
         assert "Usuarios" in nombres
 
     def test_paginas_con_admin(self, qtbot: QtBot, usuario_real_admin: Usuario) -> None:
-        """Verifica que hay 6 paginas para admin."""
+        """Verifica que hay 5 paginas para admin."""
         ventana = VentanaPrincipal(usuario_real_admin)
         qtbot.addWidget(ventana)
 
-        assert ventana.paginas.count() == 6
+        assert ventana.paginas.count() == 5
 
     def test_menu_sin_usuarios_para_vendedor(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que el menu NO incluye 'Usuarios' para vendedor."""
         ventana = VentanaPrincipal(usuario_admin)
         qtbot.addWidget(ventana)
 
-        assert ventana.barra_navegacion.count() == 5
+        # 4 items: Dashboard, Ventas, Productos, Reportes.
+        assert ventana.barra_navegacion.count() == 4
 
         nombres = []
         for i in range(ventana.barra_navegacion.count()):

@@ -29,7 +29,11 @@ from .constantes import METODO_PAGO_EFECTIVO_BS as METODO_PAGO_EFECTIVO_BS
 from .constantes import METODO_PAGO_EFECTIVO_USD as METODO_PAGO_EFECTIVO_USD
 from .constantes import METODO_PAGO_PAGO_MOVIL as METODO_PAGO_PAGO_MOVIL
 from .constantes import METODO_PAGO_TARJETA as METODO_PAGO_TARJETA
+from .constantes import METODO_PAGO_TRANSFERENCIA as METODO_PAGO_TRANSFERENCIA
 from .constantes import METODOS_PAGO as METODOS_PAGO
+from .constantes import METODOS_PAGO_USD as METODOS_PAGO_USD
+from .constantes import MONEDA_BS as MONEDA_BS
+from .constantes import MONEDA_USD as MONEDA_USD
 from .constantes import MOTIVO_AJUSTE as MOTIVO_AJUSTE
 from .constantes import MOTIVO_COMPRA as MOTIVO_COMPRA
 from .constantes import MOTIVO_DEVOLUCION as MOTIVO_DEVOLUCION
@@ -45,18 +49,21 @@ from .constantes import TIPO_VENTA_GRAMOS as TIPO_VENTA_GRAMOS
 from .constantes import TIPO_VENTA_PESO as TIPO_VENTA_PESO
 from .constantes import TIPO_VENTA_UNIDAD as TIPO_VENTA_UNIDAD
 from .constantes import TIPOS_VENTA as TIPOS_VENTA
+from .constantes import TOLERANCIA_REDONDEO as TOLERANCIA_REDONDEO
 from .fecha import ahora as ahora
 from .fecha import hoy as hoy
 
 # Exportar funciones de moneda.
 from .moneda import DECIMAL_CENTIMO as DECIMAL_CENTIMO
 from .moneda import DECIMAL_CERO as DECIMAL_CERO
-from .moneda import PREFIJO_BS as PREFIJO_BS
-from .moneda import PREFIJO_USD as PREFIJO_USD
-from .moneda import PREFIJO_USD_TEXTO as PREFIJO_USD_TEXTO
+from .moneda import LOCALE_BS as LOCALE_BS
+from .moneda import LOCALE_USD as LOCALE_USD
 from .moneda import SIGLAS_USD as SIGLAS_USD
 from .moneda import SIMBOLO_BS as SIMBOLO_BS
 from .moneda import SIMBOLO_USD as SIMBOLO_USD
+from .moneda import SUFIJO_BS as SUFIJO_BS
+from .moneda import SUFIJO_USD as SUFIJO_USD
+from .moneda import SUFIJO_USD_TEXTO as SUFIJO_USD_TEXTO
 from .moneda import configurar_spinbox_bs as configurar_spinbox_bs
 from .moneda import configurar_spinbox_usd as configurar_spinbox_usd
 from .moneda import formatear_bs as formatear_bs

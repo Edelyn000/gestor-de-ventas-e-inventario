@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
 
 from ..core.auth_service import AuthService
 from ..models import Usuario
+from ..utils.logging_setup import registrar_excepcion
 
 
 # ============ DIALOGO CAMBIO DE CONTRASENA ============
@@ -81,10 +82,7 @@ class FormularioCambioContrasena(QDialog):
         btn_layout.addWidget(btn_cancelar)
 
         btn_guardar = QPushButton("Guardar Cambios")
-        btn_guardar.setStyleSheet(
-            "background-color: #89b4fa; color: #1e1e2e;"
-            " font-weight: bold; padding: 8px 16px; border-radius: 4px;",
-        )
+        btn_guardar.setProperty("rol", "guardar")
         # --- NO TOCAR: conexion a _guardar (logica del core).
         btn_guardar.clicked.connect(self._guardar)
         btn_layout.addWidget(btn_guardar)
@@ -141,6 +139,10 @@ class FormularioCambioContrasena(QDialog):
         except ValueError as e:
             errores.append(str(e))
             return False
+        except Exception as e:
+            registrar_excepcion(e, "FormularioCambioContrasena._actualizar_nombre")
+            errores.append(f"Error inesperado al actualizar el nombre: {e}")
+            return False
 
     def _actualizar_usuario(self, errores: list[str]) -> bool:
         usuario = self.usuario
@@ -156,6 +158,10 @@ class FormularioCambioContrasena(QDialog):
         except ValueError as e:
             errores.append(str(e))
             return False
+        except Exception as e:
+            registrar_excepcion(e, "FormularioCambioContrasena._actualizar_usuario")
+            errores.append(f"Error inesperado al actualizar el usuario: {e}")
+            return False
 
     def _actualizar_contrasena(self, contrasena_actual: str, errores: list[str]) -> bool:
         usuario = self.usuario
@@ -166,7 +172,9 @@ class FormularioCambioContrasena(QDialog):
             return False
         try:
             ok = self.auth_service.cambiar_contrasena(
-                usuario.id, contrasena_actual, nueva_contrasena,
+                usuario.id,
+                contrasena_actual,
+                nueva_contrasena,
             )
             if ok:
                 return True
@@ -174,4 +182,8 @@ class FormularioCambioContrasena(QDialog):
             return False
         except ValueError as e:
             errores.append(str(e))
+            return False
+        except Exception as e:
+            registrar_excepcion(e, "FormularioCambioContrasena._actualizar_contrasena")
+            errores.append(f"Error inesperado al cambiar la contrasena: {e}")
             return False

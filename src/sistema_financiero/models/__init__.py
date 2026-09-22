@@ -6,7 +6,9 @@
 
 from .conexion import create_db_and_tables, engine, obtener_sesion
 from .modelos import (
+    Caja,
     MovimientoInventario,
+    PagoVenta,
     Producto,
     ReporteDiario,
     TasaCambio,
@@ -16,10 +18,12 @@ from .modelos import (
 )
 
 __all__ = [
+    "Caja",
     "create_db_and_tables",
     "engine",
     "obtener_sesion",
     "MovimientoInventario",
+    "PagoVenta",
     "Producto",
     "ReporteDiario",
     "TasaCambio",

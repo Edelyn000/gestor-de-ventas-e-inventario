@@ -7,24 +7,39 @@
 # select: funcion de SQLModel para construir consultas SELECT.
 #   Sin ella no podriamos buscar ventas en la BD.
 from datetime import datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlmodel import Session, col, select
 
-from sistema_financiero.utils import ahora
+from sistema_financiero.utils import (
+    DECIMAL_CENTIMO,
+    METODO_PAGO_EFECTIVO_USD,
+    METODOS_PAGO,
+    MONEDA_BS,
+    MONEDA_USD,
+    TOLERANCIA_REDONDEO,
+    ahora,
+)
 
 # Venta y VentaDetalle son los modelos ORM que representan las tablas.
 # Venta = la cabecera de la venta (fecha, totales, metodo de pago).
 # VentaDetalle = cada producto que se vendio (cantidad, precio, subtotal).
+# PagoVenta = desglose de cada pago (multi-pago) de la venta.
 # obtener_sesion: context manager que acepta sesion opcional (BD en memoria para tests).
 from ..models import (
+    Caja,
     MovimientoInventario,
+    PagoVenta,
     Producto,
     TasaCambio,
     Venta,
     VentaDetalle,
     obtener_sesion,
 )
+
+# CajaService: fuente unica de verdad del estado de caja.
+#   La venta solo se registra si hay una caja ABIERTA (ver crear()).
+from .caja_service import CajaService
 
 # InventarioService: lo necesitamos para descontar el stock
 #   de cada producto cuando se confirma la venta.
@@ -37,6 +52,15 @@ from .producto_controller import ProductoController
 # TasaCambioService: necesario para obtener la tasa de cambio
 #   activa y poder calcular el total en USD.
 from .tasa_cambio_service import TasaCambioService
+
+
+def _a_centimos(valor: Decimal) -> Decimal:
+    """Cuantiza un monto a centimos (redondeo comercial).
+
+    La UI entrega numeros como float y los calculos pueden arrastrar
+    fracciones de centimo; en dinero solo existen 2 decimales.
+    """
+    return valor.quantize(DECIMAL_CENTIMO, rounding=ROUND_HALF_UP)
 
 
 # ============================================================
@@ -63,7 +87,7 @@ class VentaController:
     # en self.* se crean UNA SOLA VEZ cuando se crea el controlador,
     # en lugar de crearse cada vez que llamamos a un metodo.
     # Esto ahorra memoria y es mas limpio.
-    def __init__(self) -> None:
+    def __init__(self, caja_service: CajaService | None = None) -> None:
         # InventarioService: lo usaremos para descontar stock al vender
         #   y para devolver stock al anular una venta.
         self.inventario = InventarioService()
@@ -72,23 +96,56 @@ class VentaController:
         #   y calcular el equivalente en USD de la venta.
         self.tasas = TasaCambioService()
 
+        # CajaService: fuente unica de verdad del estado de caja.
+        # La app lo inyecta (ui/interfaz.py) para que la venta valide
+        # contra la MISMA instancia que usa la pagina "Caja".
+        # Si es None (tests), crear() valida la caja dentro de la
+        # sesion que recibe como db_session.
+        self.caja_service = caja_service
+
     def crear(
         self,
         productos: list[dict[str, object]],
         metodo_pago: dict[str, object] | None = None,
         db_session: Session | None = None,
+        pagos: list[dict[str, object]] | None = None,
     ) -> Venta:
         self._validar_productos_no_vacios(productos)
         tasa = self.tasas.tasa_activa(db_session)
         detalles_lista, total_bs = self._procesar_detalles(productos, db_session)
         total_usd = self._calcular_total_usd(total_bs, tasa)
-        efectivo_bs, efectivo_usd, tarjeta, pago_movil, bio_pago = self._procesar_pago(
-            metodo_pago, total_bs, tasa
-        )
+
+        # Desglose multi-pago (opcional). Si llega, el detalle manda:
+        # los montos por metodo se derivan de el, para que el resumen de
+        # la venta y el desglose no puedan quedar descuadrados.
+        pagos_normalizados = self._normalizar_pagos(pagos, total_bs, tasa)
+        if pagos_normalizados is not None:
+            metodo_pago = self._derivar_metodo_pago(pagos_normalizados, metodo_pago)
+
+        (
+            efectivo_bs,
+            efectivo_usd,
+            tarjeta,
+            pago_movil,
+            bio_pago,
+            transferencia,
+        ) = self._procesar_pago(metodo_pago, total_bs, tasa)
         numero_factura = self._generar_numero_factura(db_session)
 
         with obtener_sesion(db_session) as session:
             hoy = ahora()
+            # Regla de negocio: sin caja ABIERTA no se puede vender.
+            if self.caja_service is not None and db_session is None:
+                # App: valida contra la misma instancia compartida con la
+                # pagina "Caja" (una sola fuente de verdad del estado).
+                caja = self.caja_service.validar_caja_abierta()
+            else:
+                # Tests/llamadas con sesion propia: la caja se consulta
+                # dentro de la misma sesion que recibe el metodo.
+                caja = session.exec(select(Caja).where(Caja.estado == "ABIERTA")).first()
+                if caja is None:
+                    msg = "No hay caja abierta. Abra la caja antes de registrar ventas."
+                    raise ValueError(msg)
             venta = Venta(
                 numero_factura=numero_factura,
                 fecha_venta=hoy,
@@ -100,7 +157,9 @@ class VentaController:
                 tarjeta=tarjeta,
                 pago_movil=pago_movil,
                 bio_pago=bio_pago,
+                transferencia=transferencia,
                 estado="COMPLETADA",
+                caja_id=caja.id,
             )
             session.add(venta)
             session.flush()
@@ -111,6 +170,8 @@ class VentaController:
                 raise RuntimeError(msg)
 
             self._crear_detalles(session, venta_id, detalles_lista)
+            if pagos_normalizados:
+                self._crear_pagos(session, venta_id, pagos_normalizados, tasa)
             self._descontar_inventario(session, detalles_lista, venta_id, numero_factura)
 
             session.commit()
@@ -181,15 +242,16 @@ class VentaController:
         metodo_pago: dict[str, object] | None,
         total_bs: Decimal,
         tasa: TasaCambio | None,
-    ) -> tuple[Decimal, Decimal, Decimal, Decimal, Decimal]:
+    ) -> tuple[Decimal, Decimal, Decimal, Decimal, Decimal, Decimal]:
         if metodo_pago is None:
             metodo_pago = {}
 
-        efectivo_bs = Decimal(str(metodo_pago.get("efectivo_bs", total_bs)))
-        efectivo_usd = Decimal(str(metodo_pago.get("efectivo_usd", "0.00")))
-        tarjeta = Decimal(str(metodo_pago.get("tarjeta", "0.00")))
-        pago_movil = Decimal(str(metodo_pago.get("pago_movil", "0.00")))
-        bio_pago = Decimal(str(metodo_pago.get("bio_pago", "0.00")))
+        efectivo_bs = _a_centimos(Decimal(str(metodo_pago.get("efectivo_bs", total_bs))))
+        efectivo_usd = _a_centimos(Decimal(str(metodo_pago.get("efectivo_usd", "0.00"))))
+        tarjeta = _a_centimos(Decimal(str(metodo_pago.get("tarjeta", "0.00"))))
+        pago_movil = _a_centimos(Decimal(str(metodo_pago.get("pago_movil", "0.00"))))
+        bio_pago = _a_centimos(Decimal(str(metodo_pago.get("bio_pago", "0.00"))))
+        transferencia = _a_centimos(Decimal(str(metodo_pago.get("transferencia", "0.00"))))
 
         if efectivo_usd > 0 and tasa is None:
             msg = (
@@ -198,16 +260,170 @@ class VentaController:
                 "Vaya al Dashboard para que se cargue automaticamente."
             )
             raise ValueError(msg)
-        efectivo_usd_en_bs = efectivo_usd * tasa.tasa_venta if tasa else Decimal("0.00")
-        suma_pagos = efectivo_bs + efectivo_usd_en_bs + tarjeta + pago_movil + bio_pago
-        if suma_pagos < total_bs:
+        # El equivalente en Bs. del efectivo USD tambien se cuantiza:
+        # el cajero teclea el USD redondeado a centimos que le muestra la UI.
+        efectivo_usd_en_bs = (
+            _a_centimos(efectivo_usd * tasa.tasa_venta) if tasa else Decimal("0.00")
+        )
+        suma_pagos = (
+            efectivo_bs + efectivo_usd_en_bs + tarjeta + pago_movil + bio_pago + transferencia
+        )
+        # Se acepta una diferencia de 1 centimo por redondeo (ver
+        # TOLERANCIA_REDONDEO); un faltante real sigue siendo un error.
+        if suma_pagos < total_bs - TOLERANCIA_REDONDEO:
             msg = (
                 f"La suma de los metodos de pago ({suma_pagos}) "
                 f"no cubre el total de la venta ({total_bs})."
             )
             raise ValueError(msg)
 
-        return efectivo_bs, efectivo_usd, tarjeta, pago_movil, bio_pago
+        return efectivo_bs, efectivo_usd, tarjeta, pago_movil, bio_pago, transferencia
+
+    @staticmethod
+    def _normalizar_pagos(
+        pagos: list[dict[str, object]] | None,
+        total_bs: Decimal,
+        tasa: TasaCambio | None,
+    ) -> list[dict[str, object]] | None:
+        """Valida y normaliza el desglose multi-pago de una venta.
+
+        Cada pago llega como {"metodo", "monto", "referencia"}. Se registra
+        SOLO el monto aplicado, asi que la suma en Bs. de todos los pagos
+        debe cuadrar con el total de la venta (regla de negocio).
+        Devuelve None cuando el llamador no usa multi-pago.
+        """
+        if pagos is None:
+            return None
+        if not pagos:
+            msg = "La venta debe tener al menos un pago registrado."
+            raise ValueError(msg)
+
+        normalizados: list[dict[str, object]] = []
+        suma_bs = Decimal("0.00")
+
+        for pago in pagos:
+            metodo = str(pago.get("metodo", ""))
+            if metodo not in METODOS_PAGO:
+                msg = f"Metodo de pago invalido: '{metodo}'."
+                raise ValueError(msg)
+
+            moneda = MONEDA_USD if metodo == METODO_PAGO_EFECTIVO_USD else MONEDA_BS
+            monto = _a_centimos(Decimal(str(pago.get("monto", "0.00"))))
+            if monto <= 0:
+                msg = f"El monto del pago con metodo '{metodo}' debe ser mayor a cero."
+                raise ValueError(msg)
+
+            if moneda == MONEDA_USD:
+                if tasa is None or tasa.tasa_venta <= 0:
+                    msg = (
+                        "No hay una tasa de cambio activa registrada.\n"
+                        "Para cobrar en USD debe existir una tasa del dia.\n"
+                        "Vaya al Dashboard para que se cargue automaticamente."
+                    )
+                    raise ValueError(msg)
+                # El llamador puede mandar el monto APLICADO en bolivares
+                # (la UI recorta un pago en USD al faltante exacto y el
+                # sobrante es vuelto). Si no lo manda, se convierte aqui.
+                aplicado = pago.get("monto_bs")
+                monto_bs = (
+                    _a_centimos(monto * tasa.tasa_venta)
+                    if aplicado is None
+                    else _a_centimos(Decimal(str(aplicado)))
+                )
+                # Guarda de integridad: el monto aplicado no puede alejarse
+                # del equivalente del monto recibido por mas de un centimo
+                # de la moneda pagada (un centavo USD = tasa / 100 Bs.).
+                desvio_maximo = _a_centimos(tasa.tasa_venta / Decimal("100")) + TOLERANCIA_REDONDEO
+                if monto_bs <= 0 or abs(monto_bs - monto * tasa.tasa_venta) > desvio_maximo:
+                    msg = (
+                        "El monto en bolivares del pago en USD no coincide con "
+                        f"su equivalente (recibido {monto} USD = "
+                        f"{_a_centimos(monto * tasa.tasa_venta)} Bs., "
+                        f"aplicado {monto_bs} Bs.)."
+                    )
+                    raise ValueError(msg)
+            else:
+                monto_bs = monto
+
+            referencia = pago.get("referencia")
+            normalizados.append(
+                {
+                    "metodo": metodo,
+                    "moneda": moneda,
+                    "monto": monto,
+                    "monto_bs": monto_bs,
+                    "referencia": str(referencia) if referencia else None,
+                },
+            )
+            suma_bs += monto_bs
+
+        if abs(suma_bs - total_bs) > TOLERANCIA_REDONDEO:
+            msg = (
+                f"La suma de los pagos ({suma_bs}) no coincide con el "
+                f"total de la venta ({total_bs})."
+            )
+            raise ValueError(msg)
+
+        return normalizados
+
+    @staticmethod
+    def _derivar_metodo_pago(
+        pagos: list[dict[str, object]],
+        metodo_pago: dict[str, object] | None,
+    ) -> dict[str, object]:
+        """Resume el desglose de pagos en los montos por metodo de Venta.
+
+        Para efectivo_usd se resumen los USD (asi los guarda el modelo y
+        los lee el arqueo de caja); el resto se resume en bolivares.
+        Si ademas llega un resumen metodo_pago y no coincide, se rechaza
+        la venta: nunca se guarda un resumen distinto al desglose.
+        """
+        acumulado: dict[str, Decimal] = dict.fromkeys(METODOS_PAGO, Decimal("0.00"))
+
+        for pago in pagos:
+            metodo = str(pago["metodo"])
+            valor = pago["monto"] if metodo == METODO_PAGO_EFECTIVO_USD else pago["monto_bs"]
+            acumulado[metodo] += Decimal(str(valor))
+
+        if metodo_pago:
+            for nombre, esperado in acumulado.items():
+                recibido = _a_centimos(Decimal(str(metodo_pago.get(nombre, "0.00"))))
+                if abs(recibido - esperado) > TOLERANCIA_REDONDEO:
+                    msg = (
+                        "El resumen por metodo de pago no coincide con el "
+                        f"detalle de pagos ('{nombre}': {recibido} vs {esperado})."
+                    )
+                    raise ValueError(msg)
+
+        # dict[str, object] explicito: evita el choque de invarianza de dict
+        # al pasarlo a _procesar_pago(metodo_pago: dict[str, object] | None).
+        derivado: dict[str, object] = {}
+        for nombre, monto in acumulado.items():
+            derivado[nombre] = monto
+        return derivado
+
+    @staticmethod
+    def _crear_pagos(
+        session: Session,
+        venta_id: int,
+        pagos: list[dict[str, object]],
+        tasa: TasaCambio | None,
+    ) -> None:
+        """Guarda el desglose de pagos (tabla venta_pago) de una venta."""
+        for pago in pagos:
+            referencia = pago.get("referencia")
+            session.add(
+                PagoVenta(
+                    venta_id=venta_id,
+                    metodo=str(pago["metodo"]),
+                    moneda=str(pago["moneda"]),
+                    monto=Decimal(str(pago["monto"])),
+                    monto_bs=Decimal(str(pago["monto_bs"])),
+                    tasa_cambio=tasa.tasa_venta if tasa else None,
+                    referencia=str(referencia) if referencia else None,
+                    fecha_pago=ahora(),
+                ),
+            )
 
     @staticmethod
     def _generar_numero_factura(
@@ -310,6 +526,14 @@ class VentaController:
                 msg = "La venta ya esta anulada."
                 raise ValueError(msg)
 
+            # No se puede anular una venta de un turno de caja ya cerrado:
+            # el arqueo y el reporte del dia ya se generaron con esa venta.
+            if venta.caja_id is not None:
+                caja = session.get(Caja, venta.caja_id)
+                if caja is not None and caja.estado == "CERRADA":
+                    msg = "No se puede anular: el turno de caja de esta venta ya esta cerrado."
+                    raise ValueError(msg)
+
             # Cambiar el estado.
             venta.estado = "ANULADA"
             session.add(venta)
@@ -411,4 +635,20 @@ class VentaController:
         db_session: sesion opcional para tests con BD en memoria."""
         with obtener_sesion(db_session) as session:
             stmt = select(VentaDetalle).where(VentaDetalle.venta_id == idventa)
+            return list(session.exec(stmt).all())
+
+    # ------------------------------------------------------------------
+    # obtener_pagos(): devuelve el desglose de pagos de una venta
+    # ------------------------------------------------------------------
+    # Cada PagoVenta tiene: metodo, moneda, monto aplicado, su
+    # equivalente en Bs. y la referencia (si la hubo).
+    def obtener_pagos(
+        self,
+        idventa: int,
+        db_session: Session | None = None,
+    ) -> list[PagoVenta]:
+        """Devuelve el desglose de pagos (multi-pago) de una venta.
+        db_session: sesion opcional para tests con BD en memoria."""
+        with obtener_sesion(db_session) as session:
+            stmt = select(PagoVenta).where(PagoVenta.venta_id == idventa)
             return list(session.exec(stmt).all())

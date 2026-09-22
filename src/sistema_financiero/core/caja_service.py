@@ -1,18 +1,25 @@
 # ============================================================
 # SERVICIO: Caja
 # Lógica de negocio para apertura y cierre de caja registradora.
-# Controla el flujo: abrir -> vender -> cerrar -> reporte Z.
+# Controla el flujo: abrir -> vender -> cerrar.
 # Una sola caja debe estar abierta por momento de trabajo.
 # ============================================================
 
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlmodel import Session, col, select
 
 from sistema_financiero.core.tasa_cambio_service import TasaCambioService
-from sistema_financiero.models.modelos import Caja, ReporteDiario, Venta
-from sistema_financiero.utils.fecha import ahora, hoy
+from sistema_financiero.models.modelos import Caja, PagoVenta, Venta
+from sistema_financiero.utils.constantes import MONEDA_USD
+from sistema_financiero.utils.fecha import ahora
+from sistema_financiero.utils.moneda import DECIMAL_CENTIMO
+
+
+def _a_centimos(valor: Decimal) -> Decimal:
+    """Redondea a 2 decimales (mismo criterio que el POS)."""
+    return valor.quantize(DECIMAL_CENTIMO, rounding=ROUND_HALF_UP)
 
 
 class CajaService:
@@ -43,6 +50,35 @@ class CajaService:
         self.db.refresh(caja)
 
         return caja
+
+    def vuelto_entregado_bs(self, caja_id: int) -> Decimal:
+        """Vuelto en bolivares entregado en las ventas de la caja.
+
+        El POS registra en `venta_pago` solo el monto APLICADO a la venta
+        (`monto_bs`); el vuelto es el excedente recibido
+        (`monto * tasa_cambio` si el pago fue en USD, `monto` si fue en Bs.)
+        menos lo aplicado. Ese efectivo SALE del cajon, por eso no debe contar
+        como esperado en el arqueo (si no, el cierre reporta un faltante
+        fantasma igual a la suma de los vueltos).
+
+        Las ventas viejas (sin filas en `venta_pago`) devuelven 0.00.
+        """
+        pagos = self.db.exec(
+            select(PagoVenta)
+            .join(Venta, col(PagoVenta.venta_id) == col(Venta.idventa))
+            .where(col(Venta.caja_id) == caja_id, col(Venta.estado) == "COMPLETADA")
+        ).all()
+
+        total = Decimal("0.00")
+        for pago in pagos:
+            recibido_bs = pago.monto or Decimal("0.00")
+            if pago.moneda == MONEDA_USD:
+                recibido_bs = _a_centimos(recibido_bs * (pago.tasa_cambio or Decimal("0.00")))
+            excedente = recibido_bs - (pago.monto_bs or Decimal("0.00"))
+            if excedente > 0:
+                total += excedente
+
+        return _a_centimos(total)
 
     def cerrar_caja(
         self,
@@ -89,6 +125,9 @@ class CajaService:
         bio_pago_total = (
             sum((v.bio_pago or Decimal("0")) for v in ventas) if ventas else Decimal("0.00")
         )
+        transferencia_total = (
+            sum((v.transferencia or Decimal("0")) for v in ventas) if ventas else Decimal("0.00")
+        )
 
         caja.fecha_cierre = ahora()
         caja.monto_cierre_bs = total_fisico_bs
@@ -101,14 +140,26 @@ class CajaService:
         caja.tarjeta = tarjeta_total
         caja.pago_movil = pago_movil_total
         caja.bio_pago = bio_pago_total
-        caja.sobrante_faltante_bs = total_fisico_bs - total_ventas_bs
+        caja.transferencia = transferencia_total
+        # Arqueo SOLO del efectivo que debe haber en el cajón:
+        #   fondo inicial + efectivo recibido del día - vuelto entregado.
+        # Tarjeta, pago móvil, bio-pago y transferencia NO van al cajón
+        # (entran por otros canales); por eso no participan en el sobrante.
+        # El vuelto (cambio en Bs. de un pago en USD recortado) sí salió del
+        # cajón y por eso se descuenta.
+        vuelto_bs_total = self.vuelto_entregado_bs(caja_id)
+        esperado_efectivo_bs = (
+            (caja.monto_apertura_bs or Decimal("0.00"))
+            + efectivo_bs_total
+            + (efectivo_usd_total * tasa_venta)
+            - vuelto_bs_total
+        )
+        caja.sobrante_faltante_bs = total_fisico_bs - esperado_efectivo_bs
         if observaciones:
             caja.observaciones = observaciones
 
         self.db.commit()
         self.db.refresh(caja)
-
-        self._generar_reporte_z(caja)
 
         return caja
 
@@ -133,99 +184,3 @@ class CajaService:
             consulta = consulta.where(col(Caja.fecha_apertura) <= fecha_hasta + timedelta(days=1))
 
         return list(self.db.exec(consulta.order_by(col(Caja.fecha_apertura).desc())).all())
-
-    def _generar_reporte_z(self, caja: Caja) -> None:
-        stmt = select(Venta).where(col(Venta.caja_id) == caja.id, col(Venta.estado) == "COMPLETADA")
-        ventas = self.db.execute(stmt).scalars().all()
-
-        total_ventas_bs = sum(
-            (v.total_bs or Decimal("0") for v in ventas),
-            Decimal("0"),
-        )
-        total_ventas_usd = sum(
-            (v.total_usd or Decimal("0") for v in ventas),
-            Decimal("0"),
-        )
-        cantidad_ventas = len(ventas) if ventas else 0
-        productos_stock_bajo = 0
-        productos_sin_stock = 0
-
-        efectivo_bs = caja.efectivo_bs or Decimal("0.00")
-        efectivo_usd = caja.efectivo_usd or Decimal("0.00")
-        tarjeta = caja.tarjeta or Decimal("0.00")
-        pago_movil = caja.pago_movil or Decimal("0.00")
-        bio_pago = caja.bio_pago or Decimal("0.00")
-
-        fecha_reporte = caja.fecha_cierre.date() if caja.fecha_cierre else hoy()
-        reporte_existente = self.db.execute(
-            select(ReporteDiario).where(ReporteDiario.fecha == fecha_reporte)
-        ).scalar_one_or_none()
-
-        if reporte_existente:
-            reporte = reporte_existente
-            reporte.total_ventas_bs = total_ventas_bs
-            reporte.total_ventas_usd = total_ventas_usd
-            reporte.cantidad_ventas = cantidad_ventas
-            reporte.productos_stock_bajo = productos_stock_bajo
-            reporte.productos_sin_stock = productos_sin_stock
-            reporte.efectivo_bs = efectivo_bs
-            reporte.efectivo_usd = efectivo_usd
-            reporte.tarjeta = tarjeta
-            reporte.pago_movil = pago_movil
-            reporte.bio_pago = bio_pago
-        else:
-            reporte = ReporteDiario(
-                fecha=fecha_reporte,
-                total_ventas_bs=total_ventas_bs,
-                total_ventas_usd=total_ventas_usd,
-                cantidad_ventas=cantidad_ventas,
-                productos_stock_bajo=productos_stock_bajo,
-                productos_sin_stock=productos_sin_stock,
-                efectivo_bs=efectivo_bs,
-                efectivo_usd=efectivo_usd,
-                tarjeta=tarjeta,
-                pago_movil=pago_movil,
-                bio_pago=bio_pago,
-                fecha_generacion=ahora(),
-            )
-            self.db.add(reporte)
-
-        self.db.commit()
-
-    def obtener_datos_reporte_z(self, caja_id: int) -> dict[str, object]:
-        caja = self.db.execute(select(Caja).where(Caja.id == caja_id)).scalar_one_or_none()
-        if not caja or caja.estado != "CERRADA":
-            raise ValueError("Caja no encontrada o no cerrada.")
-
-        stmt = select(Venta).where(col(Venta.caja_id) == caja_id, col(Venta.estado) == "COMPLETADA")
-        ventas = self.db.execute(stmt).scalars().all()
-
-        total_ventas_bs = sum(
-            (v.total_bs or Decimal("0") for v in ventas),
-            Decimal("0"),
-        )
-        total_ventas_usd = sum(
-            (v.total_usd or Decimal("0") for v in ventas),
-            Decimal("0"),
-        )
-        cantidad_ventas = len(ventas) if ventas else 0
-
-        return {
-            "id_caja": caja.id,
-            "fecha_apertura": caja.fecha_apertura,
-            "fecha_cierre": caja.fecha_cierre,
-            "monto_apertura_bs": caja.monto_apertura_bs,
-            "monto_cierre_bs": caja.monto_cierre_bs,
-            "estado": caja.estado,
-            "usuario_id": caja.usuario_id,
-            "total_ventas_bs": total_ventas_bs,
-            "total_ventas_usd": total_ventas_usd,
-            "cantidad_ventas": cantidad_ventas,
-            "efectivo_bs": caja.efectivo_bs or Decimal("0.00"),
-            "efectivo_usd": caja.efectivo_usd or Decimal("0.00"),
-            "tarjeta": caja.tarjeta or Decimal("0.00"),
-            "pago_movil": caja.pago_movil or Decimal("0.00"),
-            "bio_pago": caja.bio_pago or Decimal("0.00"),
-            "sobrante_faltante_bs": caja.sobrante_faltante_bs,
-            "observaciones": caja.observaciones or "",
-        }

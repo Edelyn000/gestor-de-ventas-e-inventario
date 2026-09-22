@@ -4,14 +4,17 @@ from decimal import Decimal
 import pytest
 from sqlmodel import Session
 
+from sistema_financiero.core.caja_service import CajaService
 from sistema_financiero.core.tasa_cambio_service import TasaCambioService
 from sistema_financiero.core.venta_controller import VentaController
-from sistema_financiero.models import Producto
+from sistema_financiero.models import Producto, Usuario
 from sistema_financiero.utils import ahora, hoy
 
 
 def _crear_producto(
-    session: Session, nombre: str = "PROD VENTA", stock: Decimal = Decimal("20"),
+    session: Session,
+    nombre: str = "PROD VENTA",
+    stock: Decimal = Decimal("20"),
     precio_bs: Decimal = Decimal("10.00"),
 ) -> Producto:
     producto = Producto(
@@ -28,6 +31,22 @@ def _crear_producto(
     return producto
 
 
+def _abrir_caja(session: Session, monto: Decimal = Decimal("100.00")) -> None:
+    """Abre una caja en la sesion (requisito para registrar ventas)."""
+    usuario = Usuario(
+        usuario="admin_caja",
+        contrasena="hash_falso",
+        nombre_completo="Admin Caja",
+    )
+    session.add(usuario)
+    session.commit()
+    session.refresh(usuario)
+    assert usuario.id is not None
+    caja_sk = CajaService(db_session=session)
+    if caja_sk.obtener_caja_abierta() is None:
+        caja_sk.abrir_caja(monto_apertura_bs=monto, usuario_id=usuario.id)
+
+
 def _crear_tasa(session: Session, tasa_valor: Decimal = Decimal("50.00")) -> None:
     ts = TasaCambioService()
     ts.registrar(
@@ -42,6 +61,7 @@ def _crear_tasa(session: Session, tasa_valor: Decimal = Decimal("50.00")) -> Non
 def test_crear_venta_exitoso(session: Session) -> None:
     producto = _crear_producto(session, precio_bs=Decimal("25.00"))
     _crear_tasa(session)
+    _abrir_caja(session)
     vc = VentaController()
 
     venta = vc.crear(
@@ -57,6 +77,8 @@ def test_crear_venta_exitoso(session: Session) -> None:
     assert venta.estado == "COMPLETADA"
     assert venta.total_bs == Decimal("75.00")
     assert venta.total_usd == Decimal("1.50")
+    # La venta queda ligada a la caja abierta.
+    assert venta.caja_id is not None
 
     session.refresh(producto)
     assert producto.stock_actual == 17
@@ -65,6 +87,7 @@ def test_crear_venta_exitoso(session: Session) -> None:
 def test_crear_venta_detalles(session: Session) -> None:
     producto = _crear_producto(session, precio_bs=Decimal("10.00"))
     _crear_tasa(session)
+    _abrir_caja(session)
     vc = VentaController()
 
     venta = vc.crear(
@@ -134,6 +157,7 @@ def test_crear_venta_con_varios_productos(session: Session) -> None:
     prod1 = _crear_producto(session, nombre="PROD A", precio_bs=Decimal("10.00"))
     prod2 = _crear_producto(session, nombre="PROD B", precio_bs=Decimal("20.00"))
     _crear_tasa(session)
+    _abrir_caja(session)
     vc = VentaController()
 
     venta = vc.crear(
@@ -151,9 +175,78 @@ def test_crear_venta_con_varios_productos(session: Session) -> None:
     assert len(detalles) == 2
 
 
+def test_crear_venta_sin_caja_abierta(session: Session) -> None:
+    """Sin caja ABIERTA la venta debe ser rechazada."""
+    producto = _crear_producto(session, precio_bs=Decimal("25.00"))
+    _crear_tasa(session)
+    vc = VentaController()
+
+    with pytest.raises(ValueError, match="No hay caja abierta"):
+        vc.crear(
+            productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+            metodo_pago={"efectivo_bs": Decimal("25.00")},
+            db_session=session,
+        )
+
+    session.refresh(producto)
+    assert producto.stock_actual == 20  # No se toco el stock
+
+
+def test_crear_venta_con_transferencia(session: Session) -> None:
+    """Pago total por transferencia: se registra y no se mezcla con efectivo."""
+    producto = _crear_producto(session, precio_bs=Decimal("50.00"))
+    _crear_tasa(session)
+    _abrir_caja(session)
+    vc = VentaController()
+
+    venta = vc.crear(
+        productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+        metodo_pago={
+            "efectivo_bs": Decimal("0.00"),
+            "transferencia": Decimal("50.00"),
+        },
+        db_session=session,
+    )
+
+    assert venta.total_bs == Decimal("50.00")
+    assert venta.efectivo_bs == Decimal("0.00")
+    assert venta.transferencia == Decimal("50.00")
+
+
+def test_anular_venta_caja_cerrada(session: Session) -> None:
+    """No se puede anular una venta de un turno de caja YA cerrado."""
+    producto = _crear_producto(session, stock=Decimal("10"))
+    _crear_tasa(session)
+    _abrir_caja(session)
+    vc = VentaController()
+
+    venta = vc.crear(
+        productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+        metodo_pago={"efectivo_bs": Decimal("10.00")},
+        db_session=session,
+    )
+    assert venta.idventa is not None
+    assert venta.caja_id is not None
+
+    # Cerrar el turno (arqueo sin billetes).
+    caja_sk = CajaService(db_session=session)
+    caja_sk.cerrar_caja(
+        caja_id=venta.caja_id,
+        billetes_bs=Decimal("0.00"),
+        billetes_usd=Decimal("0.00"),
+    )
+
+    with pytest.raises(ValueError, match="turno de caja de esta venta"):
+        vc.anular(venta.idventa, db_session=session)
+
+    session.refresh(producto)
+    assert producto.stock_actual == 9  # El stock NO se devolvio
+
+
 def test_anular_venta(session: Session) -> None:
     producto = _crear_producto(session, stock=Decimal("10"))
     _crear_tasa(session)
+    _abrir_caja(session)
     vc = VentaController()
 
     venta = vc.crear(
@@ -161,6 +254,7 @@ def test_anular_venta(session: Session) -> None:
         metodo_pago={"efectivo_bs": Decimal("30.00")},
         db_session=session,
     )
+    assert venta.caja_id is not None  # Turno ABIERTO: la anulacion SI es valida
 
     session.refresh(producto)
     assert producto.stock_actual == 7
@@ -184,6 +278,7 @@ def test_anular_venta_inexistente(session: Session) -> None:
 def test_anular_venta_ya_anulada(session: Session) -> None:
     producto = _crear_producto(session)
     _crear_tasa(session)
+    _abrir_caja(session)
     vc = VentaController()
 
     venta = vc.crear(
@@ -202,6 +297,7 @@ def test_anular_venta_ya_anulada(session: Session) -> None:
 def test_obtener_por_id(session: Session) -> None:
     producto = _crear_producto(session)
     _crear_tasa(session)
+    _abrir_caja(session)
     vc = VentaController()
 
     venta = vc.crear(
@@ -225,6 +321,7 @@ def test_obtener_por_id_inexistente(session: Session) -> None:
 def test_buscar_por_factura(session: Session) -> None:
     producto = _crear_producto(session)
     _crear_tasa(session)
+    _abrir_caja(session)
     vc = VentaController()
 
     venta = vc.crear(
@@ -248,6 +345,7 @@ def test_buscar_por_factura_inexistente(session: Session) -> None:
 def test_historial_por_fecha(session: Session) -> None:
     producto = _crear_producto(session)
     _crear_tasa(session)
+    _abrir_caja(session)
     vc = VentaController()
 
     vc.crear(
@@ -273,3 +371,294 @@ def test_obtener_detalles_sin_detalles(session: Session) -> None:
     vc = VentaController()
     detalles = vc.obtener_detalles(9999, db_session=session)
     assert detalles == []
+
+
+# ============================================================
+# MULTI-PAGO (tabla venta_pago)
+# ============================================================
+# El desglose de pagos es la fuente de verdad: los montos por metodo de
+# la Venta se derivan de el y la suma en Bs. cubre el total (se registra
+# SOLO el monto aplicado, sin vuelto). La tolerancia es de 1 centimo.
+
+
+def _pago(metodo: str, monto: str, referencia: str | None = None) -> dict[str, object]:
+    """Helper: un pago del desglose tal como lo manda la UI."""
+    return {"metodo": metodo, "monto": Decimal(monto), "referencia": referencia}
+
+
+def test_crear_venta_con_desglose_de_pagos(session: Session) -> None:
+    """Los montos por metodo de la venta se derivan del desglose de pagos."""
+    producto = _crear_producto(session, precio_bs=Decimal("125.00"))
+    _crear_tasa(session, Decimal("50.00"))
+    _abrir_caja(session)
+    vc = VentaController()
+
+    venta = vc.crear(
+        productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+        db_session=session,
+        pagos=[
+            _pago("efectivo_bs", "50.00"),
+            _pago("tarjeta", "25.00"),
+            _pago("efectivo_usd", "1.00"),
+        ],
+    )
+
+    assert venta.total_bs == Decimal("125.00")
+    assert venta.idventa is not None
+    assert venta.efectivo_bs == Decimal("50.00")
+    assert venta.tarjeta == Decimal("25.00")
+    # El efectivo en USD se guarda en USD (asi lo lee el arqueo de caja).
+    assert venta.efectivo_usd == Decimal("1.00")
+    assert venta.pago_movil == Decimal("0.00")
+    assert venta.bio_pago == Decimal("0.00")
+    assert venta.transferencia == Decimal("0.00")
+
+    pagos = vc.obtener_pagos(venta.idventa, db_session=session)
+    assert [p.metodo for p in pagos] == ["efectivo_bs", "tarjeta", "efectivo_usd"]
+    assert [p.moneda for p in pagos] == ["BS", "BS", "USD"]
+    assert [p.monto_bs for p in pagos] == [
+        Decimal("50.00"),
+        Decimal("25.00"),
+        Decimal("50.00"),
+    ]
+    assert [p.referencia for p in pagos] == [None, None, None]
+    assert all(p.tasa_cambio == Decimal("50.00") for p in pagos)
+
+
+def test_crear_venta_redondeo_efectivo_usd_un_centimo(session: Session) -> None:
+    """Regresion: el pago en USD se acepta con 1 centimo de diferencia.
+
+    Caso real: total 100.01 Bs, tasa 1000.00 y un pago de 0.10 USD
+    (100.00 Bs). Antes el monto en Bs. no se cuantizaba y la venta se
+    rechazaba por 1 centimo; ahora cae dentro de TOLERANCIA_REDONDEO.
+    """
+    producto = _crear_producto(session, precio_bs=Decimal("100.01"))
+    _crear_tasa(session, Decimal("1000.00"))
+    _abrir_caja(session)
+    vc = VentaController()
+
+    venta = vc.crear(
+        productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+        db_session=session,
+        pagos=[_pago("efectivo_usd", "0.10")],
+    )
+
+    assert venta.total_bs == Decimal("100.01")
+    assert venta.efectivo_usd == Decimal("0.10")
+    assert venta.idventa is not None
+
+    pagos = vc.obtener_pagos(venta.idventa, db_session=session)
+    assert len(pagos) == 1
+    assert pagos[0].monto_bs == Decimal("100.00")
+
+
+def test_crear_venta_pago_insuficiente_con_desglose(session: Session) -> None:
+    """Un faltante real (no un centimo de redondeo) sigue rechazandose."""
+    producto = _crear_producto(session, precio_bs=Decimal("125.00"))
+    _crear_tasa(session)
+    _abrir_caja(session)
+    vc = VentaController()
+
+    with pytest.raises(ValueError, match="no coincide con el total"):
+        vc.crear(
+            productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+            db_session=session,
+            pagos=[_pago("efectivo_bs", "95.00")],
+        )
+
+
+def test_crear_venta_pago_de_mas_con_desglose(session: Session) -> None:
+    """Cobrar de mas tampoco cuadra: la suma debe cubrir el total exacto."""
+    producto = _crear_producto(session, precio_bs=Decimal("100.00"))
+    _crear_tasa(session)
+    _abrir_caja(session)
+    vc = VentaController()
+
+    with pytest.raises(ValueError, match="no coincide con el total"):
+        vc.crear(
+            productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+            db_session=session,
+            pagos=[_pago("efectivo_bs", "150.00")],
+        )
+
+
+def test_crear_venta_desglose_vacio(session: Session) -> None:
+    """Una lista de pagos vacia se rechaza (no es lo mismo que omitirla)."""
+    producto = _crear_producto(session, precio_bs=Decimal("10.00"))
+    _crear_tasa(session)
+    _abrir_caja(session)
+    vc = VentaController()
+
+    with pytest.raises(ValueError, match="al menos un pago"):
+        vc.crear(
+            productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+            db_session=session,
+            pagos=[],
+        )
+
+
+def test_crear_venta_metodo_invalido(session: Session) -> None:
+    """Un metodo de pago fuera de METODOS_PAGO se rechaza."""
+    producto = _crear_producto(session, precio_bs=Decimal("10.00"))
+    _crear_tasa(session)
+    _abrir_caja(session)
+    vc = VentaController()
+
+    with pytest.raises(ValueError, match="Metodo de pago invalido"):
+        vc.crear(
+            productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+            db_session=session,
+            pagos=[_pago("bitcoin", "10.00")],
+        )
+
+
+def test_crear_venta_metodo_pago_incoherente_con_desglose(session: Session) -> None:
+    """Si el resumen por metodo no coincide con el desglose, no se guarda."""
+    producto = _crear_producto(session, precio_bs=Decimal("125.00"))
+    _crear_tasa(session)
+    _abrir_caja(session)
+    vc = VentaController()
+
+    with pytest.raises(ValueError, match="no coincide con el detalle de pagos"):
+        vc.crear(
+            productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+            metodo_pago={"efectivo_bs": Decimal("10.00")},
+            db_session=session,
+            pagos=[_pago("efectivo_bs", "125.00")],
+        )
+
+
+def test_crear_venta_metodo_pago_coherente_con_desglose(session: Session) -> None:
+    """Un resumen por metodo coherente con el desglose se acepta."""
+    producto = _crear_producto(session, precio_bs=Decimal("125.00"))
+    _crear_tasa(session, Decimal("50.00"))
+    _abrir_caja(session)
+    vc = VentaController()
+
+    venta = vc.crear(
+        productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+        metodo_pago={
+            "efectivo_bs": Decimal("50.00"),
+            "efectivo_usd": Decimal("1.50"),
+        },
+        db_session=session,
+        pagos=[
+            _pago("efectivo_bs", "50.00"),
+            _pago("efectivo_usd", "1.50"),
+        ],
+    )
+
+    assert venta.total_bs == Decimal("125.00")
+    assert venta.efectivo_bs == Decimal("50.00")
+    assert venta.efectivo_usd == Decimal("1.50")
+
+
+def test_crear_venta_efectivo_usd_sin_tasa_con_desglose(session: Session) -> None:
+    """Cobrar en USD sin tasa activa se rechaza (no se puede convertir)."""
+    producto = _crear_producto(session, precio_bs=Decimal("100.00"))
+    _abrir_caja(session)
+    vc = VentaController()
+
+    with pytest.raises(ValueError, match="tasa de cambio activa"):
+        vc.crear(
+            productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+            db_session=session,
+            pagos=[_pago("efectivo_usd", "10.00")],
+        )
+
+
+def test_crear_venta_sin_desglose_mantiene_comportamiento(session: Session) -> None:
+    """Sin 'pagos' la venta se crea igual que antes y no guarda desglose."""
+    producto = _crear_producto(session, precio_bs=Decimal("100.00"))
+    _crear_tasa(session)
+    _abrir_caja(session)
+    vc = VentaController()
+
+    venta = vc.crear(
+        productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+        metodo_pago={
+            "efectivo_bs": Decimal("60.00"),
+            "tarjeta": Decimal("40.00"),
+        },
+        db_session=session,
+    )
+
+    assert venta.total_bs == Decimal("100.00")
+    assert venta.efectivo_bs == Decimal("60.00")
+    assert venta.tarjeta == Decimal("40.00")
+    assert venta.idventa is not None
+    assert vc.obtener_pagos(venta.idventa, db_session=session) == []
+
+
+def test_crear_venta_honra_el_monto_aplicado_en_usd(session: Session) -> None:
+    """Regresion: la UI manda el monto APLICADO en USD (recorte con vuelto).
+
+    Total 100.00 Bs a tasa 30.00: el cajero entrega 3.34 USD (100.20 Bs.) y
+    el POS aplica el faltante exacto (100.00) mostrando 0.20 de vuelto. El
+    controlador debe respetar ese monto aplicado y cuadrar la venta.
+    """
+    producto = _crear_producto(session, precio_bs=Decimal("100.00"))
+    _crear_tasa(session, Decimal("30.00"))
+    _abrir_caja(session)
+    vc = VentaController()
+
+    venta = vc.crear(
+        productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+        db_session=session,
+        pagos=[
+            {
+                "metodo": "efectivo_usd",
+                "monto": Decimal("3.34"),
+                "monto_bs": Decimal("100.00"),
+            }
+        ],
+    )
+
+    assert venta.total_bs == Decimal("100.00")
+    # El arqueo de caja espera los USD fisicos que recibio el cajero.
+    assert venta.efectivo_usd == Decimal("3.34")
+    assert venta.idventa is not None
+
+    pagos = vc.obtener_pagos(venta.idventa, db_session=session)
+    assert pagos[0].monto_bs == Decimal("100.00")
+
+
+def test_crear_venta_rechaza_monto_aplicado_incoherente(session: Session) -> None:
+    """Un monto aplicado que no se parece al equivalente se rechaza."""
+    producto = _crear_producto(session, precio_bs=Decimal("100.00"))
+    _crear_tasa(session, Decimal("30.00"))
+    _abrir_caja(session)
+    vc = VentaController()
+
+    with pytest.raises(ValueError, match="no coincide con su equivalente"):
+        vc.crear(
+            productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+            db_session=session,
+            pagos=[
+                {
+                    "metodo": "efectivo_usd",
+                    "monto": Decimal("3.34"),
+                    "monto_bs": Decimal("50.00"),
+                }
+            ],
+        )
+
+
+def test_crear_venta_referencia_se_guarda(session: Session) -> None:
+    """La referencia del pago (nro. de operacion) se persiste."""
+    producto = _crear_producto(session, precio_bs=Decimal("50.00"))
+    _crear_tasa(session)
+    _abrir_caja(session)
+    vc = VentaController()
+
+    venta = vc.crear(
+        productos=[{"idproducto": producto.idproducto, "cantidad": 1}],
+        db_session=session,
+        pagos=[_pago("transferencia", "50.00", "1234")],
+    )
+
+    assert venta.idventa is not None
+    pagos = vc.obtener_pagos(venta.idventa, db_session=session)
+    assert len(pagos) == 1
+    assert pagos[0].referencia == "1234"
+    assert pagos[0].metodo == "transferencia"
