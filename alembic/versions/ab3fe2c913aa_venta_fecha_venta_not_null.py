@@ -1,12 +1,4 @@
-"""venta_fecha_venta_not_null
-
-Hace NOT NULL la columna fecha_venta en la tabla venta.
-En SQLite se usa batch_alter_table porque no soporta ALTER COLUMN.
-
-Revision ID: ab3fe2c913aa
-Revises: 11ba81a9e43f
-
-"""
+"""venta_fecha_venta_not_null Hace NOT NULL la columna fecha_venta en la tabla venta."""
 from collections.abc import Sequence
 
 import sqlalchemy as sa

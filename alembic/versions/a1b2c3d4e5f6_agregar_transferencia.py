@@ -1,18 +1,4 @@
-"""agregar_transferencia
-
-Agrega la columna transferencia a venta, caja y reportediario.
-Usa guards de Inspector para ser idempotente: la BD de la app se
-crea con create_db_and_tables(), por lo que tablas/columnas pueden
-existir ya antes de aplicar la migracion.
-
-NOTA: la tabla de reportes se llama "reportediario" (SQLModel usa el
-nombre de la clase ReporteDiario en minusculas, sin pluralizar).
-
-Revision ID: a1b2c3d4e5f6
-Revises: e8e937a821f6
-Create Date: 2026-09-16 18:30:00.000000
-
-"""
+"""agregar_transferencia Agrega la columna transferencia a venta, caja y reportediario."""
 
 from collections.abc import Sequence
 

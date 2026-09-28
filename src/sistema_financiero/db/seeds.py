@@ -1,11 +1,18 @@
+# seeds.py: Datos semilla de usuarios, productos y tasa.
 from decimal import Decimal
 
 import bcrypt
 from sqlmodel import Session, select
 
-from sistema_financiero.utils import TIPO_VENTA_UNIDAD, hoy
+from sistema_financiero.utils import (
+    TIPO_VENTA_UNIDAD,
+    clave_normalizada,
+    hoy,
+    normalizar_nombre_categoria,
+)
 
 from ..models import (
+    Categoria,
     Producto,
     TasaCambio,
     Usuario,
@@ -29,15 +36,33 @@ def seed_admin(session: Session | None = None) -> None:
 
 
 def seed_productos(session: Session | None = None) -> None:
-    """Crea productos de ejemplo si no hay ninguno."""
+    """Crea productos de ejemplo si no hay ninguno (con categorias unicas)."""
     with obtener_sesion(session) as s:
         if s.exec(select(Producto)).first() is not None:
             return
 
+        ids_categoria: dict[str, int] = {}
+        for nombre in ("Alimentos", "Lácteos", "Aseo Personal", "Limpieza"):
+            clave = clave_normalizada(nombre)
+            existente = s.exec(
+                select(Categoria).where(Categoria.clave == clave),
+            ).first()
+            if existente is not None:
+                ids_categoria[clave] = existente.id or 0
+                continue
+            nueva = Categoria(nombre=normalizar_nombre_categoria(nombre), clave=clave)
+            s.add(nueva)
+            s.flush()
+            assert nueva.id is not None
+            ids_categoria[clave] = nueva.id
+
+        def _id_categoria(nombre_semilla: str) -> int:
+            return ids_categoria[clave_normalizada(nombre_semilla)]
+
         productos = [
             Producto(
                 nombre_producto="Arroz Blanco 1kg",
-                categoria="Alimentos",
+                categoria_id=_id_categoria("Alimentos"),
                 precio_compra=Decimal("1.20"),
                 precio_venta_bs=Decimal("1.80"),
                 precio_venta_usd=Decimal("0.05"),
@@ -48,7 +73,7 @@ def seed_productos(session: Session | None = None) -> None:
             ),
             Producto(
                 nombre_producto="Azúcar 1kg",
-                categoria="Alimentos",
+                categoria_id=_id_categoria("Alimentos"),
                 precio_compra=Decimal("0.90"),
                 precio_venta_bs=Decimal("1.50"),
                 precio_venta_usd=Decimal("0.04"),
@@ -59,7 +84,7 @@ def seed_productos(session: Session | None = None) -> None:
             ),
             Producto(
                 nombre_producto="Harina PAN 1kg",
-                categoria="Alimentos",
+                categoria_id=_id_categoria("Alimentos"),
                 precio_compra=Decimal("2.00"),
                 precio_venta_bs=Decimal("3.00"),
                 precio_venta_usd=Decimal("0.09"),
@@ -70,7 +95,7 @@ def seed_productos(session: Session | None = None) -> None:
             ),
             Producto(
                 nombre_producto="Aceite Vegetal 1L",
-                categoria="Alimentos",
+                categoria_id=_id_categoria("Alimentos"),
                 precio_compra=Decimal("3.50"),
                 precio_venta_bs=Decimal("5.50"),
                 precio_venta_usd=Decimal("0.15"),
@@ -81,7 +106,7 @@ def seed_productos(session: Session | None = None) -> None:
             ),
             Producto(
                 nombre_producto="Leche Completa 1L",
-                categoria="Lácteos",
+                categoria_id=_id_categoria("Lácteos"),
                 precio_compra=Decimal("1.50"),
                 precio_venta_bs=Decimal("2.50"),
                 precio_venta_usd=Decimal("0.07"),
@@ -92,7 +117,7 @@ def seed_productos(session: Session | None = None) -> None:
             ),
             Producto(
                 nombre_producto="Queso Amarillo 500g",
-                categoria="Lácteos",
+                categoria_id=_id_categoria("Lácteos"),
                 precio_compra=Decimal("3.00"),
                 precio_venta_bs=Decimal("5.00"),
                 precio_venta_usd=Decimal("0.14"),
@@ -103,7 +128,7 @@ def seed_productos(session: Session | None = None) -> None:
             ),
             Producto(
                 nombre_producto="Jabón de Baño",
-                categoria="Aseo Personal",
+                categoria_id=_id_categoria("Aseo Personal"),
                 precio_compra=Decimal("0.80"),
                 precio_venta_bs=Decimal("1.50"),
                 precio_venta_usd=Decimal("0.04"),
@@ -114,7 +139,7 @@ def seed_productos(session: Session | None = None) -> None:
             ),
             Producto(
                 nombre_producto="Detergente 500g",
-                categoria="Limpieza",
+                categoria_id=_id_categoria("Limpieza"),
                 precio_compra=Decimal("1.80"),
                 precio_venta_bs=Decimal("3.00"),
                 precio_venta_usd=Decimal("0.08"),
@@ -125,7 +150,7 @@ def seed_productos(session: Session | None = None) -> None:
             ),
             Producto(
                 nombre_producto="Café Molido 250g",
-                categoria="Alimentos",
+                categoria_id=_id_categoria("Alimentos"),
                 precio_compra=Decimal("2.50"),
                 precio_venta_bs=Decimal("4.00"),
                 precio_venta_usd=Decimal("0.11"),
@@ -136,14 +161,14 @@ def seed_productos(session: Session | None = None) -> None:
             ),
             Producto(
                 nombre_producto="Papel Higiénico x4",
-                categoria="Limpieza",
+                categoria_id=_id_categoria("Limpieza"),
                 precio_compra=Decimal("2.00"),
                 precio_venta_bs=Decimal("3.50"),
                 precio_venta_usd=Decimal("0.10"),
                 stock_actual=Decimal("0"),
                 stock_minimo=Decimal("10"),
                 tipo_venta=TIPO_VENTA_UNIDAD,
-                unidad="PAQUETE",
+                unidad="UNIDAD",
             ),
         ]
         for p in productos:
@@ -172,3 +197,4 @@ def ejecutar_todos(session: Session | None = None) -> None:
     seed_admin(session)
     seed_productos(session)
     seed_tasa_cambio(session)
+

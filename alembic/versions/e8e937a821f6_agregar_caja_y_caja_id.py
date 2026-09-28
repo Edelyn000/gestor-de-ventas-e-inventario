@@ -1,15 +1,4 @@
-"""agregar_caja_y_caja_id
-
-Crea la tabla caja y la columna caja_id en venta.
-Usa guards de Inspector para que sea idempotente: la BD de la app
-se crea con create_db_and_tables(), por lo que estas tablas pueden
-existir ya antes de aplicar la migracion.
-
-Revision ID: e8e937a821f6
-Revises: 2ff54d5c1e57
-Create Date: 2026-09-16 17:33:08.707412
-
-"""
+"""agregar_caja_y_caja_id Crea la tabla caja y la columna caja_id en venta."""
 
 from collections.abc import Sequence
 
@@ -73,9 +62,6 @@ def downgrade() -> None:
     if "venta" in tablas:
         columnas_venta = {columna["name"] for columna in inspector.get_columns("venta")}
         if "caja_id" in columnas_venta:
-            # batch_alter_table recrea la tabla en SQLite, eliminando la
-            # columna y la FK anonima que la referencia (DROP COLUMN directo
-            # falla cuando la columna participa en una foreign key).
             with op.batch_alter_table("venta") as batch_op:
                 batch_op.drop_column("caja_id")
 

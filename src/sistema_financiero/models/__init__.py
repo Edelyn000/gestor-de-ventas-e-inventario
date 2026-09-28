@@ -1,16 +1,14 @@
-# ============================================================
-# PAQUETE: models/
-# Exporta todos los modelos ORM y utilidades de conexion.
-# Importar desde aqui: from .models import Producto
-# ============================================================
+# __init__.py: Exporta los modelos ORM del paquete.
 
 from .conexion import create_db_and_tables, engine, obtener_sesion
 from .modelos import (
     Caja,
+    Categoria,
     MovimientoInventario,
     PagoVenta,
     Producto,
     ReporteDiario,
+    ReporteVentaDetalle,
     TasaCambio,
     Usuario,
     Venta,
@@ -19,6 +17,7 @@ from .modelos import (
 
 __all__ = [
     "Caja",
+    "Categoria",
     "create_db_and_tables",
     "engine",
     "obtener_sesion",
@@ -26,8 +25,10 @@ __all__ = [
     "PagoVenta",
     "Producto",
     "ReporteDiario",
+    "ReporteVentaDetalle",
     "TasaCambio",
     "Usuario",
     "Venta",
     "VentaDetalle",
 ]
+

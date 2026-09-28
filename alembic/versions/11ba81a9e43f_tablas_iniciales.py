@@ -1,10 +1,4 @@
-"""tablas_iniciales
-
-Revision ID: 11ba81a9e43f
-Revises:
-Create Date: 2026-06-17 08:40:37.548811
-
-"""
+"""tablas_iniciales Revision ID: 11ba81a9e43f Revises: Create Date: 2026-06-17 08:40:37.548811"""
 
 from collections.abc import Sequence
 
