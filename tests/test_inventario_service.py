@@ -6,6 +6,8 @@ from sqlmodel import Session
 from sistema_financiero.core.inventario_service import InventarioService
 from sistema_financiero.models import Producto
 
+pytestmark = pytest.mark.unitarias
+
 
 def _crear_producto(
     session: Session, nombre: str = "PROD TEST", stock: Decimal = Decimal("50")
@@ -75,7 +77,8 @@ def test_registrar_entrada_producto_inexistente(session: Session) -> None:
     servicio = InventarioService()
     with pytest.raises(ValueError, match="no existe"):
         servicio.registrar_entrada(
-            producto_id=9999, cantidad=Decimal("5"), motivo="COMPRA", db_session=session)
+            producto_id=9999, cantidad=Decimal("5"), motivo="COMPRA", db_session=session
+        )
 
 
 def test_registrar_salida_exitoso(session: Session) -> None:
@@ -211,9 +214,7 @@ def test_historial_por_producto(session: Session) -> None:
         producto_id=producto.idproducto, stock_fisico=Decimal("110"), db_session=session
     )
 
-    historial = servicio.historial_por_producto(
-        producto_id=producto.idproducto, db_session=session
-    )
+    historial = servicio.historial_por_producto(producto_id=producto.idproducto, db_session=session)
 
     assert len(historial) == 3
 
@@ -230,9 +231,7 @@ def test_historial_por_producto_sin_movimientos(session: Session) -> None:
     assert producto.idproducto is not None
     servicio = InventarioService()
 
-    historial = servicio.historial_por_producto(
-        producto_id=producto.idproducto, db_session=session
-    )
+    historial = servicio.historial_por_producto(producto_id=producto.idproducto, db_session=session)
     assert historial == []
 
 
@@ -241,13 +240,19 @@ def test_stock_disponible_suficiente(session: Session) -> None:
     assert producto.idproducto is not None
     servicio = InventarioService()
 
-    assert servicio.stock_disponible(
-        producto_id=producto.idproducto, cantidad=Decimal("5"), db_session=session
-    ) is True
+    assert (
+        servicio.stock_disponible(
+            producto_id=producto.idproducto, cantidad=Decimal("5"), db_session=session
+        )
+        is True
+    )
 
-    assert servicio.stock_disponible(
-        producto_id=producto.idproducto, cantidad=Decimal("10"), db_session=session
-    ) is True
+    assert (
+        servicio.stock_disponible(
+            producto_id=producto.idproducto, cantidad=Decimal("10"), db_session=session
+        )
+        is True
+    )
 
 
 def test_stock_disponible_insuficiente(session: Session) -> None:
@@ -255,9 +260,12 @@ def test_stock_disponible_insuficiente(session: Session) -> None:
     assert producto.idproducto is not None
     servicio = InventarioService()
 
-    assert servicio.stock_disponible(
-        producto_id=producto.idproducto, cantidad=Decimal("10"), db_session=session
-    ) is False
+    assert (
+        servicio.stock_disponible(
+            producto_id=producto.idproducto, cantidad=Decimal("10"), db_session=session
+        )
+        is False
+    )
 
 
 def test_stock_disponible_producto_inexistente(session: Session) -> None:

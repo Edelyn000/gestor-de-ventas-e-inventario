@@ -10,6 +10,8 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from sistema_financiero.db.seeds import seed_admin
 from sistema_financiero.models import Usuario
 
+pytestmark = pytest.mark.unitarias
+
 
 @pytest.fixture()
 def _mock_obtener_sesion(mocker: pytest_mock.MockerFixture) -> Engine:
@@ -65,3 +67,4 @@ def test_seed_admin_no_duplica(_mock_obtener_sesion: Engine) -> None:
     with Session(_mock_obtener_sesion) as session:
         admins = session.exec(select(Usuario).where(Usuario.usuario == "admin")).all()
         assert len(admins) == 1
+

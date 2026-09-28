@@ -1,16 +1,3 @@
-# ============================================================
-# ARCHIVO: tests/test_logging.py
-# mypy: allow-untyped-calls = True
-# ============================================================
-# Tests para utils/logging_setup.py:
-#   - registrar_excepcion(): escribe el error con traceback en el log.
-#   - configurar_logging(): prepara el logger (una sola vez).
-#   - manejar_excepcion_no_manejada(): excepthook que registra y
-#     muestra el error (sin romper en KeyboardInterrupt).
-#
-# En los tests el log se redirige a un directorio temporal (tmp_path)
-# para NO ensuciar logs/errores.log del proyecto.
-# ============================================================
 import logging
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -19,14 +6,12 @@ import pytest
 
 from sistema_financiero.utils import logging_setup
 
+pytestmark = pytest.mark.unitarias
+
 
 @pytest.fixture(autouse=True)
 def _log_en_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Redirige el log a un archivo temporal y resetea el logger.
-
-    Tambien evita que el excepthook abra un dialogo modal (QMessageBox)
-    cuando ya existe una QApplication de pytest-qt en la misma corrida.
-    """
+    """Redirige el log a un archivo temporal y resetea el logger."""
     directorio = tmp_path / "logs"
     archivo = directorio / "errores.log"
     monkeypatch.setattr(logging_setup, "LOG_DIR", directorio)
@@ -35,11 +20,6 @@ def _log_en_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     logging.getLogger(logging_setup.NOMBRE_LOGGER).handlers.clear()
 
     monkeypatch.setattr(logging_setup.QMessageBox, "critical", MagicMock())
-
-
-# ============================================================
-# TESTS: configurar_logging
-# ============================================================
 
 
 class TestConfigurarLogging:
@@ -56,13 +36,7 @@ class TestConfigurarLogging:
         segundo = logging_setup.configurar_logging()
 
         assert primero is segundo
-        # Un solo handler de archivo.
         assert len(primero.handlers) == 1
-
-
-# ============================================================
-# TESTS: registrar_excepcion
-# ============================================================
 
 
 class TestRegistrarExcepcion:
@@ -79,11 +53,6 @@ class TestRegistrarExcepcion:
         assert "test_ctx" in contenido
         assert "monto invalido" in contenido
         assert "Traceback" in contenido
-
-
-# ============================================================
-# TESTS: manejar_excepcion_no_manejada (excepthook)
-# ============================================================
 
 
 class TestManejarExcepcionNoManejada:
@@ -113,3 +82,4 @@ class TestManejarExcepcionNoManejada:
         logging_setup.manejar_excepcion_no_manejada(type(error), error, error.__traceback__)
 
         mock_registrar.assert_not_called()
+

@@ -7,10 +7,14 @@ from sistema_financiero.core.caja_service import CajaService
 from sistema_financiero.core.tasa_cambio_service import TasaCambioService
 from sistema_financiero.models import PagoVenta, Usuario, Venta
 from sistema_financiero.utils.constantes import (
+    METODO_PAGO_EFECTIVO_BS,
     METODO_PAGO_EFECTIVO_USD,
+    MONEDA_BS,
     MONEDA_USD,
 )
 from sistema_financiero.utils.fecha import hoy
+
+pytestmark = pytest.mark.integracion
 
 
 def _crear_usuario(session: Session, id: int = 1, nombre: str = "admin") -> Usuario:
@@ -57,6 +61,32 @@ def _venta_con_pago_usd_recortado(session: Session, caja_id: int | None) -> Vent
             monto=Decimal("3.34"),
             monto_bs=Decimal("100.00"),
             tasa_cambio=Decimal("30.00"),
+        )
+    )
+    session.commit()
+    return venta
+
+
+def _venta_con_pago_bs_sobrepagado(session: Session, caja_id: int | None) -> Venta:
+    """Venta de 21.648,20 Bs. pagada con 50.000,00 Bs. (aplica el faltante)."""
+    venta = Venta(
+        caja_id=caja_id,
+        total_bs=Decimal("21648.20"),
+        total_usd=Decimal("432.96"),
+        efectivo_bs=Decimal("50000.00"),
+        estado="COMPLETADA",
+    )
+    session.add(venta)
+    session.commit()
+    session.refresh(venta)
+    assert venta.idventa is not None
+    session.add(
+        PagoVenta(
+            venta_id=venta.idventa,
+            metodo=METODO_PAGO_EFECTIVO_BS,
+            moneda=MONEDA_BS,
+            monto=Decimal("50000.00"),
+            monto_bs=Decimal("21648.20"),
         )
     )
     session.commit()
@@ -197,8 +227,6 @@ def test_cerrar_caja_sin_ventas(session: Session) -> None:
 
     assert caja_cerrada.cantidad_ventas == 0
     assert caja_cerrada.total_ventas_bs == Decimal("0.00")
-    # Sin tasas registradas la conversion usa tasa 1.00.
-    # Arqueo SOLO de efectivo: sobrante = (100 + 0*1) - (fondo 100 + 0 + 0) = 0
     assert caja_cerrada.sobrante_faltante_bs == Decimal("0.00")
 
 
@@ -213,7 +241,6 @@ def test_cerrar_caja_con_ventas(session: Session) -> None:
     )
     assert caja.id is not None
 
-    # Venta pagada EN PARTE en efectivo y en parte por transferencia.
     venta1 = Venta(
         caja_id=caja.id,
         total_bs=Decimal("35.00"),
@@ -234,22 +261,13 @@ def test_cerrar_caja_con_ventas(session: Session) -> None:
 
     assert caja_cerrada.cantidad_ventas == 1
     assert caja_cerrada.total_ventas_bs == Decimal("35.00")
-    # La transferencia se consolida como metodo de pago del turno...
     assert caja_cerrada.transferencia == Decimal("10.00")
-    # ...pero NO cuenta en el arqueo (no es efectivo del cajon).
-    # Sin tasa registrada, conversion con tasa 1.00.
-    # sobrante = (75 + 5*1) - (fondo 50 + efectivo 25 + usd 0*1) = 80 - 75 = 5
     assert caja_cerrada.sobrante_faltante_bs == Decimal("5.00")
     assert caja_cerrada.observaciones == "Cierre con ventas"
 
 
 def test_cierre_descuenta_el_vuelto_entregado_en_bs(session: Session) -> None:
-    """Regresion: el vuelto en Bs. salio del cajon y no debe contar esperado.
-
-    Pago en USD con tasa que no divide el total (3.34 USD a 30.00 = 100.20):
-    el POS registra solo lo aplicado (100.00) y entrega 0.20 de vuelto en Bs.
-    Antes el arqueo esperaba 110.20 y reportaba un faltante fantasma de 0.20.
-    """
+    """Regresion: el vuelto en Bs. salio del cajon y no debe contar esperado."""
     _registrar_tasa(session, Decimal("30.00"))
     usuario = _crear_usuario(session)
     assert usuario.id is not None
@@ -264,15 +282,36 @@ def test_cierre_descuenta_el_vuelto_entregado_en_bs(session: Session) -> None:
 
     assert caja_sk.vuelto_entregado_bs(caja.id) == Decimal("0.20")
 
-    # El cajon queda con 9.80 Bs. (fondo 10.00 - vuelto 0.20) y los 3.34 USD.
     caja_cerrada = caja_sk.cerrar_caja(
         caja_id=caja.id,
         billetes_bs=Decimal("9.80"),
         billetes_usd=Decimal("3.34"),
     )
 
-    # esperado = fondo 10.00 + 0 + (3.34 * 30 = 100.20) - vuelto 0.20 = 110.00
-    # fisico   = 9.80 + 3.34 * 30 = 110.00  ->  cuadra
+    assert caja_cerrada.sobrante_faltante_bs == Decimal("0.00")
+
+
+def test_cierre_descuenta_el_vuelto_en_bs_por_sobrepago_en_bs(session: Session) -> None:
+    """Vuelto en Bs. por SOBREPAGO en Bs.: el arqueo tampoco lo exige."""
+    usuario = _crear_usuario(session)
+    assert usuario.id is not None
+    caja_sk = CajaService(db_session=session)
+
+    caja = caja_sk.abrir_caja(
+        monto_apertura_bs=Decimal("10.00"),
+        usuario_id=usuario.id,
+    )
+    assert caja.id is not None
+    _venta_con_pago_bs_sobrepagado(session, caja.id)
+
+    assert caja_sk.vuelto_entregado_bs(caja.id) == Decimal("28351.80")
+
+    caja_cerrada = caja_sk.cerrar_caja(
+        caja_id=caja.id,
+        billetes_bs=Decimal("21658.20"),
+        billetes_usd=Decimal("0.00"),
+    )
+
     assert caja_cerrada.sobrante_faltante_bs == Decimal("0.00")
 
 
@@ -306,5 +345,5 @@ def test_cierre_sin_pagos_registrados_no_descuenta_vuelto(session: Session) -> N
         billetes_usd=Decimal("0.00"),
     )
 
-    # sobrante = 85 - (fondo 50 + efectivo 35) = 0
     assert caja_cerrada.sobrante_faltante_bs == Decimal("0.00")
+
