@@ -56,3 +56,19 @@ strict = true
 ignore_missing_imports = true
 explicit_package_bases = true
 namespace_packages = true
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+# Niveles de prueba (ver AGENTS.md -> "Niveles de pruebas"):
+#   unitarias   -> un modulo aislado (helper, servicio, widget) + sesion en memoria
+#   integracion -> 2+ modulos concatenados (servicio+BD, venta+pago+inventario+caja,
+#                  pagina UI + controlador + BD, exportacion real)
+#   sistema     -> aplicacion completa arrancada (login -> VentanaPrincipal -> flujos
+#                  de punta a punta con servicios reales sobre BD en memoria)
+#   aceptacion  -> escenarios que reejecutan criterios y reportes del usuario
+markers = [
+    "unitarias: pruebas unitarias (modulo aislado con sesion en memoria)",
+    "integracion: pruebas de integracion (2+ modulos concatenados)",
+    "sistema: pruebas de sistema (aplicacion completa de punta a punta)",
+    "aceptacion: pruebas de aceptacion (escenarios/criterios del usuario)",
+]
