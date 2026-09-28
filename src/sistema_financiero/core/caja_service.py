@@ -12,6 +12,7 @@ from sistema_financiero.utils.fecha import ahora
 from sistema_financiero.utils.moneda import DECIMAL_CENTIMO
 
 
+# Redondea a 2 decimales (mismo criterio que el POS).
 def _a_centimos(valor: Decimal) -> Decimal:
     """Redondea a 2 decimales (mismo criterio que el POS)."""
     return valor.quantize(DECIMAL_CENTIMO, rounding=ROUND_HALF_UP)
@@ -21,10 +22,12 @@ def _a_centimos(valor: Decimal) -> Decimal:
 class CajaService:
     """Servicio para gestionar aperturas y cierres de caja."""
 
+    # Guarda la sesion y reutiliza el servicio de tasas (o crea uno).
     def __init__(self, db_session: Session, tasa_service: TasaCambioService | None = None) -> None:
         self.db = db_session
         self.tasa_service = tasa_service or TasaCambioService()
 
+    # Abre una caja nueva si no hay otra abierta; rechaza si ya existe una.
     def abrir_caja(self, monto_apertura_bs: Decimal, usuario_id: int) -> Caja:
         caja_actual = self.db.execute(
             select(Caja).where(Caja.estado == "ABIERTA")
@@ -47,6 +50,7 @@ class CajaService:
 
         return caja
 
+    # Vuelto en bolivares entregado en las ventas de la caja.
     def vuelto_entregado_bs(self, caja_id: int) -> Decimal:
         """Vuelto en bolivares entregado en las ventas de la caja."""
         pagos = self.db.exec(
@@ -66,6 +70,7 @@ class CajaService:
 
         return _a_centimos(total)
 
+    # Cierra la caja con el arqueo de billetes y calcula sobrante o faltante.
     def cerrar_caja(
         self,
         caja_id: int,
@@ -135,15 +140,18 @@ class CajaService:
 
         return caja
 
+    # Devuelve la caja en estado ABIERTA o None.
     def obtener_caja_abierta(self) -> Caja | None:
         return self.db.execute(select(Caja).where(Caja.estado == "ABIERTA")).scalar_one_or_none()
 
+    # Devuelve la caja abierta o lanza ValueError si no hay.
     def validar_caja_abierta(self) -> Caja:
         caja = self.obtener_caja_abierta()
         if not caja:
             raise ValueError("No hay caja abierta. Abra la caja antes de registrar ventas.")
         return caja
 
+    # Lista las cajas cerradas, opcionalmente filtradas por rango de fechas.
     def historial(
         self, fecha_desde: datetime | None = None, fecha_hasta: datetime | None = None
     ) -> list[Caja]:

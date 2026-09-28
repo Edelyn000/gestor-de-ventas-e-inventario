@@ -33,21 +33,25 @@ from sistema_financiero.utils import ROL_ADMINISTRADOR, ROL_VENDEDOR, hoy
 pytestmark = pytest.mark.sistema
 
 
+# Sustituye registrar_evento del login (el test no ensucia logs/).
 def _neutralizar_auditoria_login(*_args: object, **_kwargs: object) -> None:
     """Sustituye registrar_evento del login (el test no ensucia logs/)."""
     return None
 
 
+# Evita que el dashboard consulte el BCV por red (no-op).
 @pytest.fixture(autouse=True)
 def _sin_fetch_bcv(monkeypatch: pytest.MonkeyPatch) -> None:
     """Evita que el dashboard consulte el BCV por red (no-op)."""
 
+    # Deja el fetch BCV inactivo para no tocar la red.
     def _iniciar_fetch_sin_red(self: DashboardPagina) -> None:
         self._bcv_fetching = False
 
     monkeypatch.setattr(DashboardPagina, "_iniciar_fetch_bcv", _iniciar_fetch_sin_red)
 
 
+# Fuerza la recoleccion de sesiones de BD tras cada test.
 @pytest.fixture(autouse=True)
 def _liberar_conexiones_sqlite() -> Iterator[None]:
     """Fuerza la recoleccion de sesiones de BD tras cada test."""
@@ -55,6 +59,7 @@ def _liberar_conexiones_sqlite() -> Iterator[None]:
     gc.collect()
 
 
+# Evita modales reales cuando pytest-qt cierra VentanaPrincipal (teardown).
 @pytest.fixture(autouse=True, scope="module")
 def _sin_dialogos_reales_al_cerrar_ventana():
     """Evita modales reales cuando pytest-qt cierra VentanaPrincipal (teardown)."""
@@ -65,6 +70,7 @@ def _sin_dialogos_reales_al_cerrar_ventana():
         yield
 
 
+# BD unica compartida por servicios y UI (parcheando AMBOS engines).
 @pytest.fixture()
 def bd_sistema(monkeypatch: pytest.MonkeyPatch) -> Iterator[Session]:
     """BD unica compartida por servicios y UI (parcheando AMBOS engines)."""
@@ -82,6 +88,7 @@ def bd_sistema(monkeypatch: pytest.MonkeyPatch) -> Iterator[Session]:
         yield sesion
 
 
+# Usuario ADMINISTRADOR real con contrasena bcrypt (no mock).
 def _crear_admin(sesion: Session) -> Usuario:
     """Usuario ADMINISTRADOR real con contrasena bcrypt (no mock)."""
     admin = AuthService().crear_usuario(
@@ -95,6 +102,7 @@ def _crear_admin(sesion: Session) -> Usuario:
     return admin
 
 
+# Usuario VENDEDOR real con contrasena bcrypt (no mock).
 def _crear_vendedor(sesion: Session) -> Usuario:
     """Usuario VENDEDOR real con contrasena bcrypt (no mock)."""
     vendedor = AuthService().crear_usuario(
@@ -108,6 +116,7 @@ def _crear_vendedor(sesion: Session) -> Usuario:
     return vendedor
 
 
+# Registra la tasa BCV real de hoy (no es idempotente: BD limpia por test).
 def _crear_tasa_bcv_hoy(sesion: Session) -> None:
     """Registra la tasa BCV real de hoy (no es idempotente: BD limpia por test)."""
     TasaCambioService().registrar(
@@ -119,6 +128,7 @@ def _crear_tasa_bcv_hoy(sesion: Session) -> None:
     )
 
 
+# Producto real por UNIDAD: 2.
 def _crear_producto(sesion: Session) -> Producto:
     """Producto real por UNIDAD: 2.00 USD = 100.00 Bs. con tasa 50."""
     producto = ProductoController().crear(
@@ -136,6 +146,7 @@ def _crear_producto(sesion: Session) -> Producto:
     return producto
 
 
+# Abre la caja del turno con fondo cero para el admin.
 def _abrir_caja(sesion: Session, admin: Usuario) -> None:
     assert admin.id is not None
     CajaService(db_session=sesion).abrir_caja(
@@ -147,6 +158,7 @@ def _abrir_caja(sesion: Session, admin: Usuario) -> None:
 class TestCicloDeSesion:
     """Login real (bcrypt) -> ventana admin -> logout -> relogin (bucle __main__)."""
 
+    # Prueba el ciclo completo login y logout con bcrypt real.
     def test_login_logout_relogin_completo(
         self,
         bd_sistema: Session,
@@ -198,6 +210,7 @@ class TestCicloDeSesion:
         assert login2.usuario_actual is not None
         assert login2.result() == QDialog.DialogCode.Accepted
 
+    # Prueba que un login fallido no acepta el dialogo.
     def test_login_fallido_no_acepta(
         self,
         bd_sistema: Session,
@@ -229,6 +242,7 @@ class TestCicloDeSesion:
 class TestFlujoPosCompleto:
     """POS real (producto + tasa + caja de la BD) -> venta persistida real."""
 
+    # Prueba una venta completa por el POS persistida en la BD.
     def test_venta_completa_persistida(
         self,
         bd_sistema: Session,
@@ -306,6 +320,7 @@ class TestFlujoPosCompleto:
 class TestCierreDeCajaYReporte:
     """Cierre real de caja con arqueo -> reporte diario consolidado."""
 
+    # Prueba el cierre de caja que genera el reporte del dia.
     def test_cierre_con_arqueo_genera_reporte(
         self,
         bd_sistema: Session,
@@ -371,6 +386,7 @@ class TestCierreDeCajaYReporte:
 class TestVendedorSoloVentas:
     """Login real de VENDEDOR -> la app arranca en Ventas y solo muestra Ventas."""
 
+    # Prueba que el vendedor solo ve la pagina de Ventas.
     def test_vendedor_solo_ve_ventas(
         self,
         bd_sistema: Session,

@@ -14,6 +14,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+# Crea las tablas iniciales si la BD esta vacia.
 def upgrade() -> None:
     inspector = Inspector.from_engine(engine)
     tables = inspector.get_table_names()
@@ -134,6 +135,7 @@ def upgrade() -> None:
     )
 
 
+# Elimina las tablas e indices iniciales.
 def downgrade() -> None:
     op.drop_table("movimientos_inventario")
     op.drop_table("venta_detalles")

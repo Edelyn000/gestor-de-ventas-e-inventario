@@ -10,6 +10,7 @@ from alembic import command
 from sistema_financiero.models import Categoria, Producto, conexion
 
 
+# Comprueba que la migracion quedo aplicada correctamente.
 def _verificar() -> None:
     """Comprueba que la migracion quedo aplicada correctamente."""
     with Session(conexion.engine) as sesion:
@@ -27,6 +28,7 @@ def _verificar() -> None:
             print(f"ADVERTENCIA claves con mayusculas: {duplicados}")
 
 
+# Crea la tabla categoria y asigna categoria_id a los productos.
 def main() -> None:
     ruta_bd = Path(conexion.DB_PATH)
     if not ruta_bd.exists():

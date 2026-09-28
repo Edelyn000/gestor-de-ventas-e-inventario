@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QAbstractItemView, QTableWidget, QWidget
 class TablaProductos(QTableWidget):
     """Tabla reutilizable con configuracion base para todo el sistema."""
 
+    # Crea una tabla con las columnas y anchos dados.
     def __init__(
         self,
         columnas: list[tuple[str, int]],
@@ -23,10 +24,12 @@ class TablaProductos(QTableWidget):
         if header:
             header.setStretchLastSection(True)
 
+    # Devuelve el texto de una celda o vacio si no hay item.
     def item_texto(self, fila: int, col: int) -> str:
         item = self.item(fila, col)
         return item.text() if item else ""
 
+    # Devuelve el id de la fila seleccionada o None.
     def id_fila_seleccionada(self, col_id: int = 0) -> int | None:
         fila = self.currentRow()
         if fila < 0:

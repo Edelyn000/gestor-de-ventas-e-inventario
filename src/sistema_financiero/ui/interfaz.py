@@ -41,6 +41,7 @@ from .ventas_pagina import VentasPagina
 class VentanaPrincipal(QMainWindow):
     sesion_cerrada = pyqtSignal()
 
+    # Construye la ventana principal con el menu segun el rol del usuario.
     def __init__(self, usuario: Usuario) -> None:
         super().__init__()
 
@@ -91,6 +92,7 @@ class VentanaPrincipal(QMainWindow):
         if "Dashboard" in self._items_menu:
             self._timer_dashboard.start(600_000)
 
+    # Arma la cabecera, la navegacion por rol y el stack de paginas.
     def _setup_ui(self) -> None:
         widget_central = QWidget()
         layout_principal = QVBoxLayout(widget_central)
@@ -142,6 +144,7 @@ class VentanaPrincipal(QMainWindow):
 
         self.barra_navegacion.setCurrentRow(0)
 
+    # Header azul oscuro (#1e3a8a) con el nombre del sistema y el usuario.
     def _crear_cabecera_aplicacion(self) -> QFrame:
         """Header azul oscuro (#1e3a8a) con el nombre del sistema y el usuario."""
         cabecera = QFrame()
@@ -170,6 +173,7 @@ class VentanaPrincipal(QMainWindow):
 
         return cabecera
 
+    # Muestra si la caja esta abierta o cerrada en la barra de estado.
     def _actualizar_indicador_caja(self) -> None:
         """Muestra si la caja esta abierta o cerrada en la barra de estado."""
         caja = self.controlador_caja.obtener_caja_abierta()
@@ -185,15 +189,18 @@ class VentanaPrincipal(QMainWindow):
             f"{self.usuario_actual.nombre_completo} | {estado_caja}",
         )
 
+    # Refresca las tarjetas del dashboard.
     def _refrescar_dashboard(self) -> None:
         self.pagina_dashboard.refrescar()
 
+    # Cambia de pagina y refresca el dashboard o el indicador de caja.
     def _cambiar_pagina(self, indice: int) -> None:
         self.paginas.setCurrentIndex(indice)
         if self.paginas.currentWidget() is self.pagina_dashboard:
             self.pagina_dashboard.refrescar()
         self._actualizar_indicador_caja()
 
+    # Devuelve True si se autoriza cerrar la ventana.
     def _confirmar_cierre(self) -> bool:
         """Devuelve True si se autoriza cerrar la ventana."""
         try:
@@ -227,12 +234,14 @@ class VentanaPrincipal(QMainWindow):
         )
         return confirmacion == QMessageBox.StandardButton.Yes
 
+    # Confirma, emite sesion_cerrada y cierra la ventana.
     def _cerrar_sesion(self) -> None:
         if self._confirmar_cierre():
             self._cierre_autorizado = True
             self.sesion_cerrada.emit()
             self.close()
 
+    # Acepta el cierre si esta autorizado o aplica la regla de caja abierta.
     @override
     def closeEvent(self, event: QCloseEvent | None) -> None:
         if event is None:
@@ -245,15 +254,18 @@ class VentanaPrincipal(QMainWindow):
         else:
             event.ignore()
 
+    # Agrega la pagina del dashboard al stack.
     def _crear_pagina_dashboard(self) -> None:
         self.paginas.addWidget(self.pagina_dashboard)
 
+    # Conecta las senales del CRUD y agrega la pagina al stack.
     def _crear_pagina_productos(self) -> None:
         self.pagina_productos.producto_agregar.connect(self._agregar_producto)
         self.pagina_productos.producto_editar.connect(self._editar_producto)
         self.pagina_productos.producto_eliminar.connect(self._eliminar_producto)
         self.paginas.addWidget(self.pagina_productos)
 
+    # Abre el formulario de producto y refresca si se guardo.
     def _agregar_producto(self) -> None:
         dialogo = FormularioProducto(
             self,
@@ -263,6 +275,7 @@ class VentanaPrincipal(QMainWindow):
         if dialogo.exec() == QDialog.DialogCode.Accepted:
             self.pagina_productos.cargar()
 
+    # Abre el formulario con el producto para editarlo.
     def _editar_producto(self, idproducto: int) -> None:
         producto = self.controlador_productos.obtener_por_id(idproducto)
         if producto is None:
@@ -278,6 +291,7 @@ class VentanaPrincipal(QMainWindow):
         if dialogo.exec() == QDialog.DialogCode.Accepted:
             self.pagina_productos.cargar()
 
+    # Pide confirmacion y elimina el producto seleccionado.
     def _eliminar_producto(self, idproducto: int) -> None:
         producto = self.controlador_productos.obtener_por_id(idproducto)
         if producto is None:
@@ -304,11 +318,13 @@ class VentanaPrincipal(QMainWindow):
                 return
             self.pagina_productos.cargar()
 
+    # Conecta nueva venta y el cambio de caja; agrega la pagina.
     def _crear_pagina_ventas(self) -> None:
         self.pagina_ventas.nueva_venta.connect(self._nueva_venta)
         self.pagina_ventas.estado_caja_cambio.connect(self._actualizar_indicador_caja)
         self.paginas.addWidget(self.pagina_ventas)
 
+    # Abre el POS si hay caja abierta y refresca tras la venta.
     def _nueva_venta(self) -> None:
         if self.controlador_caja.obtener_caja_abierta() is None:
             QMessageBox.warning(
@@ -342,9 +358,11 @@ class VentanaPrincipal(QMainWindow):
                     "Ventas para verla.",
                 )
 
+    # Agrega la pagina de reportes al stack.
     def _crear_pagina_reportes(self) -> None:
         self.paginas.addWidget(self.pagina_reportes)
 
+    # Agrega la pagina de usuarios al stack.
     def _crear_pagina_usuarios(self) -> None:
         self.paginas.addWidget(self.pagina_usuarios)
 

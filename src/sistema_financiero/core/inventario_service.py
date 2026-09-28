@@ -10,6 +10,7 @@ from ..models import MovimientoInventario, Producto, obtener_sesion
 
 # InventarioService: Entrada, salida y ajuste de stock con auditoria.
 class InventarioService:
+    # Registra una entrada de stock (compra, devolucion, etc.
     def registrar_entrada(
         self,
         producto_id: int,
@@ -53,6 +54,7 @@ class InventarioService:
 
         return movimiento
 
+    # Registra una salida de stock (venta, merma, etc.
     def registrar_salida(
         self,
         producto_id: int,
@@ -103,6 +105,7 @@ class InventarioService:
 
         return movimiento
 
+    # Ajusta el stock al valor fisico real (inventario fisico).
     def registrar_ajuste(
         self,
         producto_id: int,
@@ -149,6 +152,7 @@ class InventarioService:
 
         return movimiento
 
+    # Movimientos de un producto del mas reciente al mas antiguo.
     def historial_por_producto(
         self,
         producto_id: int,
@@ -164,6 +168,7 @@ class InventarioService:
             )
             return list(session.exec(stmt).all())
 
+    # Verifica si hay stock suficiente para una cantidad dada.
     def stock_disponible(
         self,
         producto_id: int,
@@ -177,6 +182,7 @@ class InventarioService:
                 return False
             return producto.stock_actual >= cantidad
 
+    # Devuelve los ultimos movimientos globales (todos los productos).
     def movimientos_recientes(
         self,
         limite: int = 50,

@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel
 class TituloPagina(QFrame):
     """Etiqueta de titulo con barra de acento lateral (reutilizable)."""
 
+    # Crea la tarjeta de titulo de pagina con la barra lateral.
     def __init__(self, texto: str) -> None:
         super().__init__()
         self.setProperty("rol", "titulo_pagina")

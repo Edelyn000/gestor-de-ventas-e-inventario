@@ -11,11 +11,13 @@ class IndicadorStock(QLabel):
     COLOR_SIN_STOCK = QColor("#dc2626")
     COLOR_OK = QColor("#16a34a")
 
+    # Crea el indicador y lo pinta con el stock inicial.
     def __init__(self, stock_actual: int = 0, stock_minimo: int = 0) -> None:
         super().__init__()
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.actualizar(stock_actual, stock_minimo)
 
+    # Repinta el texto y color segun el nivel de stock.
     def actualizar(self, stock_actual: int, stock_minimo: int) -> None:
         if stock_actual == 0:
             self.setText("SIN STOCK")

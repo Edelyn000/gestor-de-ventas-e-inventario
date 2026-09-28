@@ -47,6 +47,7 @@ _DETALLE = "reporte_venta_detalle"
 _INDICE_DETALLE = "ix_reporte_venta_detalle_reporte_id"
 
 
+# Separa unidades de peso, backfillea y crea la tabla de detalle.
 def upgrade() -> None:
     """Separa unidades de peso, backfillea y crea la tabla de detalle."""
     inspector = Inspector.from_engine(engine)
@@ -110,6 +111,7 @@ def upgrade() -> None:
         op.create_index(_INDICE_DETALLE, _DETALLE, ["reporte_id"])
 
 
+# Revierte: restaura cantidad_productos_vendidos y elimina la tabla.
 def downgrade() -> None:
     """Revierte: restaura cantidad_productos_vendidos y elimina la tabla."""
     inspector = Inspector.from_engine(engine)

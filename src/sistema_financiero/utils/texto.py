@@ -49,6 +49,7 @@ CONECTORES_ESPANOL: Final[frozenset[str]] = frozenset(
 )
 
 
+# Devuelve el nombre de una categoría en "Titulo Español".
 def normalizar_nombre_categoria(texto: str | None) -> str:
     """Devuelve el nombre de una categoría en "Titulo Español"."""
     if not texto or not texto.strip():
@@ -66,6 +67,7 @@ def normalizar_nombre_categoria(texto: str | None) -> str:
     return " ".join(resultado)
 
 
+# Clave canonica para comparar/almacenar nombres sin importar.
 def clave_normalizada(texto: str | None) -> str:
     """Clave canonica para comparar/almacenar nombres sin importar
     tildes ni mayúsculas/minúsculas (compatible con SQLite UNIQUE).

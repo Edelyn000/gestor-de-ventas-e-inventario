@@ -42,6 +42,7 @@ _TABLA = "tasacambio"
 _INDICE_COMPUESTO = "uq_tasacambio_fecha_origen"
 
 
+# Nombres de los indices UNIQUE que cubren exactamente `columnas`.
 def _indice_unico_sobre(inspector: Inspector, columnas: list[str]) -> list[str]:
     """Nombres de los indices UNIQUE que cubren exactamente `columnas`."""
     nombres: list[str] = []
@@ -51,6 +52,7 @@ def _indice_unico_sobre(inspector: Inspector, columnas: list[str]) -> list[str]:
     return nombres
 
 
+# Agrega origen/registrado_por y el indice unico (fecha, origen).
 def upgrade() -> None:
     """Agrega origen/registrado_por y el indice unico (fecha, origen)."""
     inspector = Inspector.from_engine(engine)
@@ -94,6 +96,7 @@ def upgrade() -> None:
         )
 
 
+# Revierte: devuelve el UNIQUE sobre fecha y elimina las columnas.
 def downgrade() -> None:
     """Revierte: devuelve el UNIQUE sobre fecha y elimina las columnas."""
     inspector = Inspector.from_engine(engine)

@@ -17,6 +17,7 @@ from ..utils.logging_setup import registrar_excepcion
 
 # FormularioCambioContrasena: Cambio de contrasena autenticado.
 class FormularioCambioContrasena(QDialog):
+    # Monta el formulario para cambiar nombre, usuario y contrasena.
     def __init__(
         self,
         parent: QWidget | None = None,
@@ -72,6 +73,7 @@ class FormularioCambioContrasena(QDialog):
 
         layout.addLayout(btn_layout)
 
+    # Valida y aplica los cambios de perfil y contrasena.
     def _guardar(self) -> None:
         if self.usuario is None:
             return
@@ -106,6 +108,7 @@ class FormularioCambioContrasena(QDialog):
             QMessageBox.information(self, "Sin cambios", "No se realizaron cambios.")
             self.reject()
 
+    # Actualiza el nombre completo si cambio; reporta errores.
     def _actualizar_nombre(self, errores: list[str]) -> bool:
         usuario = self.usuario
         if usuario is None or usuario.id is None:
@@ -124,6 +127,7 @@ class FormularioCambioContrasena(QDialog):
             errores.append(f"Error inesperado al actualizar el nombre: {e}")
             return False
 
+    # Actualiza el nombre de usuario si cambio; reporta errores.
     def _actualizar_usuario(self, errores: list[str]) -> bool:
         usuario = self.usuario
         if usuario is None or usuario.id is None:
@@ -143,6 +147,7 @@ class FormularioCambioContrasena(QDialog):
             errores.append(f"Error inesperado al actualizar el usuario: {e}")
             return False
 
+    # Cambia la contrasena verificando la actual; reporta errores.
     def _actualizar_contrasena(self, contrasena_actual: str, errores: list[str]) -> bool:
         usuario = self.usuario
         if usuario is None or usuario.id is None:

@@ -21,6 +21,7 @@ LOCALE_BS: QLocale = QLocale(QLocale.Language.Spanish, QLocale.Country.Venezuela
 LOCALE_USD: QLocale = QLocale(QLocale.Language.English, QLocale.Country.UnitedStates)
 
 
+# Formatea el numero con punto de miles y coma decimal.
 def _formatear_es(valor: Decimal, decimales: int, miles: bool) -> str:
     """Formatea el numero con punto de miles y coma decimal."""
     if miles:
@@ -29,16 +30,19 @@ def _formatear_es(valor: Decimal, decimales: int, miles: bool) -> str:
     return f"{valor:.{decimales}f}".replace(".", ",")
 
 
+# Formatea un monto en Bs.
 def formatear_bs(valor: Decimal, decimales: int = 2, miles: bool = True) -> str:
     """Formatea un monto en Bs. Ej: 1.234,56 Bs."""
     return f"{_formatear_es(valor, decimales, miles)}{SUFIJO_BS}"
 
 
+# Formatea un monto en Bs.
 def formatear_bs_sin_sufijo(valor: Decimal, decimales: int = 2, miles: bool = True) -> str:
     """Formatea un monto en Bs. sin el sufijo. Ej: 1.234,56"""
     return _formatear_es(valor, decimales, miles)
 
 
+# Formatea un monto en USD con $.
 def formatear_usd(valor: Decimal, decimales: int = 2, miles: bool = True) -> str:
     """Formatea un monto en USD con $. Ej: 1,234.56 $"""
     if miles:
@@ -46,6 +50,7 @@ def formatear_usd(valor: Decimal, decimales: int = 2, miles: bool = True) -> str
     return f"{valor:.{decimales}f}{SUFIJO_USD}"
 
 
+# Formatea un monto con USD texto.
 def formatear_usd_texto(valor: Decimal, decimales: int = 2, miles: bool = True) -> str:
     """Formatea un monto con USD texto. Ej: 1,234.56 USD"""
     if miles:
@@ -53,11 +58,13 @@ def formatear_usd_texto(valor: Decimal, decimales: int = 2, miles: bool = True) 
     return f"{valor:.{decimales}f}{SUFIJO_USD_TEXTO}"
 
 
+# Redondea un Decimal a 2 decimales para montos monetarios.
 def redondear_moneda(valor: Decimal) -> Decimal:
     """Redondea un Decimal a 2 decimales para montos monetarios."""
     return valor.quantize(DECIMAL_CENTIMO)
 
 
+# Formatea stock segun su valor, sin ceros de relleno.
 def formatear_stock(valor: Decimal | int | float) -> str:
     """Formatea stock segun su valor, sin ceros de relleno."""
     if not isinstance(valor, Decimal):
@@ -67,6 +74,7 @@ def formatear_stock(valor: Decimal | int | float) -> str:
     return _formatear_es(valor, 3, miles=True).rstrip("0").rstrip(",")
 
 
+# Formatea un peso en kilogramos como texto legible humano.
 def formatear_peso_kg(peso_kg: Decimal | int | float | None) -> str:
     """Formatea un peso en kilogramos como texto legible humano."""
     if peso_kg is None:
@@ -85,6 +93,7 @@ def formatear_peso_kg(peso_kg: Decimal | int | float | None) -> str:
     return f"{g} g"
 
 
+# Configura un QDoubleSpinBox para montos en Bs.
 def configurar_spinbox_bs(spin: QDoubleSpinBox) -> None:
     """Configura un QDoubleSpinBox para montos en Bs."""
     spin.setLocale(LOCALE_BS)
@@ -94,6 +103,7 @@ def configurar_spinbox_bs(spin: QDoubleSpinBox) -> None:
     spin.setSuffix(SUFIJO_BS)
 
 
+# Configura un QDoubleSpinBox para montos en USD.
 def configurar_spinbox_usd(spin: QDoubleSpinBox) -> None:
     """Configura un QDoubleSpinBox para montos en USD."""
     spin.setLocale(LOCALE_USD)

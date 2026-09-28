@@ -17,6 +17,7 @@ from sistema_financiero.utils.fecha import hoy
 pytestmark = pytest.mark.integracion
 
 
+# Crea un usuario de prueba en la sesion.
 def _crear_usuario(session: Session, id: int = 1, nombre: str = "admin") -> Usuario:
     usuario = Usuario(
         id=id,
@@ -30,6 +31,7 @@ def _crear_usuario(session: Session, id: int = 1, nombre: str = "admin") -> Usua
     return usuario
 
 
+# Registra la tasa del dia en la sesion.
 def _registrar_tasa(session: Session, valor: Decimal = Decimal("30.00")) -> None:
     TasaCambioService().registrar(
         fecha=hoy(),
@@ -40,6 +42,7 @@ def _registrar_tasa(session: Session, valor: Decimal = Decimal("30.00")) -> None
     )
 
 
+# Venta de 100.
 def _venta_con_pago_usd_recortado(session: Session, caja_id: int | None) -> Venta:
     """Venta de 100.00 Bs. pagada con 3.34 USD (aplica 100.00 y da 0.20 de vuelto)."""
     venta = Venta(
@@ -67,6 +70,7 @@ def _venta_con_pago_usd_recortado(session: Session, caja_id: int | None) -> Vent
     return venta
 
 
+# Venta de 21.
 def _venta_con_pago_bs_sobrepagado(session: Session, caja_id: int | None) -> Venta:
     """Venta de 21.648,20 Bs. pagada con 50.000,00 Bs. (aplica el faltante)."""
     venta = Venta(
@@ -93,6 +97,7 @@ def _venta_con_pago_bs_sobrepagado(session: Session, caja_id: int | None) -> Ven
     return venta
 
 
+# Prueba que abrir la caja funciona correctamente.
 def test_abrir_caja_exitoso(session: Session) -> None:
     usuario = _crear_usuario(session)
     assert usuario.id is not None
@@ -110,6 +115,7 @@ def test_abrir_caja_exitoso(session: Session) -> None:
     assert caja.fecha_apertura is not None
 
 
+# Prueba que no se abre una segunda caja si ya hay una.
 def test_abrir_caja_error_caja_abierta(session: Session) -> None:
     usuario = _crear_usuario(session)
     assert usuario.id is not None
@@ -127,6 +133,7 @@ def test_abrir_caja_error_caja_abierta(session: Session) -> None:
         )
 
 
+# Prueba obtener_caja_abierta con y sin caja abierta.
 def test_obtener_caja_abierta(session: Session) -> None:
     usuario = _crear_usuario(session)
     assert usuario.id is not None
@@ -144,6 +151,7 @@ def test_obtener_caja_abierta(session: Session) -> None:
     assert caja_abierta.id == caja.id
 
 
+# Prueba que validar_caja_abierta falla sin caja.
 def test_validar_caja_abierta_sin_caja(session: Session) -> None:
     caja_sk = CajaService(db_session=session)
 
@@ -151,6 +159,7 @@ def test_validar_caja_abierta_sin_caja(session: Session) -> None:
         caja_sk.validar_caja_abierta()
 
 
+# Prueba que cerrar una caja inexistente falla.
 def test_cerrar_caja_error_no_existe(session: Session) -> None:
     caja_sk = CajaService(db_session=session)
 
@@ -162,6 +171,7 @@ def test_cerrar_caja_error_no_existe(session: Session) -> None:
         )
 
 
+# Prueba el cierre de caja con sobrante o faltante.
 def test_cerrar_caja_abierta(session: Session) -> None:
     usuario = _crear_usuario(session)
     assert usuario.id is not None
@@ -184,6 +194,7 @@ def test_cerrar_caja_abierta(session: Session) -> None:
     assert caja_cerrada.fecha_cierre is not None
 
 
+# Prueba que el historial lista solo cajas cerradas.
 def test_historial_caja(session: Session) -> None:
     usuario = _crear_usuario(session)
     assert usuario.id is not None
@@ -208,6 +219,7 @@ def test_historial_caja(session: Session) -> None:
     assert historial[0].estado == "CERRADA"
 
 
+# Prueba el cierre de una caja sin ventas.
 def test_cerrar_caja_sin_ventas(session: Session) -> None:
     usuario = _crear_usuario(session)
     assert usuario.id is not None
@@ -230,6 +242,7 @@ def test_cerrar_caja_sin_ventas(session: Session) -> None:
     assert caja_cerrada.sobrante_faltante_bs == Decimal("0.00")
 
 
+# Prueba el cierre con ventas y arqueo de billetes.
 def test_cerrar_caja_con_ventas(session: Session) -> None:
     usuario = _crear_usuario(session)
     assert usuario.id is not None
@@ -266,6 +279,7 @@ def test_cerrar_caja_con_ventas(session: Session) -> None:
     assert caja_cerrada.observaciones == "Cierre con ventas"
 
 
+# Regresion: el vuelto en Bs.
 def test_cierre_descuenta_el_vuelto_entregado_en_bs(session: Session) -> None:
     """Regresion: el vuelto en Bs. salio del cajon y no debe contar esperado."""
     _registrar_tasa(session, Decimal("30.00"))
@@ -291,6 +305,7 @@ def test_cierre_descuenta_el_vuelto_entregado_en_bs(session: Session) -> None:
     assert caja_cerrada.sobrante_faltante_bs == Decimal("0.00")
 
 
+# Vuelto en Bs.
 def test_cierre_descuenta_el_vuelto_en_bs_por_sobrepago_en_bs(session: Session) -> None:
     """Vuelto en Bs. por SOBREPAGO en Bs.: el arqueo tampoco lo exige."""
     usuario = _crear_usuario(session)
@@ -315,6 +330,7 @@ def test_cierre_descuenta_el_vuelto_en_bs_por_sobrepago_en_bs(session: Session) 
     assert caja_cerrada.sobrante_faltante_bs == Decimal("0.00")
 
 
+# Ventas viejas (sin filas en venta_pago): el arqueo no cambia.
 def test_cierre_sin_pagos_registrados_no_descuenta_vuelto(session: Session) -> None:
     """Ventas viejas (sin filas en venta_pago): el arqueo no cambia."""
     usuario = _crear_usuario(session)

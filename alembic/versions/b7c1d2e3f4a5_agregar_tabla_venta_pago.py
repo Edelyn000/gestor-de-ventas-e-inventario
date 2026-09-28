@@ -29,6 +29,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+# Crea la tabla venta_pago (idempotente).
 def upgrade() -> None:
     """Crea la tabla venta_pago (idempotente)."""
     inspector = Inspector.from_engine(engine)
@@ -54,6 +55,7 @@ def upgrade() -> None:
     op.create_index(op.f("ix_venta_pago_metodo"), "venta_pago", ["metodo"], unique=False)
 
 
+# Elimina la tabla venta_pago.
 def downgrade() -> None:
     """Elimina la tabla venta_pago."""
     inspector = Inspector.from_engine(engine)

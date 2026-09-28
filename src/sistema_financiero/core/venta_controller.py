@@ -33,6 +33,7 @@ from .producto_controller import ProductoController
 from .tasa_cambio_service import TasaCambioService
 
 
+# Cuantiza un monto a centimos (redondeo comercial).
 def _a_centimos(valor: Decimal) -> Decimal:
     """Cuantiza un monto a centimos (redondeo comercial)."""
     return valor.quantize(DECIMAL_CENTIMO, rounding=ROUND_HALF_UP)
@@ -40,6 +41,7 @@ def _a_centimos(valor: Decimal) -> Decimal:
 
 # VentaController: Crear y anular ventas con facturacion y pagos.
 class VentaController:
+    # Conecta los servicios de inventario y tasas; la caja es opcional.
     def __init__(self, caja_service: CajaService | None = None) -> None:
         self.inventario = InventarioService()
 
@@ -47,6 +49,7 @@ class VentaController:
 
         self.caja_service = caja_service
 
+    # Registra la venta con sus detalles, pagos y descuento de inventario.
     def crear(
         self,
         productos: list[dict[str, object]],
@@ -116,6 +119,7 @@ class VentaController:
 
         return venta
 
+    # Rechaza la venta si la lista de productos esta vacia.
     @staticmethod
     def _validar_productos_no_vacios(
         productos: list[dict[str, object]],
@@ -124,6 +128,7 @@ class VentaController:
             msg = "La venta debe tener al menos un producto."
             raise ValueError(msg)
 
+    # Construye los detalles y el total en Bs desde los items del carrito.
     def _procesar_detalles(
         self,
         productos: list[dict[str, object]],
@@ -175,6 +180,7 @@ class VentaController:
 
         return detalles_lista, total_bs
 
+    # Convierte el total en Bs a USD con la tasa activa.
     @staticmethod
     def _calcular_total_usd(
         total_bs: Decimal,
@@ -184,6 +190,7 @@ class VentaController:
             return (total_bs / tasa.tasa_venta).quantize(Decimal("0.01"))
         return Decimal("0.00")
 
+    # Distribuye el pago en los seis campos de metodo y devuelve el desglose.
     @staticmethod
     def _procesar_pago(
         metodo_pago: dict[str, object] | None,
@@ -222,6 +229,7 @@ class VentaController:
 
         return efectivo_bs, efectivo_usd, tarjeta, pago_movil, bio_pago, transferencia
 
+    # Valida y normaliza el desglose multi-pago de una venta.
     @staticmethod
     def _normalizar_pagos(
         pagos: list[dict[str, object]] | None,
@@ -307,6 +315,7 @@ class VentaController:
 
         return normalizados
 
+    # Resume el desglose de pagos en los montos por metodo de Venta.
     @staticmethod
     def _derivar_metodo_pago(
         pagos: list[dict[str, object]],
@@ -339,6 +348,7 @@ class VentaController:
             derivado[nombre] = monto
         return derivado
 
+    # Guarda el desglose de pagos (tabla venta_pago) de una venta.
     @staticmethod
     def _crear_pagos(
         session: Session,
@@ -362,6 +372,7 @@ class VentaController:
                 ),
             )
 
+    # Genera el numero de factura del dia local segun el conteo de hoy.
     @staticmethod
     def _generar_numero_factura(
         db_session: Session | None = None,
@@ -381,6 +392,7 @@ class VentaController:
 
         return f"FAC-{fecha_str}-{correlativo}"
 
+    # Persiste los VentaDetalle de la venta recien creada.
     @staticmethod
     def _crear_detalles(
         session: Session,
@@ -397,6 +409,7 @@ class VentaController:
             )
             session.add(detalle)
 
+    # Descarta el stock vendido y registra el movimiento de salida.
     @staticmethod
     def _descontar_inventario(
         session: Session,
@@ -433,6 +446,7 @@ class VentaController:
             )
             session.add(movimiento)
 
+    # Anula una venta y devuelve el stock de cada producto.
     def anular(
         self,
         idventa: int,
@@ -483,6 +497,7 @@ class VentaController:
 
         return venta
 
+    # Busca una venta por su ID.
     def obtener_por_id(
         self,
         idventa: int,
@@ -492,6 +507,7 @@ class VentaController:
         with obtener_sesion(db_session) as session:
             return session.get(Venta, idventa)
 
+    # Busca una venta por su numero de factura.
     def buscar_por_factura(
         self,
         numero_factura: str,
@@ -503,6 +519,7 @@ class VentaController:
                 select(Venta).where(col(Venta.numero_factura) == numero_factura)
             ).first()
 
+    # Devuelve las ventas en un rango de fechas.
     def historial_por_fecha(
         self,
         desde: datetime,
@@ -518,6 +535,7 @@ class VentaController:
             )
             return list(session.exec(stmt).all())
 
+    # Devuelve los detalles (productos) de una venta.
     def obtener_detalles(
         self,
         idventa: int,
@@ -528,6 +546,7 @@ class VentaController:
             stmt = select(VentaDetalle).where(VentaDetalle.venta_id == idventa)
             return list(session.exec(stmt).all())
 
+    # Devuelve el desglose de pagos (multi-pago) de una venta.
     def obtener_pagos(
         self,
         idventa: int,

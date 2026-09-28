@@ -161,6 +161,7 @@ ALTO_FILA_TICKET = 2 * ALTO_BOTON_PESO_RAPIDO + 2 * SEPARACION_BOTON_PESO_RAPIDO
 
 # FormularioVenta: POS de venta: catalogo, ticket, pago y factura.
 class FormularioVenta(QDialog):
+    # Construye el POS: cabecera, catalogo, ticket y seccion de pago.
     def __init__(
         self,
         parent: QWidget | None = None,
@@ -209,6 +210,7 @@ class FormularioVenta(QDialog):
         self._timer_tasa.timeout.connect(self._comprobar_tasa_bcv)
         self._timer_tasa.start()
 
+    # Arma el layout raiz del POS y delega en los creadores de secciones.
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -216,6 +218,7 @@ class FormularioVenta(QDialog):
         self._crear_cabecera(layout)
         layout.addWidget(self._crear_splitter(), 1)
 
+    # Crea la barra superior con cajero, estado de caja y tasa.
     def _crear_cabecera(self, layout: QVBoxLayout) -> None:
         cabecera = QFrame()
         cabecera.setProperty("rol", "cabecera")
@@ -253,6 +256,7 @@ class FormularioVenta(QDialog):
 
         layout.addWidget(cabecera)
 
+    # Divide la ventana entre catalogo y ticket.
     def _crear_splitter(self) -> QSplitter:
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
@@ -265,11 +269,13 @@ class FormularioVenta(QDialog):
         self.splitter_paneles = splitter
         return splitter
 
+    # Reparte el ancho entre catalogo y ticket al mostrar la ventana.
     def showEvent(self, event: QShowEvent | None) -> None:  # noqa: N802 (Qt)
         """Reparte el ancho entre catalogo y ticket al mostrar la ventana."""
         super().showEvent(event)
         self._repartir_paneles()
 
+    # Reparte el ancho util respetando el minimo del ticket.
     def _repartir_paneles(self) -> None:
         splitter = getattr(self, "splitter_paneles", None)
         if splitter is None:
@@ -283,6 +289,7 @@ class FormularioVenta(QDialog):
         )
         splitter.setSizes([max(0, ancho_util - ticket), ticket])
 
+    # Crea la lista de productos con busqueda, categorias y tabla.
     def _crear_panel_catalogo(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
@@ -345,6 +352,7 @@ class FormularioVenta(QDialog):
 
         return panel
 
+    # Precio en Bs.
     def _precio_bs_efectivo(self, producto: Producto) -> Decimal:
         """Precio en Bs. que se muestra y cobra en el POS."""
         if self._tasa is not None and self._tasa.tasa_venta > 0 and producto.precio_venta_usd > 0:
@@ -353,6 +361,7 @@ class FormularioVenta(QDialog):
             )
         return producto.precio_venta_bs
 
+    # Ultima celda del catalogo: (+) para UNIDAD y para PESO.
     def _crear_boton_agregar(self, producto: Producto) -> QWidget:
         """Ultima celda del catalogo: (+) para UNIDAD y para PESO."""
         btn = QPushButton("+")
@@ -371,6 +380,7 @@ class FormularioVenta(QDialog):
         )
         return btn
 
+    # Boton rapido de peso, usado en la fila del ticket.
     @staticmethod
     def _crear_boton_peso_rapido(etiqueta: str, tooltip: str) -> QPushButton:
         """Boton rapido de peso, usado en la fila del ticket."""
@@ -380,6 +390,7 @@ class FormularioVenta(QDialog):
         btn.setToolTip(tooltip)
         return btn
 
+    # Carga una fila de la lista: Producto | USD | Bs | Stock | (+).
     def _rellenar_fila_catalogo(self, fila: int, producto: Producto) -> None:
         """Carga una fila de la lista: Producto | USD | Bs | Stock | (+)."""
         tabla = self.tabla_productos_catalogo
@@ -422,14 +433,17 @@ class FormularioVenta(QDialog):
 
         tabla.setCellWidget(fila, 4, self._crear_boton_agregar(producto))
 
+    # Doble clic en una fila del catalogo → agrega el producto.
     def _on_catalogo_doble_clic(self, item: QTableWidgetItem) -> None:
         """Doble clic en una fila del catalogo → agrega el producto."""
         self._agregar_fila_catalogo(item.row())
 
+    # Enter sobre el catalogo → agrega el producto seleccionado.
     def _agregar_fila_activa(self) -> None:
         """Enter sobre el catalogo → agrega el producto seleccionado."""
         self._agregar_fila_catalogo(self.tabla_productos_catalogo.currentRow())
 
+    # Agrega el producto de la fila indicada de la lista del catalogo.
     def _agregar_fila_catalogo(self, fila: int) -> None:
         """Agrega el producto de la fila indicada de la lista del catalogo."""
         item = self.tabla_productos_catalogo.item(fila, 0)
@@ -439,6 +453,7 @@ class FormularioVenta(QDialog):
         if valor is not None:
             self._agregar_producto_venta(int(valor))
 
+    # Crea un boton de filtro por categoria (marcable).
     def _crear_boton_categoria(self, nombre: str) -> QPushButton:
         btn = QPushButton(nombre)
         btn.setCheckable(True)
@@ -448,6 +463,7 @@ class FormularioVenta(QDialog):
         btn.clicked.connect(lambda _=False, cat=nombre: self._seleccionar_categoria(cat))
         return btn
 
+    # Reconstruye la fila de categorias: [Todos] + categorias de la BD.
     def _refrescar_botones_categorias(self) -> None:
         """Reconstruye la fila de categorias: [Todos] + categorias de la BD."""
         while self.fila_categorias.count():
@@ -463,6 +479,7 @@ class FormularioVenta(QDialog):
             self.fila_categorias.addWidget(self._crear_boton_categoria(nombre))
         self.fila_categorias.addStretch()
 
+    # Marca la categoria activa y re-aplica el filtro.
     def _seleccionar_categoria(self, nombre: str) -> None:
         """Marca la categoria activa y re-aplica el filtro."""
         self._categoria_seleccionada = nombre
@@ -483,6 +500,7 @@ class FormularioVenta(QDialog):
                     estilo.polish(widget)
         self._aplicar_filtro()
 
+    # Crea la tabla del ticket con sus columnas por tipo de venta.
     def _crear_panel_ticket(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
@@ -559,6 +577,7 @@ class FormularioVenta(QDialog):
 
         return panel
 
+    # Crea el grupo de pago con metodos, desglose y resumen.
     def _crear_seccion_pago(self, layout: QVBoxLayout) -> None:
         layout.addSpacing(6)
         self.grupo_pago = QGroupBox("Pago")
@@ -577,6 +596,7 @@ class FormularioVenta(QDialog):
         self.grupo_pago.setVisible(False)
         layout.addWidget(self.grupo_pago)
 
+    # Crea los seis botones de metodo de pago en un grid.
     def _crear_botones_metodo(self, vbox_pago: QVBoxLayout) -> None:
         grid_metodos = QGridLayout()
         grid_metodos.setSpacing(6)
@@ -597,6 +617,7 @@ class FormularioVenta(QDialog):
         self.btn_pago_mixto.clicked.connect(self._alternar_panel_mixto)
         vbox_pago.addWidget(self.btn_pago_mixto)
 
+    # Cobro rapido en efectivo: monto RECIBIDO editable.
     def _crear_fila_recibido(self, vbox_pago: QVBoxLayout) -> None:
         """Cobro rapido en efectivo: monto RECIBIDO editable."""
         self.fila_recibido = QFrame()
@@ -626,6 +647,7 @@ class FormularioVenta(QDialog):
         self.fila_recibido.setVisible(False)
         vbox_pago.addWidget(self.fila_recibido)
 
+    # Panel "Combinar metodos de pago": parciales con cualquier metodo.
     def _crear_panel_mixto(self, vbox_pago: QVBoxLayout) -> None:
         """Panel "Combinar metodos de pago": parciales con cualquier metodo."""
         self.panel_mixto = QFrame()
@@ -681,6 +703,7 @@ class FormularioVenta(QDialog):
         self.panel_mixto.setVisible(False)
         vbox_pago.addWidget(self.panel_mixto)
 
+    # Crea los 6 botones de metodo internos del panel mixto.
     def _crear_botones_mixto(self, grid_mixto: QGridLayout) -> None:
         """Crea los 6 botones de metodo internos del panel mixto."""
         for indice, metodo in enumerate(METODOS_PAGO):
@@ -692,6 +715,7 @@ class FormularioVenta(QDialog):
             self._botones_mixto[metodo] = boton
             grid_mixto.addWidget(boton, indice // 3, indice % 3)
 
+    # Crea la tabla del desglose de pagos (metodo, monto, vuelto).
     def _crear_tabla_pagos(self, vbox_pago: QVBoxLayout) -> None:
         self.tabla_pagos = QTableWidget()
         self.tabla_pagos.setColumnCount(5)
@@ -715,6 +739,7 @@ class FormularioVenta(QDialog):
         self.tabla_pagos.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         vbox_pago.addWidget(self.tabla_pagos)
 
+    # Muestra hasta MAX_FILAS_VISIBLES_PAGOS filas; el resto con scrollbar.
     def _ajustar_alto_tabla_pagos(self) -> None:
         """Muestra hasta MAX_FILAS_VISIBLES_PAGOS filas; el resto con scrollbar."""
         filas = min(self.tabla_pagos.rowCount(), MAX_FILAS_VISIBLES_PAGOS)
@@ -727,6 +752,7 @@ class FormularioVenta(QDialog):
         )
         self.tabla_pagos.setFixedHeight(alto)
 
+    # Crea el resumen de cobertura y el indicador PAGO MIXTO.
     def _crear_resumen_pagos(self, vbox_pago: QVBoxLayout) -> None:
         fila_resumen = QHBoxLayout()
         self.lbl_modo_pago = QLabel("PAGO MIXTO")
@@ -743,11 +769,13 @@ class FormularioVenta(QDialog):
         fila_resumen.addWidget(self.lbl_restante)
         vbox_pago.addLayout(fila_resumen)
 
+    # Conecta Enter para agregar pago dentro del grupo Pago.
     def _crear_atajo_pago(self) -> None:
         self._atajo_agregar_pago = QShortcut(QKeySequence(Qt.Key.Key_Return), self.grupo_pago)
         self._atajo_agregar_pago.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self._atajo_agregar_pago.activated.connect(self._agregar_por_atajo)
 
+    # Cobro rapido: digital cubre el total; efectivo pide el recibido.
     def _seleccionar_metodo(self, metodo: str) -> None:
         """Cobro rapido: digital cubre el total; efectivo pide el recibido."""
         self._cerrar_panel_mixto()
@@ -766,6 +794,7 @@ class FormularioVenta(QDialog):
             return
         self._preparar_efectivo(metodo)
 
+    # Registra el total con el metodo digital (monto = faltante).
     def _cobro_rapido_digital(self, metodo: str) -> None:
         """Registra el total con el metodo digital (monto = faltante)."""
         faltante = self._monto_restante_bs()
@@ -777,6 +806,7 @@ class FormularioVenta(QDialog):
             boton.setChecked(False)
             self._set_rol(boton, "metodo")
 
+    # Muestra la fila de recibido con el faltante pre-llenado editable.
     def _preparar_efectivo(self, metodo: str) -> None:
         """Muestra la fila de recibido con el faltante pre-llenado editable."""
         es_usd = metodo == METODO_PAGO_EFECTIVO_USD
@@ -813,6 +843,7 @@ class FormularioVenta(QDialog):
         self.spin_recibido.setFocus()
         self.spin_recibido.selectAll()
 
+    # Informa en vivo: VUELTO / FALTA / Pago exacto del cobro rapido.
     def _actualizar_estado_recibido(self) -> None:
         """Informa en vivo: VUELTO / FALTA / Pago exacto del cobro rapido."""
         if self._metodo_actual not in (METODO_PAGO_EFECTIVO_BS, METODO_PAGO_EFECTIVO_USD):
@@ -845,6 +876,7 @@ class FormularioVenta(QDialog):
             self._set_rol(self.lbl_estado_recibido, "resumen_falta")
             self.btn_registrar_recibido.setEnabled(True)
 
+    # Registra el cobro rapido en efectivo (recibido >= total).
     def _registrar_efectivo(self) -> None:
         """Registra el cobro rapido en efectivo (recibido >= total)."""
         metodo = self._metodo_actual
@@ -880,6 +912,7 @@ class FormularioVenta(QDialog):
         if self._agregar_pago_metodo(metodo, monto):
             self._repintar_recibido()
 
+    # Reprepara la fila de recibido con el nuevo faltante (o la oculta).
     def _repintar_recibido(self) -> None:
         """Reprepara la fila de recibido con el nuevo faltante (o la oculta)."""
         if self._metodo_actual not in (METODO_PAGO_EFECTIVO_BS, METODO_PAGO_EFECTIVO_USD):
@@ -898,6 +931,7 @@ class FormularioVenta(QDialog):
         self.spin_recibido.setFocus()
         self.spin_recibido.selectAll()
 
+    # Agrega un pago al desglose (efectivo rapido o mixto).
     def _agregar_pago_metodo(self, metodo: str, monto: Decimal, referencia: str = "") -> bool:
         """Agrega un pago al desglose (efectivo rapido o mixto)."""
         if metodo not in METODOS_PAGO:
@@ -936,6 +970,7 @@ class FormularioVenta(QDialog):
         self._actualizar_resumen_pagos()
         return True
 
+    # Abre/cierra el panel docked para dividir el pago en parciales.
     def _alternar_panel_mixto(self) -> None:
         """Abre/cierra el panel docked para dividir el pago en parciales."""
         if not self.panel_mixto.isHidden():
@@ -950,6 +985,7 @@ class FormularioVenta(QDialog):
         self.spin_monto_mixto.setFocus()
         self.spin_monto_mixto.selectAll()
 
+    # Cierra el panel (los pagos parciales agregados se conservan).
     def _cerrar_panel_mixto(self) -> None:
         """Cierra el panel (los pagos parciales agregados se conservan)."""
         self.panel_mixto.setVisible(False)
@@ -959,6 +995,7 @@ class FormularioVenta(QDialog):
             boton.setChecked(False)
             self._set_rol(boton, "metodo")
 
+    # Resetea el modo rapido: metodo activo y fila de recibido.
     def _limpiar_modo_rapido(self) -> None:
         """Resetea el modo rapido: metodo activo y fila de recibido."""
         self._metodo_actual = None
@@ -967,6 +1004,7 @@ class FormularioVenta(QDialog):
             self._set_rol(boton, "metodo")
         self.fila_recibido.setVisible(False)
 
+    # Marca el metodo del panel mixto y pre-llena su monto.
     def _seleccionar_metodo_mixto(self, metodo: str) -> None:
         """Marca el metodo del panel mixto y pre-llena su monto."""
         self._metodo_mixto = metodo
@@ -976,6 +1014,7 @@ class FormularioVenta(QDialog):
             self._set_rol(boton, "metodo_activo" if activo else "metodo")
         self._pre_llenar_monto_mixto()
 
+    # Pre-llena el monto mixto con el faltante en la moneda del metodo.
     def _pre_llenar_monto_mixto(self) -> None:
         """Pre-llena el monto mixto con el faltante en la moneda del metodo."""
         metodo = self._metodo_mixto
@@ -1005,6 +1044,7 @@ class FormularioVenta(QDialog):
         self.spin_monto_mixto.setValue(float(self._en_moneda(faltante, es_usd)))
         self._actualizar_info_mixto()
 
+    # Muestra el equivalente del monto mixto (y el cambio si sobra).
     def _actualizar_info_mixto(self) -> None:
         """Muestra el equivalente del monto mixto (y el cambio si sobra)."""
         if self._metodo_mixto is None:
@@ -1029,6 +1069,7 @@ class FormularioVenta(QDialog):
             texto += f"  ·  CAMBIO: {formatear_bs(aplicado_bs - faltante)}"
         self.lbl_info_mixto.setText(texto)
 
+    # Agrega al desglose el pago parcial tecleado en el panel mixto.
     def _agregar_pago_mixto(self) -> None:
         """Agrega al desglose el pago parcial tecleado en el panel mixto."""
         metodo = self._metodo_mixto
@@ -1057,6 +1098,7 @@ class FormularioVenta(QDialog):
                 "La venta ya esta cubierta.\nCierra el panel y pulsa COBRAR (F12).",
             )
 
+    # Pregunta si se pueden descartar los pagos parciales registrados.
     def _confirmar_reemplazo(self, accion: str) -> bool:
         """Pregunta si se pueden descartar los pagos parciales registrados."""
         respuesta = QMessageBox.question(
@@ -1073,6 +1115,7 @@ class FormularioVenta(QDialog):
         self._actualizar_resumen_pagos()
         return True
 
+    # Enter: registra el efectivo rapido o agrega un pago mixto.
     def _agregar_por_atajo(self) -> None:
         """Enter: registra el efectivo rapido o agrega un pago mixto."""
         if not self.panel_mixto.isHidden():
@@ -1080,6 +1123,7 @@ class FormularioVenta(QDialog):
         elif not self.fila_recibido.isHidden():
             self._registrar_efectivo()
 
+    # Quita de la lista el pago de la fila indicada.
     def _eliminar_pago(self, fila: int) -> None:
         """Quita de la lista el pago de la fila indicada."""
         if not 0 <= fila < len(self.pagos):
@@ -1092,6 +1136,7 @@ class FormularioVenta(QDialog):
         elif not self.fila_recibido.isHidden():
             self._repintar_recibido()
 
+    # Reconstruye la tabla de pagos a partir de self.
     def _refrescar_tabla_pagos(self) -> None:
         """Reconstruye la tabla de pagos a partir de self.pagos."""
         self.tabla_pagos.setRowCount(len(self.pagos))
@@ -1121,6 +1166,7 @@ class FormularioVenta(QDialog):
 
         self._ajustar_alto_tabla_pagos()
 
+    # Muestra CUBIERTO y RESTANTE (o CAMBIO / PAGO COMPLETO).
     def _actualizar_resumen_pagos(self) -> None:
         """Muestra CUBIERTO y RESTANTE (o CAMBIO / PAGO COMPLETO)."""
         cubierto = self._monto_cubierto_bs()
@@ -1142,6 +1188,7 @@ class FormularioVenta(QDialog):
             self._set_rol(self.lbl_restante, "resumen_ok")
         self._actualizar_estado_cobrar()
 
+    # Habilita COBRAR solo si el ticket esta cubierto (PAGO COMPLETO).
     def _actualizar_estado_cobrar(self) -> None:
         """Habilita COBRAR solo si el ticket esta cubierto (PAGO COMPLETO)."""
         if not hasattr(self, "btn_cobrar"):
@@ -1152,23 +1199,28 @@ class FormularioVenta(QDialog):
         )
         self.btn_cobrar.setEnabled(completo)
 
+    # Total ya cubierto por los pagos agregados (en Bs.
     def _monto_cubierto_bs(self) -> Decimal:
         """Total ya cubierto por los pagos agregados (en Bs.)."""
         return sum((pago["monto_bs"] for pago in self.pagos), Decimal("0.00"))
 
+    # Lo que falta por cubrir (negativo = cambio a devolver).
     def _monto_restante_bs(self) -> Decimal:
         """Lo que falta por cubrir (negativo = cambio a devolver)."""
         return self.total_bs - self._monto_cubierto_bs()
 
+    # Indica si hay una tasa activa usable para convertir montos.
     def _tasa_valida(self) -> bool:
         """Indica si hay una tasa activa usable para convertir montos."""
         return self._tasa is not None and self._tasa.tasa_venta > 0
 
+    # Cuantiza un monto a centimos (redondeo comercial).
     @staticmethod
     def _centimos(valor: Decimal) -> Decimal:
         """Cuantiza un monto a centimos (redondeo comercial)."""
         return valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+    # Convierte un monto en Bs.
     def _en_moneda(self, monto_bs: Decimal, es_usd: bool) -> Decimal:
         """Convierte un monto en Bs. a la moneda del metodo activo."""
         if not es_usd:
@@ -1178,6 +1230,7 @@ class FormularioVenta(QDialog):
         assert self._tasa is not None
         return (monto_bs / self._tasa.tasa_venta).quantize(Decimal("0.01"), rounding=ROUND_CEILING)
 
+    # Equivalente en Bs.
     def _monto_aplicado_bs(self, monto: Decimal, es_usd: bool) -> Decimal:
         """Equivalente en Bs. del monto tecleado (sin recortar)."""
         if not es_usd:
@@ -1187,6 +1240,7 @@ class FormularioVenta(QDialog):
         assert self._tasa is not None
         return self._centimos(monto * self._tasa.tasa_venta)
 
+    # Recalcula el equivalente en Bs.
     def _recalcular_equivalencias(self) -> None:
         """Recalcula el equivalente en Bs. de los pagos en USD (tasa nueva)."""
         if not self._tasa_valida():
@@ -1200,6 +1254,7 @@ class FormularioVenta(QDialog):
             pago["monto_bs"] = self._monto_aplicado_bs(pago["monto"], True)
             pago["vuelto_bs"] = Decimal("0.00")
 
+    # Resume los pagos por metodo (mismo criterio que el controlador).
     def _pagos_a_metodo_pago(self) -> dict[str, object]:
         """Resume los pagos por metodo (mismo criterio que el controlador)."""
         acumulado: dict[str, Decimal] = dict.fromkeys(METODOS_PAGO, Decimal("0.00"))
@@ -1217,6 +1272,7 @@ class FormularioVenta(QDialog):
             resumen[nombre] = monto
         return resumen
 
+    # Cambia el rol QSS de un widget y lo repinta.
     @staticmethod
     def _set_rol(widget: QWidget, rol: str) -> None:
         """Cambia el rol QSS de un widget y lo repinta."""
@@ -1226,6 +1282,7 @@ class FormularioVenta(QDialog):
             estilo.unpolish(widget)
             estilo.polish(widget)
 
+    # Crea LIMPIAR TICKET, tasa manual, COBRAR y ANULAR.
     def _crear_botones(self, layout: QVBoxLayout) -> None:
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(8)
@@ -1245,6 +1302,7 @@ class FormularioVenta(QDialog):
 
         layout.addLayout(btn_layout)
 
+    # Carga todos los productos y sus categorias en el catalogo.
     def _cargar_catalogo(self) -> None:
         if not self.controlador_productos:
             return
@@ -1254,6 +1312,7 @@ class FormularioVenta(QDialog):
         self._refrescar_botones_categorias()
         self._aplicar_filtro()
 
+    # Reconstruye la lista del catalogo segun el texto y la categoria.
     def _aplicar_filtro(self) -> None:
         """Reconstruye la lista del catalogo segun el texto y la categoria."""
         termino = self.campo_busqueda.text().strip().lower()
@@ -1278,6 +1337,7 @@ class FormularioVenta(QDialog):
         finally:
             tabla.setUpdatesEnabled(True)
 
+    # Actualiza el label de la tasa y guarda la tasa activa.
     def _actualizar_tasa(self) -> None:
         """Actualiza el label de la tasa y guarda la tasa activa."""
         if not self.controlador_tasas:
@@ -1287,6 +1347,7 @@ class FormularioVenta(QDialog):
         self._pintar_tasa_label()
         self._aplicar_filtro()
 
+    # Pinta el label de la tasa segun el estado (BCV automatica/manual).
     def _pintar_tasa_label(self) -> None:
         """Pinta el label de la tasa segun el estado (BCV automatica/manual)."""
         if self._tasa_manual_activa and self._tasa is not None:
@@ -1304,6 +1365,7 @@ class FormularioVenta(QDialog):
             self.lbl_tasa.setText("Tasa BCV: No hay tasa activa registrada.")
         self._set_rol(self.lbl_tasa, "tasa_bcv_auto")
 
+    # Pide al cajero la tasa manual y la fija para la venta en curso.
     def _pedir_tasa_manual(self) -> None:
         """Pide al cajero la tasa manual y la fija para la venta en curso."""
         if self._tasa_manual_activa:
@@ -1328,6 +1390,7 @@ class FormularioVenta(QDialog):
         self._pintar_tasa_label()
         self._aplicar_filtro()
 
+    # Fija la tasa manual para la venta en curso y la persiste.
     def _establecer_tasa_manual(self, tasa_venta: Decimal) -> None:
         """Fija la tasa manual para la venta en curso y la persiste."""
         if not self.controlador_tasas:
@@ -1370,6 +1433,7 @@ class FormularioVenta(QDialog):
             f"POS: tasa manual {tasa_venta} Bs/USD fijada por {self.nombre_cajero or 'cajero'}.",
         )
 
+    # Vuelve a la tasa BCV capturada y desactiva la manual en la BD.
     def _revertir_tasa_manual(self) -> None:
         """Vuelve a la tasa BCV capturada y desactiva la manual en la BD."""
         if not self._tasa_manual_activa:
@@ -1397,6 +1461,7 @@ class FormularioVenta(QDialog):
             f"POS: tasa manual revertida a la BCV por {self.nombre_cajero or 'cajero'}.",
         )
 
+    # Pregunta si revertir la manual a la BCV nueva (sin ticket).
     def _ofrecer_reversion(self, tasa_bcv_actual: Decimal) -> None:
         """Pregunta si revertir la manual a la BCV nueva (sin ticket)."""
         respuesta = QMessageBox.question(
@@ -1413,6 +1478,7 @@ class FormularioVenta(QDialog):
         else:
             self._reversion_avisada_por = tasa_bcv_actual
 
+    # Ofrece la reversion pendiente cuando ya no hay ticket en curso.
     def _comprobar_reversion_pendiente(self) -> None:
         """Ofrece la reversion pendiente cuando ya no hay ticket en curso."""
         if not self._reversion_pendiente or not self._tasa_manual_activa:
@@ -1429,6 +1495,7 @@ class FormularioVenta(QDialog):
         self._reversion_pendiente = False
         self._ofrecer_reversion(tasa_bcv.tasa_venta)
 
+    # Tick del timer: detecta si la BCV cambio mientras hay manual.
     def _comprobar_tasa_bcv(self) -> None:
         """Tick del timer: detecta si la BCV cambio mientras hay manual."""
         if not self.controlador_tasas:
@@ -1458,6 +1525,7 @@ class FormularioVenta(QDialog):
         if self._tasa is None or tasa_bcv is None or tasa_bcv.tasa_venta != self._tasa.tasa_venta:
             self._actualizar_tasa()
 
+    # Muestra el estado de la caja (ABIERTA/CERRADA) si hay controlador.
     def _actualizar_estado_caja(self) -> None:
         """Muestra el estado de la caja (ABIERTA/CERRADA) si hay controlador."""
         if not self.controlador_caja:
@@ -1469,11 +1537,13 @@ class FormularioVenta(QDialog):
             self.lbl_estado_caja.setText("Caja: CERRADA")
             self.lbl_estado_caja.setStyleSheet("color: #dc2626; font-weight: bold;")
 
+    # Atajo F1: pone el foco en el campo de busqueda.
     def _enfocar_busqueda(self) -> None:
         """Atajo F1: pone el foco en el campo de busqueda."""
         self.campo_busqueda.setFocus()
         self.campo_busqueda.selectAll()
 
+    # Agrega el producto indicado (boton del catalogo o doble clic).
     def _agregar_producto_venta(self, idproducto: int, peso: Decimal | None = None) -> None:
         """Agrega el producto indicado (boton del catalogo o doble clic)."""
         if self.controlador_productos is None or self.controlador_ventas is None:
@@ -1514,6 +1584,7 @@ class FormularioVenta(QDialog):
         self._actualizar_total()
         self._actualizar_visibilidad_pago()
 
+    # "peso" si alguna linea se vende por peso; "unidad" si no.
     def _layout_ticket_actual(self) -> str:
         """ "peso" si alguna linea se vende por peso; "unidad" si no."""
         for item in self.productos_venta:
@@ -1521,6 +1592,7 @@ class FormularioVenta(QDialog):
                 return "peso"
         return "unidad"
 
+    # Oculta/muestra Kg+g segun el ticket y renombra la columna 1.
     def _aplicar_layout_ticket(self) -> None:
         """Oculta/muestra Kg+g segun el ticket y renombra la columna 1."""
         layout = self._layout_ticket_actual()
@@ -1552,6 +1624,7 @@ class FormularioVenta(QDialog):
                 Qt.ItemDataRole.ToolTipRole,
             )
 
+    # Refresca la tabla de productos de la venta.
     def _refrescar_tabla_productos(self) -> None:
         """Refresca la tabla de productos de la venta."""
         self._refrescando = True
@@ -1626,6 +1699,7 @@ class FormularioVenta(QDialog):
         finally:
             self._refrescando = False
 
+    # SpinBoxStock de Kg (modo kg, decimal) o de gramos (modo gramos).
     def _crear_casilla_peso(
         self,
         fila: int,
@@ -1664,6 +1738,7 @@ class FormularioVenta(QDialog):
         caja.addWidget(spin)
         return marco
 
+    # SpinBoxStock entero para la cantidad de PIEZAS de una linea UNIDAD.
     def _crear_casilla_unidad(self, fila: int, valor: int) -> QWidget:
         """SpinBoxStock entero para la cantidad de PIEZAS de una linea UNIDAD."""
         marco = QWidget()
@@ -1693,6 +1768,7 @@ class FormularioVenta(QDialog):
         caja.addWidget(spin)
         return marco
 
+    # Peso legible de la linea: "1 kg y 500 g", "2 und.
     @staticmethod
     def _texto_peso_linea(item: ProductoVenta) -> str:
         """Peso legible de la linea: "1 kg y 500 g", "2 und." o "—"."""
@@ -1702,6 +1778,7 @@ class FormularioVenta(QDialog):
         texto = formatear_peso_kg(item["cantidad"])
         return texto if texto else "—"
 
+    # Una de las dos casillas de peso cambio → recalcula la linea.
     def _on_peso_cambiado(self, fila: int) -> None:
         """Una de las dos casillas de peso cambio → recalcula la linea."""
         if self._refrescando or not (0 <= fila < len(self.productos_venta)):
@@ -1741,6 +1818,7 @@ class FormularioVenta(QDialog):
         self._refrescar_tabla_productos()
         self._actualizar_total()
 
+    # Devuelve el SpinBoxStock de Kg o de gramos de la fila indicada.
     def _spin_peso_de(self, fila: int, modo: str) -> SpinBoxStock | None:
         """Devuelve el SpinBoxStock de Kg o de gramos de la fila indicada."""
         columna = 1 if modo == "kg" else 2
@@ -1750,6 +1828,7 @@ class FormularioVenta(QDialog):
         spin = marco.findChild(SpinBoxStock)
         return spin if isinstance(spin, SpinBoxStock) else None
 
+    # Los 4 botones rapidos (2x2) que SUMAN peso a una linea del ticket.
     def _crear_botones_peso_rapido_fila(self, nombre: str, fila: int) -> QWidget:
         """Los 4 botones rapidos (2x2) que SUMAN peso a una linea del ticket."""
         contenedor = QWidget()
@@ -1776,6 +1855,7 @@ class FormularioVenta(QDialog):
             grid.addWidget(btn, indice // 2, indice % 2)
         return contenedor
 
+    # Suma un incremento de peso a la linea indicada y recalcula.
     def _sumar_peso_rapido(self, fila: int, incremento: Decimal) -> None:
         """Suma un incremento de peso a la linea indicada y recalcula."""
         if not (0 <= fila < len(self.productos_venta)):
@@ -1801,6 +1881,7 @@ class FormularioVenta(QDialog):
             self._refrescando = False
         self._on_peso_cambiado(fila)
 
+    # Restaura la cantidad almacenada si la edicion fue invalida.
     def _revertir_cantidad(self, fila: int | None = None) -> None:
         """Restaura la cantidad almacenada si la edicion fue invalida."""
         self._refrescar_tabla_productos()
@@ -1811,6 +1892,7 @@ class FormularioVenta(QDialog):
             spin.setFocus(Qt.FocusReason.OtherFocusReason)
             spin.selectAll()
 
+    # Describe una cantidad en el formato del POS: peso o piezas.
     @staticmethod
     def _texto_cantidad(producto: Producto, cantidad: Decimal) -> str:
         """Describe una cantidad en el formato del POS: peso o piezas."""
@@ -1818,6 +1900,7 @@ class FormularioVenta(QDialog):
             return formatear_peso_kg(cantidad) or formatear_stock(cantidad)
         return f"{formatear_stock(cantidad)} und."
 
+    # Aviso de stock insuficiente, con el peso ya en words (no en kg).
     def _avisar_stock_insuficiente(self, producto: Producto, cantidad: Decimal) -> None:
         """Aviso de stock insuficiente, con el peso ya en words (no en kg)."""
         QMessageBox.warning(
@@ -1827,6 +1910,7 @@ class FormularioVenta(QDialog):
             f" Solicitado: {self._texto_cantidad(producto, cantidad)}.",
         )
 
+    # Actualiza el total en Bs (grande) y su equivalente en USD.
     def _actualizar_total(self) -> None:
         """Actualiza el total en Bs (grande) y su equivalente en USD."""
         tasa = self._tasa
@@ -1840,6 +1924,7 @@ class FormularioVenta(QDialog):
 
         self._actualizar_resumen_pagos()
 
+    # Elimina un producto de la lista de la venta.
     def _eliminar_producto_venta(self, fila: int) -> None:
         """Elimina un producto de la lista de la venta."""
         if 0 <= fila < len(self.productos_venta):
@@ -1850,12 +1935,14 @@ class FormularioVenta(QDialog):
             self._actualizar_total()
             self._actualizar_visibilidad_pago()
 
+    # Suprimir: elimina la fila seleccionada del ticket.
     def _eliminar_fila_seleccionada(self) -> None:
         """Suprimir: elimina la fila seleccionada del ticket."""
         fila = self.tabla_productos_venta.currentRow()
         if fila >= 0 and fila < len(self.productos_venta):
             self._eliminar_producto_venta(fila)
 
+    # Vacia el ticket de la venta en curso (sin tocar la BD).
     def _limpiar_ticket(self) -> None:
         """Vacia el ticket de la venta en curso (sin tocar la BD)."""
         if not self.productos_venta:
@@ -1867,6 +1954,7 @@ class FormularioVenta(QDialog):
         self._actualizar_total()
         self._actualizar_visibilidad_pago()
 
+    # Pregunta antes de vaciar el ticket (los productos se pierden).
     def _confirmar_limpiar_ticket(self) -> None:
         """Pregunta antes de vaciar el ticket (los productos se pierden)."""
         if not self.productos_venta:
@@ -1882,6 +1970,7 @@ class FormularioVenta(QDialog):
         if respuesta == QMessageBox.StandardButton.Yes:
             self._limpiar_ticket()
 
+    # Descarta el desglose de pagos de la venta en curso.
     def _reiniciar_pagos(self) -> None:
         """Descarta el desglose de pagos de la venta en curso."""
         self.pagos = []
@@ -1892,6 +1981,7 @@ class FormularioVenta(QDialog):
         self._refrescar_tabla_pagos()
         self._actualizar_resumen_pagos()
 
+    # Muestra el metodo de pago solo cuando hay productos en la venta.
     def _actualizar_visibilidad_pago(self) -> None:
         """Muestra el metodo de pago solo cuando hay productos en la venta."""
         hay_productos = bool(self.productos_venta)
@@ -1902,6 +1992,7 @@ class FormularioVenta(QDialog):
         if not hay_productos:
             self._comprobar_reversion_pendiente()
 
+    # Valida los datos y finaliza la venta.
     def _finalizar_venta(self) -> None:
         """Valida los datos y finaliza la venta."""
         if not self.productos_venta:
@@ -1992,6 +2083,7 @@ class FormularioVenta(QDialog):
                 f"No se pudo crear la venta.\n{e}",
             )
 
+    # Abre la factura imprimible sobre la venta recien registrada.
     def _mostrar_factura(self, venta: Venta) -> None:
         """Abre la factura imprimible sobre la venta recien registrada."""
         try:

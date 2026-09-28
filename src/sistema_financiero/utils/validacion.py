@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 
+# Valida que un string no sea None, vacio o solo espacios.
 def validar_no_vacio(valor: str | None, nombre: str) -> None:
     """Valida que un string no sea None, vacio o solo espacios."""
     if not valor or not valor.strip():
@@ -10,6 +11,7 @@ def validar_no_vacio(valor: str | None, nombre: str) -> None:
         raise ValueError(msg)
 
 
+# Valida que un string tenga al menos N caracteres.
 def validar_longitud_minima(valor: str, minimo: int, nombre: str) -> None:
     """Valida que un string tenga al menos N caracteres."""
     if len(valor) < minimo:
@@ -17,6 +19,7 @@ def validar_longitud_minima(valor: str, minimo: int, nombre: str) -> None:
         raise ValueError(msg)
 
 
+# Valida que un numero no sea negativo.
 def validar_no_negativo(valor: int | Decimal, nombre: str) -> None:
     """Valida que un numero no sea negativo."""
     if valor < 0:
@@ -24,6 +27,7 @@ def validar_no_negativo(valor: int | Decimal, nombre: str) -> None:
         raise ValueError(msg)
 
 
+# Valida que un numero sea mayor a cero.
 def validar_positivo(valor: int | Decimal, nombre: str) -> None:
     """Valida que un numero sea mayor a cero."""
     if valor <= 0:
@@ -31,6 +35,7 @@ def validar_positivo(valor: int | Decimal, nombre: str) -> None:
         raise ValueError(msg)
 
 
+# Valida que un objeto no sea None (existe en BD).
 def validar_existe(obj: object | None, nombre: str) -> None:
     """Valida que un objeto no sea None (existe en BD)."""
     if obj is None:
@@ -38,6 +43,7 @@ def validar_existe(obj: object | None, nombre: str) -> None:
         raise ValueError(msg)
 
 
+# Valida que la suma de pagos cubra el total de la venta.
 def validar_pagos_cubren_total(suma_pagos: Decimal, total: Decimal) -> None:
     """Valida que la suma de pagos cubra el total de la venta."""
     if suma_pagos < total:
@@ -48,6 +54,7 @@ def validar_pagos_cubren_total(suma_pagos: Decimal, total: Decimal) -> None:
         raise ValueError(msg)
 
 
+# Convierte un texto de monto a Decimal, aceptando ',' o '.
 def parsear_decimal_escrito(texto: str) -> Decimal | None:
     """Convierte un texto de monto a Decimal, aceptando ',' o '.' decimal."""
     if not texto:

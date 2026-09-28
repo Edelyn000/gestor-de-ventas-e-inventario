@@ -20,6 +20,7 @@ from ..models import (
 )
 
 
+# Crea el usuario admin por defecto si no existe.
 def seed_admin(session: Session | None = None) -> None:
     """Crea el usuario admin por defecto si no existe."""
     with obtener_sesion(session) as s:
@@ -35,6 +36,7 @@ def seed_admin(session: Session | None = None) -> None:
             s.commit()
 
 
+# Crea productos de ejemplo si no hay ninguno (con categorias unicas).
 def seed_productos(session: Session | None = None) -> None:
     """Crea productos de ejemplo si no hay ninguno (con categorias unicas)."""
     with obtener_sesion(session) as s:
@@ -56,6 +58,7 @@ def seed_productos(session: Session | None = None) -> None:
             assert nueva.id is not None
             ids_categoria[clave] = nueva.id
 
+        # Devuelve el id de la categoria semilla por su clave normalizada.
         def _id_categoria(nombre_semilla: str) -> int:
             return ids_categoria[clave_normalizada(nombre_semilla)]
 
@@ -176,6 +179,7 @@ def seed_productos(session: Session | None = None) -> None:
         s.commit()
 
 
+# Crea una tasa de cambio de ejemplo si no existe ninguna.
 def seed_tasa_cambio(session: Session | None = None) -> None:
     """Crea una tasa de cambio de ejemplo si no existe ninguna."""
     with obtener_sesion(session) as s:
@@ -192,6 +196,7 @@ def seed_tasa_cambio(session: Session | None = None) -> None:
         s.commit()
 
 
+# Ejecuta todos los seeds en orden.
 def ejecutar_todos(session: Session | None = None) -> None:
     """Ejecuta todos los seeds en orden."""
     seed_admin(session)

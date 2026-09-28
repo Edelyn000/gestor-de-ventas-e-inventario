@@ -15,6 +15,7 @@ pytestmark = pytest.mark.unitarias
 
 
 class TestConversion:
+    # Fija la tasa BCV en 50 Bs/USD para todos los tests de esta clase.
     @pytest.fixture(autouse=True)
     def _mock_tasa(self, mocker: pytest_mock.MockerFixture) -> None:
         """Fija la tasa BCV en 50 Bs/USD para todos los tests de esta clase."""
@@ -23,38 +24,47 @@ class TestConversion:
             return_value=Decimal("50.00"),
         )
 
+    # Prueba convertir_a_usd con un Decimal.
     def test_convertir_a_usd_decimal(self) -> None:
         resultado = convertir_a_usd(Decimal("100.00"))
         assert resultado == Decimal("2.00")
 
+    # Prueba convertir_a_usd con un entero.
     def test_convertir_a_usd_int(self) -> None:
         resultado = convertir_a_usd(100)
         assert resultado == Decimal("2.00")
 
+    # Prueba convertir_a_usd con un flotante.
     def test_convertir_a_usd_float(self) -> None:
         resultado = convertir_a_usd(50.0)
         assert resultado == Decimal("1.00")
 
+    # Prueba que convertir_a_usd devuelve 0.00 con cero.
     def test_convertir_a_usd_cero(self) -> None:
         resultado = convertir_a_usd(Decimal("0.00"))
         assert resultado == Decimal("0.00")
 
+    # Prueba que convertir_a_usd redondea a dos decimales.
     def test_convertir_a_usd_redondeo(self) -> None:
         resultado = convertir_a_usd(Decimal("33.33"))
         assert resultado == Decimal("0.6666")
 
+    # Prueba convertir_a_bs con un Decimal.
     def test_convertir_a_bs_decimal(self) -> None:
         resultado = convertir_a_bs(Decimal("2.00"))
         assert resultado == Decimal("100.00")
 
+    # Prueba convertir_a_bs con un entero.
     def test_convertir_a_bs_int(self) -> None:
         resultado = convertir_a_bs(1)
         assert resultado == Decimal("50.00")
 
+    # Prueba convertir_a_bs con un flotante.
     def test_convertir_a_bs_float(self) -> None:
         resultado = convertir_a_bs(1.5)
         assert resultado == Decimal("75.00")
 
+    # Prueba que convertir_a_bs devuelve 0.00 con cero.
     def test_convertir_a_bs_cero(self) -> None:
         resultado = convertir_a_bs(Decimal("0.00"))
         assert resultado == Decimal("0.00")
@@ -64,12 +74,14 @@ class TestObtenerTasaFallos:
     """obtener_tasa() eleva a ConnectionError los fallos que el scraper
     traga en silencio (devuelve {} sin internet o con el BCV caido)."""
 
+    # Configura el cliente mockeado para que devuelva una respuesta dada.
     @staticmethod
     def _cliente_con(mocker: pytest_mock.MockerFixture, respuesta: object) -> None:
         cliente = mocker.Mock()
         cliente.get_tasas.return_value = respuesta
         mocker.patch("sistema_financiero.services.bcv._get_client", return_value=cliente)
 
+    # get_tasas() devuelve {} (fallo real de red/BCV tragado por el.
     def test_respuesta_vacia_lanza_connection_error(
         self,
         mocker: pytest_mock.MockerFixture,
@@ -80,6 +92,7 @@ class TestObtenerTasaFallos:
         with pytest.raises(ConnectionError):
             obtener_tasa()
 
+    # get_tasas() devuelve otra moneda pero no USD → ConnectionError.
     def test_respuesta_sin_usd_lanza_connection_error(
         self,
         mocker: pytest_mock.MockerFixture,
@@ -89,6 +102,7 @@ class TestObtenerTasaFallos:
         with pytest.raises(ConnectionError):
             obtener_tasa()
 
+    # Con respuesta valida, obtener_tasa() devuelve el Decimal.
     def test_respuesta_valida_devuelve_decimal(
         self,
         mocker: pytest_mock.MockerFixture,

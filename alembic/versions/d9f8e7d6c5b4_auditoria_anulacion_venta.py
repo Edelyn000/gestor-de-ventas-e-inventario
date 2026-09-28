@@ -30,6 +30,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+# Agrega motivo_anulacion y anulado_por a venta (idempotente).
 def upgrade() -> None:
     """Agrega motivo_anulacion y anulado_por a venta (idempotente)."""
     inspector = Inspector.from_engine(engine)
@@ -43,6 +44,7 @@ def upgrade() -> None:
             batch.add_column(sa.Column("anulado_por", sa.VARCHAR(length=100), nullable=True))
 
 
+# Revierte: elimina las columnas de auditoria (SQLite: batch).
 def downgrade() -> None:
     """Revierte: elimina las columnas de auditoria (SQLite: batch)."""
     inspector = Inspector.from_engine(engine)

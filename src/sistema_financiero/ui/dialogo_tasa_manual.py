@@ -20,6 +20,7 @@ class DialogoTasaManual(QDialog):
     ALTO_CAMPO_TASA = 34
     MARGEN = 20
 
+    # Construye el dialogo para fijar una tasa manual sin tocar la BCV.
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
@@ -65,6 +66,7 @@ class DialogoTasaManual(QDialog):
         layout.addLayout(btn_layout)
         self.txt_tasa.setFocus()
 
+    # Habilita el boton solo si el texto se lee como Decimal > 0.
     def _actualizar_estado(self) -> None:
         """Habilita el boton solo si el texto se lee como Decimal > 0."""
         self._tasa_valor = parsear_decimal_escrito(self.txt_tasa.text())
@@ -75,11 +77,13 @@ class DialogoTasaManual(QDialog):
         else:
             self.lbl_error.setText("")
 
+    # Cierra con exito guardando la tasa leida.
     def _aceptar(self) -> None:
         """Cierra con exito guardando la tasa leida."""
         if self._tasa_valor is not None and self._tasa_valor > 0:
             self.accept()
 
+    # Tasa manual leida (Decimal valido > 0 si el dialogo fue aceptado).
     def tasa(self) -> Decimal:
         """Tasa manual leida (Decimal valido > 0 si el dialogo fue aceptado)."""
         return self._tasa_valor or Decimal("0.00")

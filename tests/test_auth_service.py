@@ -9,6 +9,7 @@ from sistema_financiero.models import Usuario
 pytestmark = pytest.mark.unitarias
 
 
+# Prueba que crear_usuario() cree un usuario correctamente.
 def test_crear_usuario_exitoso(session: Session) -> None:
     """
     Prueba que crear_usuario() cree un usuario correctamente
@@ -42,6 +43,7 @@ def test_crear_usuario_exitoso(session: Session) -> None:
     assert resultado.fecha_creacion is not None, "Debe tener fecha de creacion"
 
 
+# Prueba que NO se pueda crear un usuario con el mismo nombre.
 def test_crear_usuario_duplicado(session: Session) -> None:
     """Prueba que NO se pueda crear un usuario con el mismo nombre."""
     servicio = AuthService()
@@ -54,6 +56,7 @@ def test_crear_usuario_duplicado(session: Session) -> None:
     assert "duplicado" in str(exc_info.value), "El mensaje debe mencionar el usuario duplicado"
 
 
+# Prueba que se rechace una contrasena con menos de 4 caracteres.
 def test_crear_usuario_contrasena_corta(session: Session) -> None:
     """Prueba que se rechace una contrasena con menos de 4 caracteres."""
     servicio = AuthService()
@@ -64,6 +67,7 @@ def test_crear_usuario_contrasena_corta(session: Session) -> None:
     assert "4 caracteres" in str(exc_info.value)
 
 
+# Prueba que se rechace un usuario con nombre vacio.
 def test_crear_usuario_sin_nombre(session: Session) -> None:
     """Prueba que se rechace un usuario con nombre vacio."""
     servicio = AuthService()
@@ -74,6 +78,7 @@ def test_crear_usuario_sin_nombre(session: Session) -> None:
     assert "obligatorio" in str(exc_info.value)
 
 
+# Prueba que verificar_login() retorne el Usuario si las credenciales son correctas.
 def test_verificar_login_exitoso(session: Session) -> None:
     """Prueba que verificar_login() retorne el Usuario si las credenciales son correctas."""
     servicio = AuthService()
@@ -93,6 +98,7 @@ def test_verificar_login_exitoso(session: Session) -> None:
     assert resultado.nombre_completo == "Login Test"
 
 
+# Prueba que el login falle si la contrasena no coincide.
 def test_verificar_login_contrasena_incorrecta(session: Session) -> None:
     """Prueba que el login falle si la contrasena no coincide."""
     servicio = AuthService()
@@ -106,6 +112,7 @@ def test_verificar_login_contrasena_incorrecta(session: Session) -> None:
     assert resultado is None, "El login debe fallar con contrasena incorrecta"
 
 
+# Prueba que el login falle si el usuario no existe en la BD.
 def test_verificar_login_usuario_inexistente(session: Session) -> None:
     """Prueba que el login falle si el usuario no existe en la BD."""
     servicio = AuthService()
@@ -117,6 +124,7 @@ def test_verificar_login_usuario_inexistente(session: Session) -> None:
     assert resultado is None, "El login debe fallar para usuario inexistente"
 
 
+# Prueba que un usuario desactivado NO pueda iniciar sesion.
 def test_verificar_login_usuario_inactivo(session: Session) -> None:
     """Prueba que un usuario desactivado NO pueda iniciar sesion."""
     servicio = AuthService()
@@ -133,6 +141,7 @@ def test_verificar_login_usuario_inactivo(session: Session) -> None:
     assert resultado is None, "Usuario inactivo NO debe poder iniciar sesion"
 
 
+# Prueba cambiar_contrasena(): debe cambiar la contrasena si.
 def test_cambiar_contrasena_exitoso(session: Session) -> None:
     """
     Prueba cambiar_contrasena(): debe cambiar la contrasena si
@@ -161,6 +170,7 @@ def test_cambiar_contrasena_exitoso(session: Session) -> None:
     assert login_viejo is None, "La contrasena antigua ya no debe funcionar"
 
 
+# Prueba cambiar_contrasena_admin(): debe cambiar la contrasena.
 def test_cambiar_contrasena_admin(session: Session) -> None:
     """
     Prueba cambiar_contrasena_admin(): debe cambiar la contrasena
@@ -181,6 +191,7 @@ def test_cambiar_contrasena_admin(session: Session) -> None:
     assert login is not None, "Debe poder iniciar sesion con la contrasena reseteada"
 
 
+# Prueba activar() y desactivar(): control de acceso al sistema.
 def test_activar_desactivar_usuario(session: Session) -> None:
     """Prueba activar() y desactivar(): control de acceso al sistema."""
     servicio = AuthService()
@@ -205,6 +216,7 @@ def test_activar_desactivar_usuario(session: Session) -> None:
     assert usuario_recargado2.activo is True, "El usuario debe estar activo nuevamente"
 
 
+# Prueba que desactivar() retorne False para un ID inexistente.
 def test_desactivar_usuario_inexistente(session: Session) -> None:
     """Prueba que desactivar() retorne False para un ID inexistente."""
     servicio = AuthService()
@@ -213,6 +225,7 @@ def test_desactivar_usuario_inexistente(session: Session) -> None:
     assert resultado is False, "Debe retornar False para usuario inexistente"
 
 
+# Prueba que obtener_por_id() retorne el Usuario correcto.
 def test_obtener_por_id_exitoso(session: Session) -> None:
     """Prueba que obtener_por_id() retorne el Usuario correcto."""
     servicio = AuthService()
@@ -226,6 +239,7 @@ def test_obtener_por_id_exitoso(session: Session) -> None:
     assert resultado.usuario == "buscarporid"
 
 
+# Prueba que obtener_por_id() retorne None para un ID que no existe.
 def test_obtener_por_id_inexistente(session: Session) -> None:
     """Prueba que obtener_por_id() retorne None para un ID que no existe."""
     servicio = AuthService()
@@ -234,6 +248,7 @@ def test_obtener_por_id_inexistente(session: Session) -> None:
     assert resultado is None, "Debe retornar None para ID inexistente"
 
 
+# Prueba que obtener_por_usuario() encuentre un usuario por su nombre.
 def test_obtener_por_usuario(session: Session) -> None:
     """Prueba que obtener_por_usuario() encuentre un usuario por su nombre."""
     servicio = AuthService()
@@ -248,6 +263,7 @@ def test_obtener_por_usuario(session: Session) -> None:
     assert no_encontrado is None
 
 
+# Prueba que listar_usuarios() devuelva todos los usuarios creados.
 def test_listar_usuarios(session: Session) -> None:
     """Prueba que listar_usuarios() devuelva todos los usuarios creados."""
     servicio = AuthService()
@@ -266,6 +282,7 @@ def test_listar_usuarios(session: Session) -> None:
     assert "gamma" in nombres
 
 
+# Prueba que actualizar() modifique los datos de un usuario.
 def test_actualizar_usuario(session: Session) -> None:
     """Prueba que actualizar() modifique los datos de un usuario."""
     servicio = AuthService()
@@ -290,6 +307,7 @@ def test_actualizar_usuario(session: Session) -> None:
     assert actualizado.nombre_completo == "Nombre Modificado"
 
 
+# Prueba que actualizar() lance error si el nuevo nombre ya esta en uso.
 def test_actualizar_usuario_duplicado(session: Session) -> None:
     """Prueba que actualizar() lance error si el nuevo nombre ya esta en uso."""
     servicio = AuthService()

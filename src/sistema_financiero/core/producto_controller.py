@@ -10,6 +10,7 @@ from ..models import Categoria, Producto, obtener_sesion
 
 # ProductoController: CRUD de productos, categorias y alertas de stock.
 class ProductoController:
+    # Crea un nuevo producto con validaciones de precios y stock.
     def crear(
         self,
         producto: Producto,
@@ -61,6 +62,7 @@ class ProductoController:
 
         return producto
 
+    # Busca un producto por su ID.
     def obtener_por_id(
         self,
         idproducto: int,
@@ -70,6 +72,7 @@ class ProductoController:
         with obtener_sesion(db_session) as session:
             return session.get(Producto, idproducto)
 
+    # Devuelve todos los productos ordenados alfabeticamente.
     def listar_todos(
         self,
         db_session: Session | None = None,
@@ -79,6 +82,7 @@ class ProductoController:
             stmt = select(Producto).order_by(Producto.nombre_producto)
             return list(session.exec(stmt).all())
 
+    # Busca productos por nombre o categoria (busqueda parcial).
     def buscar(
         self,
         termino: str,
@@ -99,6 +103,7 @@ class ProductoController:
             )
             return list(session.exec(stmt).all())
 
+    # Actualiza campos de un producto via clave=valor.
     def actualizar(
         self,
         idproducto: int,
@@ -134,6 +139,7 @@ class ProductoController:
 
         return producto
 
+    # Elimina un producto por ID.
     def eliminar(
         self,
         idproducto: int,
@@ -150,6 +156,7 @@ class ProductoController:
 
         return True
 
+    # Normaliza una categoria y la crea, o REUTILIZA la existente.
     def crear_categoria(
         self,
         nombre: str,
@@ -175,6 +182,7 @@ class ProductoController:
             session.refresh(nueva)
         return nueva
 
+    # Devuelve los nombres de categorias existentes (ordenados).
     def obtener_categorias(
         self,
         db_session: Session | None = None,
@@ -185,6 +193,7 @@ class ProductoController:
             resultados = session.exec(stmt).all()
             return [r for r in resultados if r is not None]
 
+    # Productos con stock actual <= stock minimo (pero > 0).
     def productos_stock_bajo(
         self,
         db_session: Session | None = None,
@@ -198,6 +207,7 @@ class ProductoController:
             )
             return list(session.exec(stmt).all())
 
+    # Productos con stock actual = 0 (agotados).
     def productos_sin_stock(
         self,
         db_session: Session | None = None,

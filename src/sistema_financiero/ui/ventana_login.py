@@ -22,6 +22,7 @@ from ..utils.logging_setup import registrar_evento
 class VentanaLogin(QDialog):
     usuario_actual: Usuario | None = None
 
+    # Construye el dialogo de inicio de sesion.
     def __init__(self) -> None:
         super().__init__()
 
@@ -31,6 +32,7 @@ class VentanaLogin(QDialog):
 
         self._setup_ui()
 
+    # Construye los campos de usuario, contrasena y botones.
     def _setup_ui(self) -> None:
         """Construye los campos de usuario, contrasena y botones."""
 
@@ -82,6 +84,7 @@ class VentanaLogin(QDialog):
         cuerpo.addLayout(btn_layout)
         layout.addLayout(cuerpo)
 
+    # Verifica credenciales contra la BD y registra la auditoria.
     def _validar_login(self) -> None:
         """Verifica credenciales contra la BD y registra la auditoria."""
         usuario = self.txt_usuario.text().strip()

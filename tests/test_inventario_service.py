@@ -9,6 +9,7 @@ from sistema_financiero.models import Producto
 pytestmark = pytest.mark.unitarias
 
 
+# Crea un producto de prueba en la sesion.
 def _crear_producto(
     session: Session, nombre: str = "PROD TEST", stock: Decimal = Decimal("50")
 ) -> Producto:
@@ -26,6 +27,7 @@ def _crear_producto(
     return producto
 
 
+# Prueba que una entrada suma stock y registra el movimiento.
 def test_registrar_entrada_exitoso(session: Session) -> None:
     producto = _crear_producto(session)
     assert producto.idproducto is not None
@@ -51,6 +53,7 @@ def test_registrar_entrada_exitoso(session: Session) -> None:
     assert producto.stock_actual == Decimal("60")
 
 
+# Prueba que la entrada rechaza cantidades invalidas.
 def test_registrar_entrada_cantidad_invalida(session: Session) -> None:
     producto = _crear_producto(session)
     assert producto.idproducto is not None
@@ -73,6 +76,7 @@ def test_registrar_entrada_cantidad_invalida(session: Session) -> None:
         )
 
 
+# Prueba que la entrada falla si el producto no existe.
 def test_registrar_entrada_producto_inexistente(session: Session) -> None:
     servicio = InventarioService()
     with pytest.raises(ValueError, match="no existe"):
@@ -81,6 +85,7 @@ def test_registrar_entrada_producto_inexistente(session: Session) -> None:
         )
 
 
+# Prueba que una salida resta stock y registra el movimiento.
 def test_registrar_salida_exitoso(session: Session) -> None:
     producto = _crear_producto(session, stock=Decimal("30"))
     assert producto.idproducto is not None
@@ -103,6 +108,7 @@ def test_registrar_salida_exitoso(session: Session) -> None:
     assert producto.stock_actual == Decimal("25")
 
 
+# Prueba que la salida rechaza stock insuficiente.
 def test_registrar_salida_stock_insuficiente(session: Session) -> None:
     producto = _crear_producto(session, stock=Decimal("3"))
     assert producto.idproducto is not None
@@ -120,6 +126,7 @@ def test_registrar_salida_stock_insuficiente(session: Session) -> None:
     assert producto.stock_actual == Decimal("3")
 
 
+# Prueba que la salida rechaza cantidades invalidas.
 def test_registrar_salida_cantidad_invalida(session: Session) -> None:
     producto = _crear_producto(session)
     assert producto.idproducto is not None
@@ -134,6 +141,7 @@ def test_registrar_salida_cantidad_invalida(session: Session) -> None:
         )
 
 
+# Prueba un ajuste que aumenta el stock.
 def test_registrar_ajuste_exitoso_aumento(session: Session) -> None:
     producto = _crear_producto(session, stock=Decimal("50"))
     assert producto.idproducto is not None
@@ -155,6 +163,7 @@ def test_registrar_ajuste_exitoso_aumento(session: Session) -> None:
     assert producto.stock_actual == Decimal("60")
 
 
+# Prueba un ajuste que disminuye el stock.
 def test_registrar_ajuste_exitoso_disminucion(session: Session) -> None:
     producto = _crear_producto(session, stock=Decimal("50"))
     assert producto.idproducto is not None
@@ -173,6 +182,7 @@ def test_registrar_ajuste_exitoso_disminucion(session: Session) -> None:
     assert producto.stock_actual == Decimal("30")
 
 
+# Prueba que un ajuste sin cambio no crea movimiento.
 def test_registrar_ajuste_sin_cambio(session: Session) -> None:
     producto = _crear_producto(session, stock=Decimal("50"))
     assert producto.idproducto is not None
@@ -186,6 +196,7 @@ def test_registrar_ajuste_sin_cambio(session: Session) -> None:
         )
 
 
+# Prueba que el ajuste rechaza stock negativo.
 def test_registrar_ajuste_stock_negativo(session: Session) -> None:
     producto = _crear_producto(session)
     assert producto.idproducto is not None
@@ -199,6 +210,7 @@ def test_registrar_ajuste_stock_negativo(session: Session) -> None:
         )
 
 
+# Prueba el historial de movimientos de un producto.
 def test_historial_por_producto(session: Session) -> None:
     producto = _crear_producto(session, stock=Decimal("100"))
     assert producto.idproducto is not None
@@ -226,6 +238,7 @@ def test_historial_por_producto(session: Session) -> None:
         assert mov.producto_id == producto.idproducto
 
 
+# Prueba que devuelve vacio sin movimientos.
 def test_historial_por_producto_sin_movimientos(session: Session) -> None:
     producto = _crear_producto(session)
     assert producto.idproducto is not None
@@ -235,6 +248,7 @@ def test_historial_por_producto_sin_movimientos(session: Session) -> None:
     assert historial == []
 
 
+# Prueba que hay stock disponible suficiente.
 def test_stock_disponible_suficiente(session: Session) -> None:
     producto = _crear_producto(session, stock=Decimal("10"))
     assert producto.idproducto is not None
@@ -255,6 +269,7 @@ def test_stock_disponible_suficiente(session: Session) -> None:
     )
 
 
+# Prueba que detecta stock insuficiente.
 def test_stock_disponible_insuficiente(session: Session) -> None:
     producto = _crear_producto(session, stock=Decimal("3"))
     assert producto.idproducto is not None
@@ -268,6 +283,7 @@ def test_stock_disponible_insuficiente(session: Session) -> None:
     )
 
 
+# Prueba que falla si el producto no existe.
 def test_stock_disponible_producto_inexistente(session: Session) -> None:
     servicio = InventarioService()
     assert (
@@ -276,6 +292,7 @@ def test_stock_disponible_producto_inexistente(session: Session) -> None:
     )
 
 
+# Prueba listar los movimientos mas recientes.
 def test_movimientos_recientes(session: Session) -> None:
     prod1 = _crear_producto(session, nombre="PROD1", stock=Decimal("50"))
     assert prod1.idproducto is not None
@@ -298,6 +315,7 @@ def test_movimientos_recientes(session: Session) -> None:
     assert recientes[1].tipo == "ENTRADA"
 
 
+# Prueba que devuelve vacio sin movimientos.
 def test_movimientos_recientes_sin_movimientos(session: Session) -> None:
     servicio = InventarioService()
     recientes = servicio.movimientos_recientes(db_session=session)

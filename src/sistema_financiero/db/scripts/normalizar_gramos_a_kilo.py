@@ -16,6 +16,7 @@ from sistema_financiero.utils import (
 )
 
 
+# Productos con tipo de venta 'GRAMOS' de una version anterior.
 def _productos_legados(sesion: Session) -> list[Producto]:
     """Productos con tipo de venta 'GRAMOS' de una version anterior."""
     return list(
@@ -25,11 +26,13 @@ def _productos_legados(sesion: Session) -> list[Producto]:
     )
 
 
+# Multiplica un precio por gramo por GRAMOS_POR_KILO (a 2 decimales).
 def _escalar_precio(valor: Decimal | int | float | None) -> Decimal:
     """Multiplica un precio por gramo por GRAMOS_POR_KILO (a 2 decimales)."""
     return redondear_moneda(Decimal(str(valor or 0)) * GRAMOS_POR_KILO)
 
 
+# Confirma que no queda ningun producto en la escala por gramo.
 def _verificar(sesion: Session) -> None:
     """Confirma que no queda ningun producto en la escala por gramo."""
     restantes = _productos_legados(sesion)
@@ -42,6 +45,7 @@ def _verificar(sesion: Session) -> None:
     print("VERIFICACION: 0 productos con tipo_venta 'GRAMOS'.")
 
 
+# Normaliza en la BD los productos GRAMOS/GR a KILO.
 def main() -> None:
     ruta_bd = Path(conexion.DB_PATH)
     if not ruta_bd.exists():

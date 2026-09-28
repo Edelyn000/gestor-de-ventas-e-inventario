@@ -36,6 +36,7 @@ _COL_ESTADO: int = 5
 
 # ReporteService: Reporte diario, detalle de productos y exportacion.
 class ReporteService:
+    # Genera el reporte diario consolidando ventas de la fecha indicada.
     def generar_reporte(
         self,
         fecha_param: date | None = None,
@@ -137,6 +138,7 @@ class ReporteService:
 
         return reporte
 
+    # Agrupa las cantidades vendidas por (producto, nombre, tipo de venta).
     @staticmethod
     def _agrupar_detalles(
         ventas: list[Venta],
@@ -155,6 +157,7 @@ class ReporteService:
                 agrupado[clave] = agrupado.get(clave, Decimal("0.000")) + d.cantidad
         return agrupado
 
+    # Devuelve el reporte de una fecha, o None si no existe.
     def obtener_por_fecha(
         self,
         fecha_param: date | None = None,
@@ -165,6 +168,7 @@ class ReporteService:
         with obtener_sesion(db_session) as session:
             return session.exec(select(ReporteDiario).where(ReporteDiario.fecha == hoy)).first()
 
+    # Devuelve todos los reportes entre dos fechas (ordenados descendente).
     def listar_por_rango(
         self,
         desde: date,
@@ -183,6 +187,7 @@ class ReporteService:
             )
             return list(session.exec(stmt).all())
 
+    # Exporta un reporte a Excel.
     def exportar_excel(
         self,
         reporte_id: int,
@@ -209,6 +214,7 @@ class ReporteService:
         wb.save(ruta_archivo)
         return ruta_archivo
 
+    # Carga reporte, ventas, stock bajo, sin stock y el detalle del reporte.
     def _cargar_datos_reporte(
         self,
         reporte_id: int,
@@ -252,6 +258,7 @@ class ReporteService:
 
         return (reporte, ventas, stock_bajo, sin_stock, detalles)
 
+    # Escribe la hoja 'Reporte Diario' con el resumen del dia.
     def _exportar_hoja_resumen(self, wb: Workbook, reporte: ReporteDiario) -> None:
         """Escribe la hoja 'Reporte Diario' con el resumen del dia."""
         ws = wb.active
@@ -312,6 +319,7 @@ class ReporteService:
         ws.column_dimensions["A"].width = 30
         ws.column_dimensions["B"].width = 25
 
+    # Escribe la hoja 'Ventas del Dia' con el detalle de cada venta.
     def _exportar_hoja_ventas(self, wb: Workbook, ventas: list[Venta]) -> None:
         """Escribe la hoja 'Ventas del Dia' con el detalle de cada venta."""
         ws = wb.create_sheet("Ventas del Dia")
@@ -358,6 +366,7 @@ class ReporteService:
         for col, ancho in enumerate([20, 10, 12, 12, 12, 12, 12, 12, 12, 12], start=1):
             ws.column_dimensions[chr(64 + col)].width = ancho
 
+    # Escribe la hoja 'Alertas de Stock'.
     def _exportar_hoja_stock(
         self,
         wb: Workbook,
@@ -408,6 +417,7 @@ class ReporteService:
         for letra, ancho in [("A", 30), ("B", 20), ("C", 15), ("D", 15), ("E", 15)]:
             ws.column_dimensions[letra].width = ancho
 
+    # Escribe la hoja 'Productos Vendidos (Detalle)'.
     def _exportar_hoja_detalle(
         self,
         wb: Workbook,

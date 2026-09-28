@@ -10,6 +10,7 @@ from ...utils.fecha import rango_dia_utc
 class SelectorFecha(QWidget):
     """Selector de rango de fechas (desde / hasta) con calendario emergente."""
 
+    # Crea dos campos de fecha con etiquetas y rango por defecto.
     def __init__(
         self,
         etiqueta_desde: str = "Desde:",
@@ -33,14 +34,17 @@ class SelectorFecha(QWidget):
         self.hasta.setDate(QDate.currentDate())
         layout.addWidget(self.hasta)
 
+    # Devuelve la fecha inicial elegida como date.
     def fecha_desde(self) -> date:
         qd = self.desde.date()
         return date(qd.year(), qd.month(), qd.day())
 
+    # Devuelve la fecha final elegida como date.
     def fecha_hasta(self) -> date:
         qd = self.hasta.date()
         return date(qd.year(), qd.month(), qd.day())
 
+    # Convierte el rango elegido a limites UTC del dia local.
     def rango_datetime(self) -> tuple[datetime, datetime]:
         desde = self.fecha_desde()
         hasta = self.fecha_hasta()

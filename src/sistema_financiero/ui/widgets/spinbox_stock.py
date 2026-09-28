@@ -16,6 +16,7 @@ from sistema_financiero.utils import (
 class SpinBoxStock(QDoubleSpinBox):
     """QDoubleSpinBox para stock/cantidades con formato limpio por unidad."""
 
+    # Configura el spin de stock en modo entero con el rango del sistema.
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._modo_entero = True
@@ -24,6 +25,7 @@ class SpinBoxStock(QDoubleSpinBox):
         self.setGroupSeparatorShown(True)
         self.set_modo_entero(True)
 
+    # Configura el spinbox para unidades enteras o decimales.
     def set_modo_entero(self, entero: bool) -> None:
         """Configura el spinbox para unidades enteras o decimales."""
         self._modo_entero = entero
@@ -35,6 +37,7 @@ class SpinBoxStock(QDoubleSpinBox):
             self.setSingleStep(0.1)
         self.setValue(self.value())
 
+    # Casilla KILOS del ticket: DECIMALES de 0 a 999 (0.
     def set_modo_kg(self) -> None:
         """Casilla KILOS del ticket: DECIMALES de 0 a 999 (0.5 = 500 g)."""
         self._modo_entero = False
@@ -45,6 +48,7 @@ class SpinBoxStock(QDoubleSpinBox):
         self.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons)
         self.setValue(self.value())
 
+    # Casilla GRAMOS del ticket: enteros con paso 50, tope 999.
     def set_modo_gramos(self) -> None:
         """Casilla GRAMOS del ticket: enteros con paso 50, tope 999."""
         self._modo_entero = True
@@ -55,6 +59,7 @@ class SpinBoxStock(QDoubleSpinBox):
         self.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons)
         self.setValue(self.value())
 
+    # Formatea el valor segun el modo entero o decimal.
     @override
     def textFromValue(self, value: float) -> str:
         valor = Decimal(str(value))

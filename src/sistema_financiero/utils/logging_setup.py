@@ -16,6 +16,7 @@ NOMBRE_LOGGER_EVENTOS = "sistema_financiero.eventos"
 _estado: dict[str, logging.Logger] = {}
 
 
+# Prepara el logger del sistema: escribe en logs/errores.
 def configurar_logging() -> logging.Logger:
     """Prepara el logger del sistema: escribe en logs/errores.log."""
     logger = _estado.get("logger")
@@ -33,6 +34,7 @@ def configurar_logging() -> logging.Logger:
     return logger
 
 
+# Prepara el logger de eventos: escribe en logs/eventos.
 def configurar_logging_eventos() -> logging.Logger:
     """Prepara el logger de eventos: escribe en logs/eventos.log (nivel INFO)."""
     logger = _estado.get("logger_eventos")
@@ -50,12 +52,14 @@ def configurar_logging_eventos() -> logging.Logger:
     return logger
 
 
+# Registra un evento de la aplicacion (auditoria) en logs/eventos.
 def registrar_evento(nivel: int, mensaje: str) -> None:
     """Registra un evento de la aplicacion (auditoria) en logs/eventos.log."""
     logger = configurar_logging_eventos()
     logger.log(nivel, mensaje)
 
 
+# Registra una excepcion (con traceback completo) en logs/errores.
 def registrar_excepcion(exc: BaseException, contexto: str) -> None:
     """Registra una excepcion (con traceback completo) en logs/errores.log."""
     logger = configurar_logging()
@@ -67,6 +71,7 @@ def registrar_excepcion(exc: BaseException, contexto: str) -> None:
     )
 
 
+# sys.
 def manejar_excepcion_no_manejada(
     exc_type: type[BaseException],
     exc_value: BaseException,

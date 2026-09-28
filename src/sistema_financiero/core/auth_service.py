@@ -10,6 +10,7 @@ LONGITUD_MINIMA_CONTRASENA: int = 4
 
 # AuthService: Login bcrypt y CRUD de usuarios.
 class AuthService:
+    # Verifica credenciales.
     def verificar_login(
         self,
         usuario: str,
@@ -34,6 +35,7 @@ class AuthService:
 
         return user
 
+    # Crea un nuevo usuario con contrasena hasheada.
     def crear_usuario(
         self,
         usuario: str,
@@ -80,6 +82,7 @@ class AuthService:
 
         return nuevo
 
+    # Busca un usuario por su ID.
     def obtener_por_id(
         self,
         id_usuario: int,
@@ -89,6 +92,7 @@ class AuthService:
         with obtener_sesion(db_session) as session:
             return session.get(Usuario, id_usuario)
 
+    # Busca un usuario por su nombre de usuario.
     def obtener_por_usuario(
         self,
         usuario: str,
@@ -98,6 +102,7 @@ class AuthService:
         with obtener_sesion(db_session) as session:
             return session.exec(select(Usuario).where(Usuario.usuario == usuario)).first()
 
+    # Devuelve todos los usuarios ordenados por nombre.
     def listar_usuarios(
         self,
         db_session: Session | None = None,
@@ -107,6 +112,7 @@ class AuthService:
             stmt = select(Usuario).order_by(Usuario.usuario)
             return list(session.exec(stmt).all())
 
+    # Cambia la contrasena de un usuario.
     def cambiar_contrasena(
         self,
         id_usuario: int,
@@ -144,6 +150,7 @@ class AuthService:
 
         return True
 
+    # Cambia la contrasena sin verificar la actual (solo admin).
     def cambiar_contrasena_admin(
         self,
         id_usuario: int,
@@ -174,6 +181,7 @@ class AuthService:
 
         return True
 
+    # Activa un usuario.
     def activar(
         self,
         id_usuario: int,
@@ -189,6 +197,7 @@ class AuthService:
             session.commit()
         return True
 
+    # Desactiva un usuario.
     def desactivar(
         self,
         id_usuario: int,
@@ -204,6 +213,7 @@ class AuthService:
             session.commit()
         return True
 
+    # Actualiza los datos de un usuario (nombre, usuario, rol).
     def actualizar(
         self,
         id_usuario: int,

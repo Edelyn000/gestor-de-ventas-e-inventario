@@ -11,6 +11,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+# Rellena las fechas NULL y hace fecha_venta obligatoria.
 def upgrade() -> None:
     # Actualizar NULLs existentes a la fecha/hora actual
     op.execute(
@@ -27,6 +28,7 @@ def upgrade() -> None:
         )
 
 
+# Devuelve fecha_venta a opcional.
 def downgrade() -> None:
     with op.batch_alter_table("venta") as batch_op:
         batch_op.alter_column(

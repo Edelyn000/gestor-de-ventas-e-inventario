@@ -39,6 +39,7 @@ from .widgets import SpinBoxStock
 class FormularioProducto(QDialog):
     ITEM_NUEVA_CATEGORIA = "＋ Nueva categoría…"
 
+    # Monta el formulario de alta o edicion de producto.
     def __init__(
         self,
         parent: QWidget | None = None,
@@ -69,6 +70,7 @@ class FormularioProducto(QDialog):
         if producto:
             self._cargar_datos(producto)
 
+    # Crea todos los campos del formulario y los botones.
     def _setup_ui(self) -> None:
         """Crea todos los campos del formulario y los botones."""
         layout = QVBoxLayout(self)
@@ -77,6 +79,7 @@ class FormularioProducto(QDialog):
         layout.addSpacing(20)
         layout.addLayout(self._crear_botones())
 
+    # Crea los campos del formulario de producto.
     def _crear_formulario(self) -> QFormLayout:
         """Crea los campos del formulario de producto."""
         form = QFormLayout()
@@ -107,6 +110,7 @@ class FormularioProducto(QDialog):
 
         return form
 
+    # Llena el combo con las categorias existentes + el item especial.
     def _cargar_categorias(self) -> None:
         """Llena el combo con las categorias existentes + el item especial."""
         self.cmb_categoria.blockSignals(True)
@@ -122,6 +126,7 @@ class FormularioProducto(QDialog):
         self.cmb_categoria.blockSignals(False)
         self.cmb_categoria.currentIndexChanged.connect(self._gestionar_categoria)
 
+    # Si el usuario elige 'Nueva categoria…', pide el nombre y lo crea.
     def _gestionar_categoria(self, indice: int) -> None:
         """Si el usuario elige 'Nueva categoria…', pide el nombre y lo crea."""
         if self._actualizando:
@@ -162,6 +167,7 @@ class FormularioProducto(QDialog):
             registrar_excepcion(e, "FormularioProducto._gestionar_categoria")
             QMessageBox.warning(self, "Error", f"No se pudo crear la categoria.\n{e}")
 
+    # Devuelve el id de la categoria seleccionada (creando/reutilizando).
     def _resolver_categoria_id(self) -> int | None:
         """Devuelve el id de la categoria seleccionada (creando/reutilizando)."""
         nombre = self.cmb_categoria.currentText()
@@ -174,6 +180,7 @@ class FormularioProducto(QDialog):
             return None
         return categoria.id
 
+    # Crea los campos de precio: USD manual y su equivalente en Bs.
     def _crear_campos_precio(self, form: QFormLayout) -> None:
         """Crea los campos de precio: USD manual y su equivalente en Bs."""
         fila_compra = QWidget()
@@ -215,6 +222,7 @@ class FormularioProducto(QDialog):
         self.spin_precio_venta_usd.valueChanged.connect(self._actualizar_bs_desde_usd)
         self.spin_precio_compra_usd.valueChanged.connect(self._actualizar_compra_bs_desde_usd)
 
+    # Crea los botones Cancelar y Guardar.
     def _crear_botones(self) -> QHBoxLayout:
         """Crea los botones Cancelar y Guardar."""
         btn_layout = QHBoxLayout()
@@ -231,6 +239,7 @@ class FormularioProducto(QDialog):
 
         return btn_layout
 
+    # Ajusta el spin de stock (enteros/decimales) y las etiquetas de precio.
     def _ajustar_segun_unidad(self) -> None:
         """Ajusta el spin de stock (enteros/decimales) y las etiquetas de precio."""
         unidad = self.cmb_unidad.currentText()
@@ -240,18 +249,21 @@ class FormularioProducto(QDialog):
         self.lbl_precio_compra.setText(f"Precio Compra por {unidad}:")
         self.lbl_precio_venta.setText(f"Precio Venta por {unidad}:")
 
+    # Pinta el equivalente en Bs del precio de compra o un guion.
     def _mostrar_equiv_compra(self) -> None:
         if self._bs_compra > 0:
             self.lbl_equiv_compra.setText(f"Equivalente: {formatear_bs(self._bs_compra)}")
         else:
             self.lbl_equiv_compra.setText("Equivalente: —")
 
+    # Pinta el equivalente en Bs del precio de venta o un guion.
     def _mostrar_equiv_venta(self) -> None:
         if self._bs_venta > 0:
             self.lbl_equiv_venta.setText(f"Equivalente: {formatear_bs(self._bs_venta)}")
         else:
             self.lbl_equiv_venta.setText("Equivalente: —")
 
+    # Rellena los campos con los datos del producto a editar.
     def _cargar_datos(self, producto: Producto) -> None:
         """Rellena los campos con los datos del producto a editar."""
         self._actualizando = True
@@ -272,6 +284,7 @@ class FormularioProducto(QDialog):
 
         factor, aviso_escala = self._factor_precio_por_gramo(producto, unidad)
 
+        # Multiplica un precio legado por gramo por el factor (1 = sin cambio).
         def _reescalar(valor: Decimal | int | float | None) -> Decimal:
             """Multiplica un precio legado por gramo por el factor (1 = sin cambio)."""
             if factor == 1:
@@ -293,6 +306,7 @@ class FormularioProducto(QDialog):
             _reescalar(producto.precio_venta_bs), aviso_escala
         )
 
+    # Devuelve (factor_a_multiplicar, texto_del_aviso) para _cargar_datos.
     @staticmethod
     def _factor_precio_por_gramo(producto: Producto, unidad: str) -> tuple[int, str]:
         """Devuelve (factor_a_multiplicar, texto_del_aviso) para _cargar_datos."""
@@ -312,6 +326,7 @@ class FormularioProducto(QDialog):
             f"precio POR KILO (stock y cantidades ya estaban en kg)."
         )
 
+    # Muestra la tasa activa (o aviso) junto al formulario.
     def _actualizar_label_tasa(self) -> None:
         tasa = self.controlador_tasas.tasa_activa() if self.controlador_tasas else None
         if tasa:
@@ -323,6 +338,7 @@ class FormularioProducto(QDialog):
             self.lbl_tasa.setText("No hay tasa activa. Los precios no se sincronizaran.")
             self.lbl_tasa.setStyleSheet("color: #000000; font-size: 11px;")
 
+    # Recalcula el Bs de compra desde el USD con la tasa.
     def _actualizar_compra_bs_desde_usd(self, valor_usd: float) -> None:
         if self._actualizando or not self.controlador_tasas:
             return
@@ -340,6 +356,7 @@ class FormularioProducto(QDialog):
             self._mostrar_equiv_compra()
             self._actualizando = False
 
+    # Recalcula el Bs de venta desde el USD con la tasa.
     def _actualizar_bs_desde_usd(self, valor_usd: float) -> None:
         if self._actualizando or not self.controlador_tasas:
             return
@@ -357,6 +374,7 @@ class FormularioProducto(QDialog):
             self._mostrar_equiv_venta()
             self._actualizando = False
 
+    # Recalcula el Bs de venta con la tasa de hoy y avisa si cambio.
     def _recalcular_venta_bs_con_tasa_actual(
         self,
         bs_anterior: Decimal,
@@ -398,6 +416,7 @@ class FormularioProducto(QDialog):
         else:
             self.lbl_aviso.hide()
 
+    # Valida los campos y guarda el producto en la BD.
     def _guardar(self) -> None:
         """Valida los campos y guarda el producto en la BD."""
         nombre = self.txt_nombre.text().strip()

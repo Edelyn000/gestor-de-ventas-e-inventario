@@ -24,6 +24,7 @@ class ProductosPagina(QWidget):
     producto_editar = pyqtSignal(int)
     producto_eliminar = pyqtSignal(int)
 
+    # Construye la pagina de productos con pestanas y botones por rol.
     def __init__(
         self,
         controlador_productos: ProductoController,
@@ -109,10 +110,12 @@ class ProductosPagina(QWidget):
 
         self.cargar()
 
+    # Refresca el inventario al entrar en la pestana de movimientos.
     def _al_cambiar_pestana(self, indice: int) -> None:
         if indice == 1 and self.pagina_inventario is not None:
             self.pagina_inventario.refrescar_pestana()
 
+    # Devuelve la fila actual y el id del producto seleccionado.
     def _obtener_fila_seleccionada(self) -> tuple[int, int | None]:
         fila = self.tabla_productos.currentRow()
         if fila < 0:
@@ -122,16 +125,19 @@ class ProductosPagina(QWidget):
             return -1, None
         return fila, int(item_id.text())
 
+    # Emite la senal de editar con el producto de la fila.
     def _emitir_editar(self) -> None:
         _fila, idproducto = self._obtener_fila_seleccionada()
         if idproducto is not None:
             self.producto_editar.emit(idproducto)
 
+    # Emite la senal de eliminar con el producto de la fila.
     def _emitir_eliminar(self) -> None:
         _fila, idproducto = self._obtener_fila_seleccionada()
         if idproducto is not None:
             self.producto_eliminar.emit(idproducto)
 
+    # Carga todos los productos desde la BD a la tabla.
     def cargar(self) -> None:
         """Carga todos los productos desde la BD a la tabla."""
         productos = self.controlador_productos.listar_todos()
@@ -162,6 +168,7 @@ class ProductosPagina(QWidget):
         if self.pagina_inventario is not None:
             self.pagina_inventario.refrescar_combo()
 
+    # Filtra la tabla de productos mientras el usuario escribe.
     def _buscar_producto(self, texto: str) -> None:
         """Filtra la tabla de productos mientras el usuario escribe."""
         texto = texto.strip()

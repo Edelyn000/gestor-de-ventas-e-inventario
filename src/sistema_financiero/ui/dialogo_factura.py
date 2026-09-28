@@ -44,6 +44,7 @@ ETIQUETAS_METODO_FACTURA: dict[str, str] = {
 }
 
 
+# Convierte a Decimal un valor que viaja dentro de un dict tipado.
 def _dec(valor: object) -> Decimal:
     """Convierte a Decimal un valor que viaja dentro de un dict tipado."""
     if isinstance(valor, Decimal):
@@ -53,6 +54,7 @@ def _dec(valor: object) -> Decimal:
     return Decimal("0.00")
 
 
+# Construye el HTML (subset Qt rich text) de la factura.
 def generar_html_factura(
     *,
     numero_factura: str | None,
@@ -154,6 +156,7 @@ def generar_html_factura(
 class DialogoFactura(QDialog):
     """Factura imprimible de una venta recien registrada."""
 
+    # Monta el dialogo de factura con preview, imprimir, PDF y cerrar.
     def __init__(
         self,
         *,
@@ -211,12 +214,14 @@ class DialogoFactura(QDialog):
         fila_botones.addWidget(self.btn_cerrar)
         layout.addLayout(fila_botones)
 
+    # Devuelve un QTextDocument con el HTML de la factura (para imprimir/PDF).
     def _documento(self) -> QTextDocument:
         """Devuelve un QTextDocument con el HTML de la factura (para imprimir/PDF)."""
         doc = QTextDocument()
         doc.setHtml(self.html)
         return doc
 
+    # Envia la factura a la impresora elegida por el usuario.
     def _imprimir(self) -> None:
         """Envia la factura a la impresora elegida por el usuario."""
         try:
@@ -233,6 +238,7 @@ class DialogoFactura(QDialog):
                 f"No se pudo imprimir la factura.\n{e}",
             )
 
+    # Guarda la factura como PDF real (QPrinter en modo PdfFormat).
     def _guardar_pdf(self) -> None:
         """Guarda la factura como PDF real (QPrinter en modo PdfFormat)."""
         try:

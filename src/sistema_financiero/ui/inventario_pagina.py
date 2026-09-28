@@ -30,6 +30,7 @@ from .widgets import SpinBoxStock, TablaProductos, TituloPagina
 
 # InventarioPagina: Movimientos de stock por rol del usuario.
 class InventarioPagina(QWidget):
+    # Construye la pagina de movimientos con filtros y botones por rol.
     def __init__(
         self,
         controlador_inventario: InventarioService,
@@ -105,6 +106,7 @@ class InventarioPagina(QWidget):
         self._cargar_productos_en_combo()
         self._refrescar_tabla_movimientos()
 
+    # Llena el combo de productos con la opcion Todos.
     def _cargar_productos_en_combo(self) -> None:
         productos = self.controlador_productos.listar_todos()
 
@@ -115,6 +117,7 @@ class InventarioPagina(QWidget):
             texto = f"{prod.nombre_producto} (Stock: {formatear_stock(prod.stock_actual)})"
             self.cmb_producto_inventario.addItem(texto, prod.idproducto)
 
+    # Recarga los movimientos segun el filtro de producto.
     def _refrescar_tabla_movimientos(self) -> None:
         producto_id = self.cmb_producto_inventario.currentData()
 
@@ -152,6 +155,7 @@ class InventarioPagina(QWidget):
 
         self.tabla_movimientos.resizeColumnsToContents()
 
+    # Abre el dialogo para registrar entrada, salida o ajuste.
     def _mostrar_dialogo_movimiento(self, tipo: str) -> None:
         dialogo = QDialog(self)
         dialogo.setWindowTitle(f"Registrar {tipo}")
@@ -220,6 +224,7 @@ class InventarioPagina(QWidget):
                 dialogo, "Error inesperado", f"No se pudo registrar el movimiento.\n{e}"
             )
 
+    # Crea los campos del formulario del movimiento.
     def _crear_formulario_movimiento(
         self,
         layout: QVBoxLayout,
@@ -240,6 +245,7 @@ class InventarioPagina(QWidget):
 
         spin_cantidad = SpinBoxStock()
 
+        # Enteros para UNIDAD; decimales (kg) para los productos por peso.
         def _ajustar_segun_producto() -> None:
             """Enteros para UNIDAD; decimales (kg) para los productos por peso."""
             prod = productos_por_id.get(cmb_producto.currentData())
@@ -272,10 +278,12 @@ class InventarioPagina(QWidget):
 
         return cmb_producto, spin_cantidad, cmb_motivo, txt_observaciones
 
+    # Recarga el combo de productos (tras crear/editar/eliminar uno).
     def refrescar_combo(self) -> None:
         """Recarga el combo de productos (tras crear/editar/eliminar uno)."""
         self._cargar_productos_en_combo()
 
+    # Refresca combo y tabla de movimientos al mostrarse la pestana.
     def refrescar_pestana(self) -> None:
         """Refresca combo y tabla de movimientos al mostrarse la pestana."""
         self._cargar_productos_en_combo()

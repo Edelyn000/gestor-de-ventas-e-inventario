@@ -14,6 +14,7 @@ from sistema_financiero.utils.fecha import rango_dia_utc
 pytestmark = pytest.mark.integracion
 
 
+# Crea un producto de prueba en la sesion.
 def _crear_producto(
     session: Session,
     nombre: str = "PROD VENTA",
@@ -34,6 +35,7 @@ def _crear_producto(
     return producto
 
 
+# Abre una caja en la sesion (requisito para registrar ventas).
 def _abrir_caja(session: Session, monto: Decimal = Decimal("100.00")) -> None:
     """Abre una caja en la sesion (requisito para registrar ventas)."""
     usuario = Usuario(
@@ -50,6 +52,7 @@ def _abrir_caja(session: Session, monto: Decimal = Decimal("100.00")) -> None:
         caja_sk.abrir_caja(monto_apertura_bs=monto, usuario_id=usuario.id)
 
 
+# Registra la tasa del dia en la sesion.
 def _crear_tasa(session: Session, tasa_valor: Decimal = Decimal("50.00")) -> None:
     ts = TasaCambioService()
     ts.registrar(
@@ -61,6 +64,7 @@ def _crear_tasa(session: Session, tasa_valor: Decimal = Decimal("50.00")) -> Non
     )
 
 
+# Prueba crear una venta valida.
 def test_crear_venta_exitoso(session: Session) -> None:
     producto = _crear_producto(session, precio_bs=Decimal("25.00"))
     _crear_tasa(session)
@@ -86,6 +90,7 @@ def test_crear_venta_exitoso(session: Session) -> None:
     assert producto.stock_actual == 17
 
 
+# REGRESION (bug 367,00 vs 15.
 def test_crear_venta_usa_el_precio_bs_efectivo_del_pos(session: Session) -> None:
     """REGRESION (bug 367,00 vs 15.5000): el total usa el Bs. efectivo del POS."""
     producto = _crear_producto(
@@ -118,6 +123,7 @@ def test_crear_venta_usa_el_precio_bs_efectivo_del_pos(session: Session) -> None
     assert detalle.subtotal_bs == Decimal("200.00")
 
 
+# Sin precio_bs/subtotal_bs, se mantiene el Bs.
 def test_crear_venta_sin_precio_bs_usa_el_guardado(session: Session) -> None:
     """Sin precio_bs/subtotal_bs, se mantiene el Bs. guardado (compat)."""
     producto = _crear_producto(session, precio_bs=Decimal("10.00"))
@@ -133,6 +139,7 @@ def test_crear_venta_sin_precio_bs_usa_el_guardado(session: Session) -> None:
     assert venta.total_bs == Decimal("20.00")
 
 
+# Prueba que la venta guarda sus detalles.
 def test_crear_venta_detalles(session: Session) -> None:
     producto = _crear_producto(session, precio_bs=Decimal("10.00"))
     _crear_tasa(session)
@@ -156,12 +163,14 @@ def test_crear_venta_detalles(session: Session) -> None:
     assert detalle.venta_id == venta.idventa
 
 
+# Prueba que rechaza una venta sin productos.
 def test_crear_venta_sin_productos(session: Session) -> None:
     vc = VentaController()
     with pytest.raises(ValueError, match="debe tener al menos un producto"):
         vc.crear(productos=[], db_session=session)
 
 
+# Prueba que rechaza cantidades en cero.
 def test_crear_venta_cantidad_cero(session: Session) -> None:
     producto = _crear_producto(session)
     _crear_tasa(session)
@@ -174,6 +183,7 @@ def test_crear_venta_cantidad_cero(session: Session) -> None:
         )
 
 
+# Prueba que rechaza stock insuficiente.
 def test_crear_venta_stock_insuficiente(session: Session) -> None:
     producto = _crear_producto(session, stock=Decimal("2"))
     _crear_tasa(session)
@@ -189,6 +199,7 @@ def test_crear_venta_stock_insuficiente(session: Session) -> None:
     assert producto.stock_actual == 2
 
 
+# Prueba que rechaza un pago insuficiente.
 def test_crear_venta_pago_insuficiente(session: Session) -> None:
     producto = _crear_producto(session, precio_bs=Decimal("100.00"))
     _crear_tasa(session)
@@ -202,6 +213,7 @@ def test_crear_venta_pago_insuficiente(session: Session) -> None:
         )
 
 
+# Prueba una venta con varios productos.
 def test_crear_venta_con_varios_productos(session: Session) -> None:
     prod1 = _crear_producto(session, nombre="PROD A", precio_bs=Decimal("10.00"))
     prod2 = _crear_producto(session, nombre="PROD B", precio_bs=Decimal("20.00"))
@@ -224,6 +236,7 @@ def test_crear_venta_con_varios_productos(session: Session) -> None:
     assert len(detalles) == 2
 
 
+# Sin caja ABIERTA la venta debe ser rechazada.
 def test_crear_venta_sin_caja_abierta(session: Session) -> None:
     """Sin caja ABIERTA la venta debe ser rechazada."""
     producto = _crear_producto(session, precio_bs=Decimal("25.00"))
@@ -241,6 +254,7 @@ def test_crear_venta_sin_caja_abierta(session: Session) -> None:
     assert producto.stock_actual == 20
 
 
+# Pago total por transferencia: se registra y no se mezcla con efectivo.
 def test_crear_venta_con_transferencia(session: Session) -> None:
     """Pago total por transferencia: se registra y no se mezcla con efectivo."""
     producto = _crear_producto(session, precio_bs=Decimal("50.00"))
@@ -262,6 +276,7 @@ def test_crear_venta_con_transferencia(session: Session) -> None:
     assert venta.transferencia == Decimal("50.00")
 
 
+# No se puede anular una venta de un turno de caja YA cerrado.
 def test_anular_venta_caja_cerrada(session: Session) -> None:
     """No se puede anular una venta de un turno de caja YA cerrado."""
     producto = _crear_producto(session, stock=Decimal("10"))
@@ -291,6 +306,7 @@ def test_anular_venta_caja_cerrada(session: Session) -> None:
     assert producto.stock_actual == 9
 
 
+# Prueba anular una venta y devolver el stock.
 def test_anular_venta(session: Session) -> None:
     producto = _crear_producto(session, stock=Decimal("10"))
     _crear_tasa(session)
@@ -317,12 +333,14 @@ def test_anular_venta(session: Session) -> None:
     assert producto.stock_actual == 10
 
 
+# Prueba que anular una venta inexistente falla.
 def test_anular_venta_inexistente(session: Session) -> None:
     vc = VentaController()
     resultado = vc.anular(9999, db_session=session)
     assert resultado is None
 
 
+# La anulacion persiste motivo_anulacion y anulado_por (auditoria).
 def test_anular_venta_guarda_motivo_y_usuario_que_autoriza(
     session: Session,
 ) -> None:
@@ -354,6 +372,7 @@ def test_anular_venta_guarda_motivo_y_usuario_que_autoriza(
     assert producto.stock_actual == 10
 
 
+# Compatibilidad: anular sin motivo persiste la venta anulada igual.
 def test_anular_venta_sin_motivo_sigue_funcionando(session: Session) -> None:
     """Compatibilidad: anular sin motivo persiste la venta anulada igual."""
     producto = _crear_producto(session, stock=Decimal("5"))
@@ -375,6 +394,7 @@ def test_anular_venta_sin_motivo_sigue_funcionando(session: Session) -> None:
     assert anulada.anulado_por is None
 
 
+# Prueba que no se anula una venta ya anulada.
 def test_anular_venta_ya_anulada(session: Session) -> None:
     producto = _crear_producto(session)
     _crear_tasa(session)
@@ -394,6 +414,7 @@ def test_anular_venta_ya_anulada(session: Session) -> None:
         vc.anular(venta.idventa, db_session=session)
 
 
+# Prueba obtener una venta por su id.
 def test_obtener_por_id(session: Session) -> None:
     producto = _crear_producto(session)
     _crear_tasa(session)
@@ -412,12 +433,14 @@ def test_obtener_por_id(session: Session) -> None:
     assert encontrada.idventa == venta.idventa
 
 
+# Prueba que devuelve None si la venta no existe.
 def test_obtener_por_id_inexistente(session: Session) -> None:
     vc = VentaController()
     resultado = vc.obtener_por_id(9999, db_session=session)
     assert resultado is None
 
 
+# Prueba buscar ventas por numero de factura.
 def test_buscar_por_factura(session: Session) -> None:
     producto = _crear_producto(session)
     _crear_tasa(session)
@@ -436,12 +459,14 @@ def test_buscar_por_factura(session: Session) -> None:
     assert encontrada.idventa == venta.idventa
 
 
+# Prueba buscar una factura inexistente.
 def test_buscar_por_factura_inexistente(session: Session) -> None:
     vc = VentaController()
     resultado = vc.buscar_por_factura("FAC-99999999-999", db_session=session)
     assert resultado is None
 
 
+# Prueba el historial de ventas por fecha.
 def test_historial_por_fecha(session: Session) -> None:
     producto = _crear_producto(session)
     _crear_tasa(session)
@@ -467,6 +492,7 @@ def test_historial_por_fecha(session: Session) -> None:
     assert ventas[0].total_bs == Decimal("20.00")
 
 
+# Regresion del desfase de zona horaria: 'hoy' debe incluir las ventas de la noche.
 def test_historial_por_dia_local_incluye_venta_nocturna(session: Session) -> None:
     """Regresion del desfase de zona horaria: 'hoy' debe incluir las ventas de la noche."""
     producto = _crear_producto(session)
@@ -496,17 +522,20 @@ def test_historial_por_dia_local_incluye_venta_nocturna(session: Session) -> Non
     assert venta.idventa not in [v.idventa for v in ventas_dia_2]
 
 
+# Prueba obtener detalles sin registros.
 def test_obtener_detalles_sin_detalles(session: Session) -> None:
     vc = VentaController()
     detalles = vc.obtener_detalles(9999, db_session=session)
     assert detalles == []
 
 
+# Helper: un pago del desglose tal como lo manda la UI.
 def _pago(metodo: str, monto: str, referencia: str | None = None) -> dict[str, object]:
     """Helper: un pago del desglose tal como lo manda la UI."""
     return {"metodo": metodo, "monto": Decimal(monto), "referencia": referencia}
 
 
+# Los montos por metodo de la venta se derivan del desglose de pagos.
 def test_crear_venta_con_desglose_de_pagos(session: Session) -> None:
     """Los montos por metodo de la venta se derivan del desglose de pagos."""
     producto = _crear_producto(session, precio_bs=Decimal("125.00"))
@@ -545,6 +574,7 @@ def test_crear_venta_con_desglose_de_pagos(session: Session) -> None:
     assert all(p.tasa_cambio == Decimal("50.00") for p in pagos)
 
 
+# Regresion: el pago en USD se acepta con 1 centimo de diferencia.
 def test_crear_venta_redondeo_efectivo_usd_un_centimo(session: Session) -> None:
     """Regresion: el pago en USD se acepta con 1 centimo de diferencia."""
     producto = _crear_producto(session, precio_bs=Decimal("100.01"))
@@ -567,6 +597,7 @@ def test_crear_venta_redondeo_efectivo_usd_un_centimo(session: Session) -> None:
     assert pagos[0].monto_bs == Decimal("100.00")
 
 
+# Un faltante real (no un centimo de redondeo) sigue rechazandose.
 def test_crear_venta_pago_insuficiente_con_desglose(session: Session) -> None:
     """Un faltante real (no un centimo de redondeo) sigue rechazandose."""
     producto = _crear_producto(session, precio_bs=Decimal("125.00"))
@@ -582,6 +613,7 @@ def test_crear_venta_pago_insuficiente_con_desglose(session: Session) -> None:
         )
 
 
+# Cobrar de mas tampoco cuadra: la suma debe cubrir el total exacto.
 def test_crear_venta_pago_de_mas_con_desglose(session: Session) -> None:
     """Cobrar de mas tampoco cuadra: la suma debe cubrir el total exacto."""
     producto = _crear_producto(session, precio_bs=Decimal("100.00"))
@@ -597,6 +629,7 @@ def test_crear_venta_pago_de_mas_con_desglose(session: Session) -> None:
         )
 
 
+# Una lista de pagos vacia se rechaza (no es lo mismo que omitirla).
 def test_crear_venta_desglose_vacio(session: Session) -> None:
     """Una lista de pagos vacia se rechaza (no es lo mismo que omitirla)."""
     producto = _crear_producto(session, precio_bs=Decimal("10.00"))
@@ -612,6 +645,7 @@ def test_crear_venta_desglose_vacio(session: Session) -> None:
         )
 
 
+# Un metodo de pago fuera de METODOS_PAGO se rechaza.
 def test_crear_venta_metodo_invalido(session: Session) -> None:
     """Un metodo de pago fuera de METODOS_PAGO se rechaza."""
     producto = _crear_producto(session, precio_bs=Decimal("10.00"))
@@ -627,6 +661,7 @@ def test_crear_venta_metodo_invalido(session: Session) -> None:
         )
 
 
+# Si el resumen por metodo no coincide con el desglose, no se guarda.
 def test_crear_venta_metodo_pago_incoherente_con_desglose(session: Session) -> None:
     """Si el resumen por metodo no coincide con el desglose, no se guarda."""
     producto = _crear_producto(session, precio_bs=Decimal("125.00"))
@@ -643,6 +678,7 @@ def test_crear_venta_metodo_pago_incoherente_con_desglose(session: Session) -> N
         )
 
 
+# Un resumen por metodo coherente con el desglose se acepta.
 def test_crear_venta_metodo_pago_coherente_con_desglose(session: Session) -> None:
     """Un resumen por metodo coherente con el desglose se acepta."""
     producto = _crear_producto(session, precio_bs=Decimal("125.00"))
@@ -668,6 +704,7 @@ def test_crear_venta_metodo_pago_coherente_con_desglose(session: Session) -> Non
     assert venta.efectivo_usd == Decimal("1.50")
 
 
+# Cobrar en USD sin tasa activa se rechaza (no se puede convertir).
 def test_crear_venta_efectivo_usd_sin_tasa_con_desglose(session: Session) -> None:
     """Cobrar en USD sin tasa activa se rechaza (no se puede convertir)."""
     producto = _crear_producto(session, precio_bs=Decimal("100.00"))
@@ -682,6 +719,7 @@ def test_crear_venta_efectivo_usd_sin_tasa_con_desglose(session: Session) -> Non
         )
 
 
+# Sin 'pagos' la venta se crea igual que antes y no guarda desglose.
 def test_crear_venta_sin_desglose_mantiene_comportamiento(session: Session) -> None:
     """Sin 'pagos' la venta se crea igual que antes y no guarda desglose."""
     producto = _crear_producto(session, precio_bs=Decimal("100.00"))
@@ -705,6 +743,7 @@ def test_crear_venta_sin_desglose_mantiene_comportamiento(session: Session) -> N
     assert vc.obtener_pagos(venta.idventa, db_session=session) == []
 
 
+# Regresion: la UI manda el monto APLICADO en USD (recorte con vuelto).
 def test_crear_venta_honra_el_monto_aplicado_en_usd(session: Session) -> None:
     """Regresion: la UI manda el monto APLICADO en USD (recorte con vuelto)."""
     producto = _crear_producto(session, precio_bs=Decimal("100.00"))
@@ -732,6 +771,7 @@ def test_crear_venta_honra_el_monto_aplicado_en_usd(session: Session) -> None:
     assert pagos[0].monto_bs == Decimal("100.00")
 
 
+# Un monto aplicado que no se parece al equivalente se rechaza.
 def test_crear_venta_rechaza_monto_aplicado_incoherente(session: Session) -> None:
     """Un monto aplicado que no se parece al equivalente se rechaza."""
     producto = _crear_producto(session, precio_bs=Decimal("100.00"))
@@ -753,6 +793,7 @@ def test_crear_venta_rechaza_monto_aplicado_incoherente(session: Session) -> Non
         )
 
 
+# El POS cobra el RECIBIDO en Bs.
 def test_crear_venta_honra_el_monto_aplicado_en_bs(session: Session) -> None:
     """El POS cobra el RECIBIDO en Bs. y aplica el faltante (vuelto visible)."""
     producto = _crear_producto(session, precio_bs=Decimal("21648.20"))
@@ -783,6 +824,7 @@ def test_crear_venta_honra_el_monto_aplicado_en_bs(session: Session) -> None:
     assert pagos[0].monto_bs == Decimal("21648.20")
 
 
+# El aplicado en Bs.
 def test_crear_venta_rechaza_monto_aplicado_incoherente_en_bs(session: Session) -> None:
     """El aplicado en Bs. no puede superar lo recibido (guarda del POS)."""
     producto = _crear_producto(session, precio_bs=Decimal("100.00"))
@@ -804,6 +846,7 @@ def test_crear_venta_rechaza_monto_aplicado_incoherente_en_bs(session: Session) 
         )
 
 
+# Compat: sin 'monto_bs' el Bs.
 def test_crear_venta_pago_bs_sin_monto_aplicado_usa_el_recibido(session: Session) -> None:
     """Compat: sin 'monto_bs' el Bs. aplicado es el recibido (suma cuadra)."""
     producto = _crear_producto(session, precio_bs=Decimal("100.00"))
@@ -821,6 +864,7 @@ def test_crear_venta_pago_bs_sin_monto_aplicado_usa_el_recibido(session: Session
     assert venta.efectivo_bs == Decimal("100.00")
 
 
+# La referencia del pago (nro.
 def test_crear_venta_referencia_se_guarda(session: Session) -> None:
     """La referencia del pago (nro. de operacion) se persiste."""
     producto = _crear_producto(session, precio_bs=Decimal("50.00"))

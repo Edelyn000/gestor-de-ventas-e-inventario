@@ -29,10 +29,12 @@ INTERVALO_BCV_SEGUNDOS = 600
 class BcvFetchThread(QThread):
     tasa_obtenida = pyqtSignal(object)
 
+    # Configura el hilo con el servicio de tasas a consultar.
     def __init__(self, servicio: TasaCambioService) -> None:
         super().__init__()
         self._servicio = servicio
 
+    # Consulta la tasa BCV en segundo plano y emite el resultado.
     def run(self) -> None:
         try:
             tasa = self._servicio.obtener_desde_bcv()
@@ -46,6 +48,7 @@ class BcvFetchThread(QThread):
 class DashboardPagina(QWidget):
     """Pagina de inicio con resumen y alertas de stock."""
 
+    # Construye el dashboard y deja el fetch BCV inactivo.
     def __init__(self, controlador_tasas: TasaCambioService) -> None:
         super().__init__()
         self.controlador_tasas = controlador_tasas
@@ -78,6 +81,7 @@ class DashboardPagina(QWidget):
 
         layout.addStretch()
 
+    # Crea las 4 tarjetas de resumen: Ventas Hoy, Stock Bajo, Sin Stock, Tasa BCV.
     def _crear_tarjetas_resumen(self) -> QHBoxLayout:
         """Crea las 4 tarjetas de resumen: Ventas Hoy, Stock Bajo, Sin Stock, Tasa BCV."""
         fila_tarjetas = QHBoxLayout()
@@ -122,6 +126,7 @@ class DashboardPagina(QWidget):
 
         return fila_tarjetas
 
+    # Refresca todos los datos del dashboard (tarjetas, grafico, tabla).
     def refrescar(self) -> None:
         """Refresca todos los datos del dashboard (tarjetas, grafico, tabla)."""
         desde_hoy, hasta_hoy = rango_dia_utc(fecha_hoy())
@@ -161,12 +166,14 @@ class DashboardPagina(QWidget):
 
         self._refrescar_tabla_stock_bajo()
 
+    # Lanza el hilo que consulta el BCV y lo conecta con el refresco.
     def _iniciar_fetch_bcv(self) -> None:
         self._bcv_thread = BcvFetchThread(self.controlador_tasas)
         self._bcv_thread.tasa_obtenida.connect(self._bcv_fetch_completado)
         self._bcv_thread.finished.connect(self._bcv_thread.deleteLater)
         self._bcv_thread.start()
 
+    # Marca el fin del fetch y muestra la tasa o el estado de error.
     def _bcv_fetch_completado(self, tasa: object) -> None:
         self._bcv_fetching = False
         if tasa is not None:
@@ -177,6 +184,7 @@ class DashboardPagina(QWidget):
         else:
             self._dashboard_labels["tasa_bcv"].setText("Sin tasa (error)")
 
+    # Llena la tabla de productos con stock bajo/sin stock.
     def _refrescar_tabla_stock_bajo(self) -> None:
         """Llena la tabla de productos con stock bajo/sin stock."""
         with obtener_sesion() as session:

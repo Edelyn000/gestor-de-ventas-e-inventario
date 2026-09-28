@@ -22,6 +22,7 @@ from .widgets import TablaProductos, TituloPagina
 
 # ReportesPagina: Cierre diario y exportacion de reportes.
 class ReportesPagina(QWidget):
+    # Construye la pagina de reportes con filtros y acciones.
     def __init__(self, controlador_reportes: ReporteService) -> None:
         super().__init__()
 
@@ -85,6 +86,7 @@ class ReportesPagina(QWidget):
 
         self._refrescar_tabla_reportes()
 
+    # Carga los reportes del rango de fechas elegido.
     def _refrescar_tabla_reportes(self) -> None:
         desde_qdate = self.fecha_desde_reporte.date()
         hasta_qdate = self.fecha_hasta_reporte.date()
@@ -120,6 +122,7 @@ class ReportesPagina(QWidget):
 
         self.tabla_reportes.resizeColumnsToContents()
 
+    # Genera el reporte del dia y muestra el resumen al usuario.
     def _cerrar_dia(self) -> None:
         try:
             reporte = self.controlador_reportes.generar_reporte()
@@ -137,6 +140,7 @@ class ReportesPagina(QWidget):
             registrar_excepcion(e, "_cerrar_dia")
             QMessageBox.critical(self, "Error", f"Error al generar reporte.\n{e}")
 
+    # Regenera el reporte seleccionado en la tabla.
     def _regenerar_reporte(self) -> None:
         fila = self.tabla_reportes.currentRow()
         if fila < 0:
@@ -177,6 +181,7 @@ class ReportesPagina(QWidget):
             registrar_excepcion(e, "_regenerar_reporte")
             QMessageBox.critical(self, "Error", f"Error al regenerar reporte.\n{e}")
 
+    # Exporta el reporte seleccionado a Excel.
     def _exportar_reporte_excel(self) -> None:
         fila = self.tabla_reportes.currentRow()
         if fila < 0:

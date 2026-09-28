@@ -36,6 +36,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+# Crea categoria + FK y migra los datos existentes (idempotente).
 def upgrade() -> None:
     """Crea categoria + FK y migra los datos existentes (idempotente)."""
     inspector = Inspector.from_engine(engine)
@@ -113,6 +114,7 @@ def upgrade() -> None:
             batch.drop_column("categoria")
 
 
+# Revierte: devuelve producto.
 def downgrade() -> None:
     """Revierte: devuelve producto.categoria y elimina categoria."""
     inspector = Inspector.from_engine(engine)

@@ -15,6 +15,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+# Upgrade schema.
 def upgrade() -> None:
     """Upgrade schema."""
     inspector = Inspector.from_engine(engine)
@@ -54,6 +55,7 @@ def upgrade() -> None:
             )
 
 
+# Downgrade schema.
 def downgrade() -> None:
     """Downgrade schema."""
     inspector = Inspector.from_engine(engine)

@@ -6,6 +6,7 @@ from scraper_bcv import BCVClient
 _client: BCVClient | None = None
 
 
+# Devuelve (o crea) la instancia unica del cliente BCV.
 def _get_client() -> BCVClient:
     """Devuelve (o crea) la instancia unica del cliente BCV."""
     global _client  # noqa: PLW0603
@@ -14,6 +15,7 @@ def _get_client() -> BCVClient:
     return _client
 
 
+# Obtiene la tasa de cambio actual del BCV para USD.
 def obtener_tasa() -> Decimal:
     """Obtiene la tasa de cambio actual del BCV para USD."""
     client = _get_client()
@@ -26,6 +28,7 @@ def obtener_tasa() -> Decimal:
         ) from exc
 
 
+# Convierte bolívares (Bs) a dólares (USD) usando la tasa del BCV.
 def convertir_a_usd(bs: int | float | Decimal) -> Decimal:
     """Convierte bolívares (Bs) a dólares (USD) usando la tasa del BCV."""
     bs = Decimal(str(bs))
@@ -33,6 +36,7 @@ def convertir_a_usd(bs: int | float | Decimal) -> Decimal:
     return bs / tasa
 
 
+# Convierte dólares (USD) a bolívares (Bs) usando la tasa del BCV.
 def convertir_a_bs(dolares: int | float | Decimal) -> Decimal:
     """Convierte dólares (USD) a bolívares (Bs) usando la tasa del BCV."""
     dolares = Decimal(str(dolares))

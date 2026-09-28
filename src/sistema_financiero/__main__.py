@@ -12,6 +12,7 @@ from .ui.ventana_login import VentanaLogin
 from .utils.logging_setup import configurar_logging, manejar_excepcion_no_manejada
 
 
+# Punto de entrada de la app: configura logs, lanza el login y el bucle de sesiones.
 def main() -> None:
     configurar_logging()
     sys.excepthook = manejar_excepcion_no_manejada
@@ -39,6 +40,7 @@ def main() -> None:
         ventana = VentanaPrincipal(usuario)
         salida_por_logout = False
 
+        # Marca que la salida fue un logout para relanzar el login.
         def _marcar_logout() -> None:
             nonlocal salida_por_logout
             salida_por_logout = True

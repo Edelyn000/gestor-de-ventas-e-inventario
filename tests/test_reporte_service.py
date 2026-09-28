@@ -16,6 +16,7 @@ from sistema_financiero.utils import TIPO_VENTA_PESO, TIPO_VENTA_UNIDAD, hoy
 pytestmark = pytest.mark.integracion
 
 
+# Abre una caja en la sesion (requisito para registrar ventas).
 def _abrir_caja(session: Session) -> None:
     """Abre una caja en la sesion (requisito para registrar ventas)."""
     caja_sk = CajaService(db_session=session)
@@ -32,6 +33,7 @@ def _abrir_caja(session: Session) -> None:
         caja_sk.abrir_caja(monto_apertura_bs=Decimal("100.00"), usuario_id=usuario.id)
 
 
+# Crea un producto de prueba con tipo de venta.
 def _crear_producto(
     session: Session,
     nombre: str = "PROD",
@@ -55,6 +57,7 @@ def _crear_producto(
     return producto
 
 
+# Crea tasa, caja y una venta de prueba; devuelve el controlador.
 def _crear_tasa_y_venta(
     session: Session,
     producto_id: int,
@@ -79,6 +82,7 @@ def _crear_tasa_y_venta(
     return vc
 
 
+# Registra la tasa del dia y abre una caja (UNA vez por test).
 def _setup_tasa_y_caja(session: Session) -> None:
     """Registra la tasa del dia y abre una caja (UNA vez por test)."""
     ts = TasaCambioService()
@@ -92,6 +96,7 @@ def _setup_tasa_y_caja(session: Session) -> None:
     _abrir_caja(session)
 
 
+# Registra una venta del producto (precio unitario 10.
 def _crear_venta(session: Session, producto_id: int, cantidad: Decimal) -> VentaController:
     """Registra una venta del producto (precio unitario 10.00 Bs)."""
     vc = VentaController()
@@ -103,6 +108,7 @@ def _crear_venta(session: Session, producto_id: int, cantidad: Decimal) -> Venta
     return vc
 
 
+# Prueba generar un reporte sin ventas.
 def test_generar_reporte_sin_ventas(session: Session) -> None:
     rs = ReporteService()
     reporte = rs.generar_reporte(fecha_param=hoy(), db_session=session)
@@ -115,6 +121,7 @@ def test_generar_reporte_sin_ventas(session: Session) -> None:
     assert reporte.peso_vendido_kg == Decimal("0.000")
 
 
+# Prueba el reporte con ventas del dia.
 def test_generar_reporte_con_ventas(session: Session) -> None:
     producto = _crear_producto(session, precio_bs=Decimal("10.00"))
     assert producto.idproducto is not None
@@ -134,6 +141,7 @@ def test_generar_reporte_con_ventas(session: Session) -> None:
     assert reporte.transferencia == Decimal("0.00")
 
 
+# Prueba el reporte agrupando varias ventas.
 def test_generar_reporte_con_varias_ventas(session: Session) -> None:
     producto = _crear_producto(session, stock=Decimal("50"), precio_bs=Decimal("10.00"))
     ts = TasaCambioService()
@@ -166,6 +174,7 @@ def test_generar_reporte_con_varias_ventas(session: Session) -> None:
     assert reporte.peso_vendido_kg == Decimal("0.000")
 
 
+# Una venta pagada por transferencia se consolida en el reporte.
 def test_generar_reporte_con_transferencia(session: Session) -> None:
     """Una venta pagada por transferencia se consolida en el reporte."""
     producto = _crear_producto(session, precio_bs=Decimal("10.00"))
@@ -196,6 +205,7 @@ def test_generar_reporte_con_transferencia(session: Session) -> None:
     assert reporte.efectivo_bs == Decimal("0.00")
 
 
+# Prueba las alertas de stock bajo y sin stock.
 def test_generar_reporte_stock_bajo_y_sin_stock(session: Session) -> None:
     _crear_producto(session, nombre="BAJO", stock=Decimal("3"), stock_minimo=Decimal("5"))
     _crear_producto(session, nombre="SIN", stock=Decimal("0"), stock_minimo=Decimal("5"))
@@ -208,6 +218,7 @@ def test_generar_reporte_stock_bajo_y_sin_stock(session: Session) -> None:
     assert reporte.productos_sin_stock >= 1
 
 
+# Prueba regenerar el reporte del dia.
 def test_generar_reporte_regenerar(session: Session) -> None:
     rs = ReporteService()
     rs.generar_reporte(fecha_param=hoy(), db_session=session)
@@ -217,6 +228,7 @@ def test_generar_reporte_regenerar(session: Session) -> None:
     assert len(historial) == 1
 
 
+# Prueba obtener un reporte por fecha existente.
 def test_obtener_por_fecha_exitoso(session: Session) -> None:
     rs = ReporteService()
     rs.generar_reporte(fecha_param=hoy(), db_session=session)
@@ -226,12 +238,14 @@ def test_obtener_por_fecha_exitoso(session: Session) -> None:
     assert reporte.fecha == hoy()
 
 
+# Prueba que devuelve None si no hay reporte.
 def test_obtener_por_fecha_inexistente(session: Session) -> None:
     rs = ReporteService()
     reporte = rs.obtener_por_fecha(fecha_param=date(2020, 1, 1), db_session=session)
     assert reporte is None
 
 
+# Prueba listar reportes dentro de un rango.
 def test_listar_por_rango(session: Session) -> None:
     rs = ReporteService()
     rs.generar_reporte(fecha_param=hoy(), db_session=session)
@@ -244,6 +258,7 @@ def test_listar_por_rango(session: Session) -> None:
     assert len(historial) >= 1
 
 
+# Prueba la exportacion a Excel con sus hojas.
 def test_exportar_excel(tmp_path: Path, session: Session) -> None:
     producto = _crear_producto(session, precio_bs=Decimal("10.00"))
     assert producto.idproducto is not None
@@ -284,12 +299,14 @@ def test_exportar_excel(tmp_path: Path, session: Session) -> None:
     assert hoja_detalle["C2"].value == 2
 
 
+# Prueba que exportar un reporte inexistente falla.
 def test_exportar_excel_reporte_inexistente(session: Session) -> None:
     rs = ReporteService()
     with pytest.raises(ValueError, match="No existe el reporte"):
         rs.exportar_excel(reporte_id=9999, ruta_archivo="test.xlsx", db_session=session)
 
 
+# 0.
 def test_reporte_peso_no_se_trunca(session: Session) -> None:
     """0.500 kg de un producto PESO NUNCA se reporta como 0 (defecto legado)."""
     producto = _crear_producto(
@@ -309,6 +326,7 @@ def test_reporte_peso_no_se_trunca(session: Session) -> None:
     assert reporte.peso_vendido_kg == Decimal("0.500")
 
 
+# Las unidades y el peso se acumulan en campos SEPARADOS del reporte.
 def test_reporte_separa_unidades_de_peso(session: Session) -> None:
     """Las unidades y el peso se acumulan en campos SEPARADOS del reporte."""
     unidad = _crear_producto(session, nombre="JUGO", precio_bs=Decimal("10.00"))
@@ -332,6 +350,7 @@ def test_reporte_separa_unidades_de_peso(session: Session) -> None:
     assert reporte.peso_vendido_kg == Decimal("1.500")
 
 
+# El detalle del reporte tiene UNA fila por producto con la cantidad sumada.
 def test_reporte_detalle_agrupa_por_producto(session: Session) -> None:
     """El detalle del reporte tiene UNA fila por producto con la cantidad sumada."""
     producto = _crear_producto(session, nombre="AREPA", precio_bs=Decimal("10.00"))

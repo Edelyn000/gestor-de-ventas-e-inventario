@@ -14,6 +14,7 @@ from sistema_financiero.utils import ORIGEN_TASA_BCV, ORIGEN_TASA_MANUAL, hoy
 pytestmark = pytest.mark.unitarias
 
 
+# Registrar una tasa para hoy y verificar sus valores.
 def test_registrar_exitoso(session: Session) -> None:
     """Registrar una tasa para hoy y verificar sus valores."""
     ts = TasaCambioService()
@@ -36,6 +37,7 @@ def test_registrar_exitoso(session: Session) -> None:
     assert tasa.fecha_registro is not None
 
 
+# Prueba que registrar una tasa invalida falla.
 def test_registrar_tasa_invalida(session: Session) -> None:
     ts = TasaCambioService()
 
@@ -56,6 +58,7 @@ def test_registrar_tasa_invalida(session: Session) -> None:
         )
 
 
+# Prueba que no se duplica la tasa del mismo dia y origen.
 def test_registrar_tasa_duplicada(session: Session) -> None:
     ts = TasaCambioService()
     ts.registrar(
@@ -74,6 +77,7 @@ def test_registrar_tasa_duplicada(session: Session) -> None:
         )
 
 
+# Registrar una tasa activa y verificar que tasa_activa() la encuentre.
 def test_tasa_activa_exitoso(session: Session) -> None:
     """Registrar una tasa activa y verificar que tasa_activa() la encuentre."""
     ts = TasaCambioService()
@@ -91,12 +95,14 @@ def test_tasa_activa_exitoso(session: Session) -> None:
     assert tasa.activa is True
 
 
+# Prueba que sin tasas la activa devuelve None.
 def test_tasa_activa_sin_tasas(session: Session) -> None:
     ts = TasaCambioService()
     tasa = ts.tasa_activa(db_session=session)
     assert tasa is None
 
 
+# Registrar tasas en dias distintos y verificar que retorne la mas reciente.
 def test_tasa_activa_con_varias_tasas(session: Session) -> None:
     """Registrar tasas en dias distintos y verificar que retorne la mas reciente."""
     ts = TasaCambioService()
@@ -121,6 +127,7 @@ def test_tasa_activa_con_varias_tasas(session: Session) -> None:
     assert tasa.tasa_venta == Decimal("50.00")
 
 
+# Prueba obtener una tasa por fecha.
 def test_obtener_por_fecha(session: Session) -> None:
     ts = TasaCambioService()
     ts.registrar(
@@ -135,12 +142,14 @@ def test_obtener_por_fecha(session: Session) -> None:
     assert tasa.tasa_venta == Decimal("50.00")
 
 
+# Prueba que devuelve None si no hay tasa en la fecha.
 def test_obtener_por_fecha_inexistente(session: Session) -> None:
     ts = TasaCambioService()
     tasa = ts.obtener_por_fecha(fecha=date(2020, 1, 1), db_session=session)
     assert tasa is None
 
 
+# Registrar 2 tasas y verificar que el historial las incluya.
 def test_historial(session: Session) -> None:
     """Registrar 2 tasas y verificar que el historial las incluya."""
     ts = TasaCambioService()
@@ -163,6 +172,7 @@ def test_historial(session: Session) -> None:
     assert historial[1].fecha == date(2025, 1, 1)
 
 
+# Desactivar una tasa y verificar que ya no aparezca como activa.
 def test_desactivar_tasa(session: Session) -> None:
     """Desactivar una tasa y verificar que ya no aparezca como activa."""
     ts = TasaCambioService()
@@ -186,12 +196,14 @@ def test_desactivar_tasa(session: Session) -> None:
     assert tasa_refrescada.activa is False
 
 
+# Prueba desactivar una tasa que no existe.
 def test_desactivar_tasa_inexistente(session: Session) -> None:
     ts = TasaCambioService()
     resultado = ts.desactivar_tasa(tasa_id=9999, db_session=session)
     assert resultado is False
 
 
+# obtener_desde_bcv() con el BCV inaccesible (sin internet, caido).
 def test_obtener_desde_bcv_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """obtener_desde_bcv() con el BCV inaccesible (sin internet, caido)
     retorna None sin lanzar excepcion. Test DETERMINISTA: el fallo se
@@ -199,6 +211,7 @@ def test_obtener_desde_bcv_error(monkeypatch: pytest.MonkeyPatch) -> None:
     del log de errores se neutraliza para no ensuciar logs/."""
     ts = TasaCambioService()
 
+    # Simula un fallo de red del BCV.
     def _falla_sin_red() -> Decimal:
         raise ConnectionError("Sin conexion al BCV")
 
@@ -216,6 +229,7 @@ def test_obtener_desde_bcv_error(monkeypatch: pytest.MonkeyPatch) -> None:
     assert resultado is None
 
 
+# obtener_desde_bcv() con el BCV accesible registra (y luego.
 def test_obtener_desde_bcv_actualiza_la_fila_de_hoy(
     monkeypatch: pytest.MonkeyPatch,
     session: Session,
@@ -225,6 +239,7 @@ def test_obtener_desde_bcv_actualiza_la_fila_de_hoy(
     sin crear duplicados. Determinista: red y BD real neutralizadas."""
     ts = TasaCambioService()
 
+    # Generador que devuelve siempre la misma sesion del fixture.
     @contextmanager
     def _misma_sesion(db_session: Session | None = None) -> Iterator[Session]:
         yield session
@@ -234,9 +249,11 @@ def test_obtener_desde_bcv_actualiza_la_fila_de_hoy(
         _misma_sesion,
     )
 
+    # Devuelve la tasa 859.00.
     def _tasa_859() -> Decimal:
         return Decimal("859.00")
 
+    # Devuelve la tasa 861.00.
     def _tasa_861() -> Decimal:
         return Decimal("861.00")
 
@@ -261,6 +278,7 @@ def test_obtener_desde_bcv_actualiza_la_fila_de_hoy(
     assert historial[0].tasa_venta == Decimal("861.00")
 
 
+# Prueba registrar una tasa manual con origen y auditoria.
 def test_registrar_tasa_manual_con_origen_y_auditoria(session: Session) -> None:
     ts = TasaCambioService()
 
@@ -280,6 +298,7 @@ def test_registrar_tasa_manual_con_origen_y_auditoria(session: Session) -> None:
     assert tasa.fecha == hoy()
 
 
+# Prueba que la manual se actualiza el mismo dia.
 def test_registrar_tasa_manual_upsert_mismo_dia(session: Session) -> None:
     ts = TasaCambioService()
     ts.registrar_tasa_manual(Decimal("860.00"), db_session=session)
@@ -298,6 +317,7 @@ def test_registrar_tasa_manual_upsert_mismo_dia(session: Session) -> None:
     assert len(filas) == 1
 
 
+# Prueba que una tasa manual invalida falla.
 def test_registrar_tasa_manual_invalida(session: Session) -> None:
     ts = TasaCambioService()
 
@@ -305,6 +325,7 @@ def test_registrar_tasa_manual_invalida(session: Session) -> None:
         ts.registrar_tasa_manual(Decimal("0"), db_session=session)
 
 
+# Prueba que la manual no es la tasa oficial.
 def test_tasa_manual_no_aparece_en_tasa_activa(session: Session) -> None:
     ts = TasaCambioService()
     ts.registrar(
@@ -322,6 +343,7 @@ def test_tasa_manual_no_aparece_en_tasa_activa(session: Session) -> None:
     assert activa.tasa_venta == Decimal("50.00")
 
 
+# Prueba que conviven fechas iguales con origenes distintos.
 def test_misma_fecha_origen_distinto_permitido(session: Session) -> None:
     ts = TasaCambioService()
     ts.registrar(
@@ -337,6 +359,7 @@ def test_misma_fecha_origen_distinto_permitido(session: Session) -> None:
     assert manual.origen == ORIGEN_TASA_MANUAL
 
 
+# Prueba desactivar la tasa manual del dia.
 def test_desactivar_tasa_manual(session: Session) -> None:
     ts = TasaCambioService()
     ts.registrar_tasa_manual(Decimal("860.00"), db_session=session)
@@ -354,6 +377,7 @@ def test_desactivar_tasa_manual(session: Session) -> None:
     assert existente.activa is False
 
 
+# Prueba desactivar sin registro manual.
 def test_desactivar_tasa_manual_sin_registro(session: Session) -> None:
     ts = TasaCambioService()
     resultado = ts.desactivar_tasa_manual(db_session=session)

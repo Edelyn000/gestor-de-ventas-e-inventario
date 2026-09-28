@@ -75,6 +75,7 @@ from sistema_financiero.utils import (
 from sistema_financiero.utils.moneda import formatear_bs, formatear_usd
 
 
+# Invariante: lo que cada widget embebido necesita cabe en su celda.
 def _verificar_celdas_no_desbordan(tabla: QTableWidget) -> None:
     """Invariante: lo que cada widget embebido necesita cabe en su celda."""
     vheader = tabla.verticalHeader()
@@ -95,6 +96,7 @@ def _verificar_celdas_no_desbordan(tabla: QTableWidget) -> None:
             assert alto_min <= vheader.defaultSectionSize(), (fila, col)
 
 
+# Crea un objeto Usuario simulado (sin BD) para los tests de UI.
 @pytest.fixture()
 def usuario_admin() -> Usuario:
     """Crea un objeto Usuario simulado (sin BD) para los tests de UI."""
@@ -107,16 +109,19 @@ def usuario_admin() -> Usuario:
     )
 
 
+# Evita que el dashboard consulte el BCV por red durante los tests de UI.
 @pytest.fixture(autouse=True)
 def _sin_fetch_bcv(monkeypatch: pytest.MonkeyPatch) -> None:
     """Evita que el dashboard consulte el BCV por red durante los tests de UI."""
 
+    # Deja el fetch BCV inactivo para no tocar la red.
     def _iniciar_fetch_sin_red(self: DashboardPagina) -> None:
         self._bcv_fetching = False
 
     monkeypatch.setattr(DashboardPagina, "_iniciar_fetch_bcv", _iniciar_fetch_sin_red)
 
 
+# Fuerza la recoleccion de sesiones de BD tras cada test de UI.
 @pytest.fixture(autouse=True)
 def _liberar_conexiones_sqlite() -> Iterator[None]:
     """Fuerza la recoleccion de sesiones de BD tras cada test de UI."""
@@ -124,6 +129,7 @@ def _liberar_conexiones_sqlite() -> Iterator[None]:
     gc.collect()
 
 
+# Evita modales reales cuando pytest-qt cierra VentanaPrincipal (teardown).
 @pytest.fixture(autouse=True, scope="module")
 def _sin_dialogos_reales_al_cerrar_ventana():
     """Evita modales reales cuando pytest-qt cierra VentanaPrincipal (teardown)."""
@@ -139,6 +145,7 @@ class TestVentanaLogin:
 
     pytestmark = pytest.mark.unitarias
 
+    # Verifica que VentanaLogin se crea con el titulo correcto.
     def test_crear_dialogo(self, qtbot: QtBot) -> None:
         """Verifica que VentanaLogin se crea con el titulo correcto."""
         dialogo = VentanaLogin()
@@ -146,6 +153,7 @@ class TestVentanaLogin:
 
         assert "Iniciar Sesión" in dialogo.windowTitle()
 
+    # Verifica que los widgets del login se crearon correctamente.
     def test_widgets_existen(self, qtbot: QtBot) -> None:
         """Verifica que los widgets del login se crearon correctamente."""
         dialogo = VentanaLogin()
@@ -159,6 +167,7 @@ class TestVentanaLogin:
 
         assert dialogo.txt_contrasena.echoMode() == QLineEdit.EchoMode.Password
 
+    # Verifica que el login rechaza campos vacios.
     def test_validacion_campos_vacios(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verifica que el login rechaza campos vacios."""
         dialogo = VentanaLogin()
@@ -177,6 +186,7 @@ class TestVentanaLogin:
 
         mock_warning.assert_called_once()
 
+    # Verifica que credenciales incorrectas muestran error.
     def test_validar_login_incorrecto(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verifica que credenciales incorrectas muestran error."""
         dialogo = VentanaLogin()
@@ -192,9 +202,11 @@ class TestVentanaLogin:
         mock_session.exec.return_value.first.return_value = None
 
         class MockContextManager:
+            # Entra en el contexto del mock de sesion.
             def __enter__(self) -> MockContextManager:
                 return mock_session
 
+            # Cierra el contexto del mock de sesion.
             def __exit__(self, *args: object) -> None:
                 pass
 
@@ -211,6 +223,7 @@ class TestVentanaLogin:
 
         mock_warning.assert_called_once()
 
+    # Verifica que NO existe el boton "olvide mi contrasena".
     def test_login_sin_olvide_contrasena(self, qtbot: QtBot) -> None:
         """Verifica que NO existe el boton "olvide mi contrasena"."""
         dialogo = VentanaLogin()
@@ -222,6 +235,7 @@ class TestVentanaLogin:
             "El login no debe ofrecer recuperar la contrasena"
         )
 
+    # Auditoria: un login fallido se registra como WARNING.
     def test_login_fallido_registra_evento(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -239,9 +253,11 @@ class TestVentanaLogin:
         mock_session.exec.return_value.first.return_value = None
 
         class MockContextManager:
+            # Entra en el contexto del mock de sesion.
             def __enter__(self) -> MagicMock:
                 return mock_session
 
+            # Cierra el contexto del mock de sesion.
             def __exit__(self, *args: object) -> None:
                 pass
 
@@ -261,6 +277,7 @@ class TestVentanaLogin:
         )
         mock_warning.assert_called_once()
 
+    # Auditoria: un login exitoso se registra como INFO.
     def test_login_exitoso_registra_evento(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -285,9 +302,11 @@ class TestVentanaLogin:
         mock_session.exec.return_value.first.return_value = usuario
 
         class MockContextManager:
+            # Entra en el contexto del mock de sesion.
             def __enter__(self) -> MagicMock:
                 return mock_session
 
+            # Cierra el contexto del mock de sesion.
             def __exit__(self, *args: object) -> None:
                 pass
 
@@ -311,6 +330,7 @@ class TestVentanaPrincipal:
 
     pytestmark = pytest.mark.sistema
 
+    # Verifica que VentanaPrincipal se crea con el titulo correcto.
     def test_crear_ventana(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que VentanaPrincipal se crea con el titulo correcto."""
         ventana = VentanaPrincipal(usuario_admin)
@@ -318,6 +338,7 @@ class TestVentanaPrincipal:
 
         assert "Administrador" in ventana.windowTitle()
 
+    # Verifica que la barra lateral de navegacion se creo.
     def test_barra_navegacion_existe(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que la barra lateral de navegacion se creo."""
         ventana = VentanaPrincipal(usuario_admin)
@@ -334,6 +355,7 @@ class TestVentanaPrincipal:
             nombres.append(item.text())
         assert nombres == ["Ventas"]
 
+    # Verifica que el QStackedWidget contiene las paginas del rol.
     def test_paginas_existen(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que el QStackedWidget contiene las paginas del rol."""
         ventana = VentanaPrincipal(usuario_admin)
@@ -342,6 +364,7 @@ class TestVentanaPrincipal:
         assert ventana.paginas.count() == 1
         assert ventana.paginas.currentWidget() is ventana.pagina_ventas
 
+    # La barra superior (header) existe y muestra titulo + usuario.
     def test_cabecera_aplicacion_existe(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """La barra superior (header) existe y muestra titulo + usuario."""
         ventana = VentanaPrincipal(usuario_admin)
@@ -355,6 +378,7 @@ class TestVentanaPrincipal:
         assert "Gestor de Ventas e Inventario" in textos
         assert "Administrador" in textos
 
+    # Cada pagina lleva un TituloPagina (tarjeta con barra #2563eb).
     def test_paginas_tienen_titulo_con_barra_lateral(
         self, qtbot: QtBot, usuario_admin: Usuario
     ) -> None:
@@ -368,6 +392,7 @@ class TestVentanaPrincipal:
         textos = {etiqueta.text() for t in titulos for etiqueta in t.findChildren(QLabel)}
         assert {"Ventas"} <= textos
 
+    # Verifica que se puede cambiar de pagina usando la barra lateral.
     def test_cambiar_pagina(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que se puede cambiar de pagina usando la barra lateral."""
         ventana = VentanaPrincipal(usuario_admin)
@@ -378,6 +403,7 @@ class TestVentanaPrincipal:
 
             assert ventana.paginas.currentIndex() == i
 
+    # Verifica que los controladores se crearon al iniciar VentanaPrincipal.
     def test_controladores_creados(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que los controladores se crearon al iniciar VentanaPrincipal."""
         ventana = VentanaPrincipal(usuario_admin)
@@ -395,6 +421,7 @@ class TestVentanaPrincipal:
         for nombre, _clase in controladores:
             assert hasattr(ventana, nombre), f"Falta el controlador: {nombre}"
 
+    # El vendedor no ve Dashboard: su timer de refresco nunca arranca.
     @pytest.mark.aceptacion
     def test_vendedor_timer_dashboard_inactivo(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """El vendedor no ve Dashboard: su timer de refresco nunca arranca."""
@@ -403,6 +430,7 @@ class TestVentanaPrincipal:
         assert "Dashboard" not in ventana._items_menu
         assert ventana._timer_dashboard.isActive() is False
 
+    # Sin Dashboard en el stack, navegar nunca refresca el dashboard.
     @pytest.mark.aceptacion
     def test_vendedor_cambiar_pagina_no_refresca_dashboard(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
@@ -424,6 +452,7 @@ class TestTituloPagina:
 
     pytestmark = pytest.mark.unitarias
 
+    # El titulo expone el rol del QSS y muestra el texto recibido.
     def test_titulo_pagina_rol_y_texto(self, qtbot: QtBot) -> None:
         """El titulo expone el rol del QSS y muestra el texto recibido."""
         titulo = TituloPagina("Dashboard")
@@ -439,6 +468,7 @@ class TestSpinBoxStock:
 
     pytestmark = pytest.mark.unitarias
 
+    # UNIDAD: enteros con punto de miles (5, 10.
     def test_modo_entero_muestra_enteros_con_miles(self, qtbot: QtBot) -> None:
         """UNIDAD: enteros con punto de miles (5, 10.000)."""
         spin = SpinBoxStock()
@@ -452,6 +482,7 @@ class TestSpinBoxStock:
         assert spin.decimals() == 0
         assert spin.singleStep() == 1
 
+    # KILO/GRAMO: decimales sin ceros de relleno (1,5 no 1,500).
     def test_modo_decimal_quita_ceros_finales(self, qtbot: QtBot) -> None:
         """KILO/GRAMO: decimales sin ceros de relleno (1,5 no 1,500)."""
         spin = SpinBoxStock()
@@ -469,6 +500,7 @@ class TestSpinBoxStock:
         assert spin.decimals() == 3
         assert spin.singleStep() == 0.1
 
+    # Cantidades grandes: miles con punto y decimales sueltos (999.
     def test_modo_decimal_miles_y_grandes(self, qtbot: QtBot) -> None:
         """Cantidades grandes: miles con punto y decimales sueltos (999.999,99)."""
         spin = SpinBoxStock()
@@ -486,6 +518,7 @@ class TestFormularioProducto:
 
     pytestmark = pytest.mark.unitarias
 
+    # Verifica que FormularioProducto se abre en modo crear.
     def test_crear_dialogo_modo_crear(self, qtbot: QtBot) -> None:
         """Verifica que FormularioProducto se abre en modo crear."""
         dialogo = FormularioProducto()
@@ -493,6 +526,7 @@ class TestFormularioProducto:
 
         assert "Agregar producto" in dialogo.windowTitle()
 
+    # Verifica que FormularioProducto se abre en modo editar.
     def test_crear_dialogo_modo_editar(self, qtbot: QtBot) -> None:
         """Verifica que FormularioProducto se abre en modo editar."""
         producto = Producto(
@@ -510,6 +544,7 @@ class TestFormularioProducto:
         assert "Editar producto" in dialogo.windowTitle()
         assert "Arroz" in dialogo.windowTitle()
 
+    # Regresion: editar con una categoria que NO esta en el combo.
     def test_editar_categoria_fuera_del_combo_no_abre_dialogo(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -527,6 +562,7 @@ class TestFormularioProducto:
         )
         se_abrio_dialogo = False
 
+        # Simula el QInputDialog real y avisa de que se habria abierto.
         def _dialogo_real(*_args: object, **_kwargs: object) -> tuple[str, bool]:
             nonlocal se_abrio_dialogo
             se_abrio_dialogo = True
@@ -542,6 +578,7 @@ class TestFormularioProducto:
         assert not se_abrio_dialogo
         assert dialogo.cmb_categoria.currentText() == "Aseo Personal"
 
+    # Verifica que los campos del formulario existen en modo crear.
     def test_campos_existen_en_modo_crear(self, qtbot: QtBot) -> None:
         """Verifica que los campos del formulario existen en modo crear."""
         dialogo = FormularioProducto()
@@ -565,6 +602,7 @@ class TestFormularioProducto:
         assert not hasattr(dialogo, "spin_precio_venta_bs")
         assert not hasattr(dialogo, "cmb_tipo_venta")
 
+    # Verifica que los campos se precargan en modo editar.
     def test_campos_precargados_en_editar(self, qtbot: QtBot) -> None:
         """Verifica que los campos se precargan en modo editar."""
         producto = Producto(
@@ -584,6 +622,7 @@ class TestFormularioProducto:
         assert dialogo.cmb_categoria.currentText() == "LACTEOS"
         assert dialogo.cmb_unidad.currentText() == "KILO"
 
+    # Verifica que el dialogo rechaza guardar sin nombre.
     def test_validacion_nombre_vacio(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verifica que el dialogo rechaza guardar sin nombre."""
         dialogo = FormularioProducto()
@@ -602,6 +641,7 @@ class TestFormularioProducto:
 
         mock_warning.assert_called_once()
 
+    # Los precios en Bs NO son campos editables: texto "Equivalente".
     def test_campos_bs_son_texto_no_editables(self, qtbot: QtBot) -> None:
         """Los precios en Bs NO son campos editables: texto "Equivalente"."""
         dialogo = FormularioProducto()
@@ -615,6 +655,7 @@ class TestFormularioProducto:
         assert "Equivalente: —" in dialogo.lbl_equiv_compra.text()
         assert "Equivalente: —" in dialogo.lbl_equiv_venta.text()
 
+    # Helper: controlador de tasas mockeado con tasa activa.
     @staticmethod
     def _tasa_mock(tasa_venta: str) -> MagicMock:
         """Helper: controlador de tasas mockeado con tasa activa."""
@@ -625,6 +666,7 @@ class TestFormularioProducto:
         controlador.tasa_activa.return_value = tasa
         return controlador
 
+    # Escribir el precio de venta USD calcula el Bs con la tasa.
     def test_precio_venta_usd_calcula_bs(self, qtbot: QtBot) -> None:
         """Escribir el precio de venta USD calcula el Bs con la tasa."""
         dialogo = FormularioProducto(
@@ -637,6 +679,7 @@ class TestFormularioProducto:
         assert dialogo._bs_venta == Decimal("8535.00")
         assert "8.535,00" in dialogo.lbl_equiv_venta.text()
 
+    # Al vaciar el precio USD, el Bs vuelve a 0 (no queda el viejo).
     def test_borrar_usd_reinicia_bs_a_cero(self, qtbot: QtBot) -> None:
         """Al vaciar el precio USD, el Bs vuelve a 0 (no queda el viejo)."""
         dialogo = FormularioProducto(
@@ -651,6 +694,7 @@ class TestFormularioProducto:
         assert dialogo._bs_venta == 0
         assert "Equivalente: —" in dialogo.lbl_equiv_venta.text()
 
+    # Escribir el precio de compra USD calcula el Bs con la tasa.
     def test_precio_compra_usd_calcula_bs(self, qtbot: QtBot) -> None:
         """Escribir el precio de compra USD calcula el Bs con la tasa."""
         dialogo = FormularioProducto(
@@ -663,6 +707,7 @@ class TestFormularioProducto:
         assert dialogo._bs_compra == Decimal("4267.50")
         assert "4.267,50" in dialogo.lbl_equiv_compra.text()
 
+    # Al editar, el Bs se recalcula con la tasa de HOY y avisa si cambio.
     def test_editar_recalcula_bs_y_muestra_aviso(self, qtbot: QtBot) -> None:
         """Al editar, el Bs se recalcula con la tasa de HOY y avisa si cambio."""
         producto = Producto(
@@ -686,6 +731,7 @@ class TestFormularioProducto:
         assert "Precio anterior: 8.000,00 Bs." in dialogo.lbl_aviso.text()
         assert "853,50" in dialogo.lbl_aviso.text()
 
+    # Si la tasa actual no cambia el Bs, el aviso queda oculto.
     def test_editar_sin_cambio_oculta_aviso(self, qtbot: QtBot) -> None:
         """Si la tasa actual no cambia el Bs, el aviso queda oculto."""
         producto = Producto(
@@ -705,6 +751,7 @@ class TestFormularioProducto:
 
         assert dialogo.lbl_aviso.isHidden()
 
+    # Sin tasa activa no se puede guardar un producto con precio USD.
     def test_guardar_sin_tasa_rechaza_precio_usd(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -729,6 +776,7 @@ class TestFormularioProducto:
         mensaje = str(mock_warning.call_args.args[-1])
         assert "tasa activa" in mensaje
 
+    # El combo de unidad ofrece UNIDAD/KILO (GRAMO se elimino del menu).
     def test_cmb_unidad_tiene_las_dos_opciones(self, qtbot: QtBot) -> None:
         """El combo de unidad ofrece UNIDAD/KILO (GRAMO se elimino del menu)."""
         dialogo = FormularioProducto()
@@ -739,6 +787,7 @@ class TestFormularioProducto:
         assert opciones == ["UNIDAD", "KILO"]
         assert dialogo.cmb_unidad.currentText() == "UNIDAD"
 
+    # Con UNIDAD (default) el stock muestra enteros sin ceros de relleno.
     def test_stock_entero_por_defecto(self, qtbot: QtBot) -> None:
         """Con UNIDAD (default) el stock muestra enteros sin ceros de relleno."""
         dialogo = FormularioProducto()
@@ -749,6 +798,7 @@ class TestFormularioProducto:
         assert dialogo.spin_stock_actual.text() == "0"
         assert dialogo.spin_stock_minimo.text() == "5"
 
+    # KILO habilita decimales sin ceros de relleno (kg).
     def test_stock_decimal_con_unidad_medida(self, qtbot: QtBot) -> None:
         """KILO habilita decimales sin ceros de relleno (kg)."""
         dialogo = FormularioProducto()
@@ -764,6 +814,7 @@ class TestFormularioProducto:
         dialogo.spin_stock_actual.setValue(1.50)
         assert dialogo.spin_stock_actual.text() == "1,5"
 
+    # Cantidades grandes se muestran con punto de miles y decimales sueltos.
     def test_stock_miles_y_decimales_libres(self, qtbot: QtBot) -> None:
         """Cantidades grandes se muestran con punto de miles y decimales sueltos."""
         dialogo = FormularioProducto()
@@ -776,6 +827,7 @@ class TestFormularioProducto:
         dialogo.spin_stock_actual.setValue(999999.99)
         assert dialogo.spin_stock_actual.text() == "999.999,99"
 
+    # La etiqueta del precio dice 'por UNIDAD/KILO' segun la unidad.
     def test_etiqueta_precio_dinamica_por_unidad(self, qtbot: QtBot) -> None:
         """La etiqueta del precio dice 'por UNIDAD/KILO' segun la unidad."""
         dialogo = FormularioProducto()
@@ -788,6 +840,7 @@ class TestFormularioProducto:
         assert dialogo.lbl_precio_venta.text() == "Precio Venta por KILO:"
         assert dialogo.lbl_precio_compra.text() == "Precio Compra por KILO:"
 
+    # Un producto 'por gramo' abre en KILO y reescala sus precios x1000.
     def test_editar_normaliza_unidad_legada_gramo_a_kilo(self, qtbot: QtBot) -> None:
         """Un producto 'por gramo' abre en KILO y reescala sus precios x1000."""
         producto = Producto(
@@ -812,6 +865,7 @@ class TestFormularioProducto:
         assert "1000" in dialogo.lbl_aviso.text()
         assert not dialogo.lbl_aviso.isHidden()
 
+    # El combo precarga unidades viejas normalizadas (PAQUETE → UNIDAD).
     def test_editar_normaliza_unidad_legada(self, qtbot: QtBot) -> None:
         """El combo precarga unidades viejas normalizadas (PAQUETE → UNIDAD)."""
         producto = Producto(
@@ -830,6 +884,7 @@ class TestFormularioProducto:
         assert dialogo.spin_stock_actual.decimals() == 0
         assert dialogo.spin_stock_actual.text() == "20"
 
+    # Unidades no contempladas en el combo se agregan como opcion.
     def test_editar_con_unidad_desconocida_la_agrega(self, qtbot: QtBot) -> None:
         """Unidades no contempladas en el combo se agregan como opcion."""
         producto = Producto(
@@ -847,6 +902,7 @@ class TestFormularioProducto:
         assert dialogo.cmb_unidad.currentText() == "BOLSA"
         assert dialogo.spin_stock_actual.decimals() == 0
 
+    # Elegir 'Nueva categoria…' pide el nombre y lo inserta en el combo.
     def test_combo_crea_nueva_categoria_con_prompt(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -877,6 +933,7 @@ class TestFormularioProducto:
 class TestDialogoTasaManual:
     pytestmark = pytest.mark.unitarias
 
+    # Prueba que el dialogo de tasa manual tiene sus widgets.
     def test_crear_dialogo_tiene_widgets_basicos(self, qtbot: QtBot) -> None:
         dialogo = DialogoTasaManual()
         qtbot.addWidget(dialogo)
@@ -888,6 +945,7 @@ class TestDialogoTasaManual:
         assert dialogo.btn_fijar.isDefault() is True
         assert dialogo.btn_fijar.isEnabled() is False
 
+    # Prueba que Fijar tasa solo se habilita con valor valido.
     def test_boton_se_habilita_solo_con_tasa_valida(self, qtbot: QtBot) -> None:
         dialogo = DialogoTasaManual()
         qtbot.addWidget(dialogo)
@@ -904,6 +962,7 @@ class TestDialogoTasaManual:
             dialogo.txt_tasa.setText(texto)
             assert dialogo.btn_fijar.isEnabled() is esperado, texto
 
+    # Prueba que aceptar guarda la tasa leida.
     def test_aceptar_guarda_la_tasa_leida(self, qtbot: QtBot) -> None:
         dialogo = DialogoTasaManual()
         qtbot.addWidget(dialogo)
@@ -913,6 +972,7 @@ class TestDialogoTasaManual:
         assert dialogo.result() == QDialog.DialogCode.Accepted
         assert dialogo.tasa() == Decimal("860.50")
 
+    # Prueba que cancelar no fija ninguna tasa.
     def test_cancelar_no_fija_tasa(self, qtbot: QtBot) -> None:
         dialogo = DialogoTasaManual()
         qtbot.addWidget(dialogo)
@@ -920,6 +980,7 @@ class TestDialogoTasaManual:
         dialogo.reject()
         assert dialogo.result() == QDialog.DialogCode.Rejected
 
+    # Prueba que una tasa cero muestra el error.
     def test_error_visible_con_tasa_cero(self, qtbot: QtBot) -> None:
         dialogo = DialogoTasaManual()
         qtbot.addWidget(dialogo)
@@ -934,6 +995,7 @@ class TestFormularioVenta:
 
     pytestmark = pytest.mark.integracion
 
+    # Evita abrir la factura real tras cobrar en los tests del POS.
     @pytest.fixture(autouse=True)
     def _stub_factura(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Evita abrir la factura real tras cobrar en los tests del POS."""
@@ -948,6 +1010,7 @@ class TestFormularioVenta:
             lambda _fecha_utc: datetime.now(UTC),
         )
 
+    # Helper: inyecta controladores mockeados y agrega un producto al ticket.
     def _agregar_producto_al_ticket(
         self,
         dialogo: FormularioVenta,
@@ -965,6 +1028,7 @@ class TestFormularioVenta:
         dialogo.controlador_ventas = MagicMock()
         dialogo._agregar_producto_venta(int(str(producto.idproducto)))
 
+    # Helper: producto por PESO con stock 10 (se agrega por defecto 0.
     @staticmethod
     def _producto_peso() -> Producto:
         """Helper: producto por PESO con stock 10 (se agrega por defecto 0.100)."""
@@ -978,6 +1042,7 @@ class TestFormularioVenta:
             stock_minimo=Decimal("1"),
         )
 
+    # Verifica que FormularioVenta se crea con el titulo correcto.
     def test_crear_dialogo(self, qtbot: QtBot) -> None:
         """Verifica que FormularioVenta se crea con el titulo correcto."""
         dialogo = FormularioVenta()
@@ -985,6 +1050,7 @@ class TestFormularioVenta:
 
         assert "Nueva Venta" in dialogo.windowTitle()
 
+    # Verifica que los widgets del POS existen.
     def test_widgets_principales_existen(self, qtbot: QtBot) -> None:
         """Verifica que los widgets del POS existen."""
         dialogo = FormularioVenta()
@@ -1019,6 +1085,7 @@ class TestFormularioVenta:
         assert hasattr(dialogo, "btn_limpiar_ticket")
         assert hasattr(dialogo, "btn_cobrar")
 
+    # Verifica que el boton 'COBRAR (F12)' esta en el dialogo.
     def test_boton_cobrar_existe(self, qtbot: QtBot) -> None:
         """Verifica que el boton 'COBRAR (F12)' esta en el dialogo."""
         dialogo = FormularioVenta()
@@ -1028,6 +1095,7 @@ class TestFormularioVenta:
         btn_cobrar = [b for b in botones if b.text() == "COBRAR (F12)"]
         assert len(btn_cobrar) > 0
 
+    # COBRAR sin productos: boton deshabilitado y handler con red de seguridad.
     def test_venta_vacia_muestra_error(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
         """COBRAR sin productos: boton deshabilitado y handler con red de seguridad."""
         dialogo = FormularioVenta()
@@ -1045,6 +1113,7 @@ class TestFormularioVenta:
 
         mock_warning.assert_called_once()
 
+    # Verifica la visibilidad progresiva de la seccion de pago.
     def test_pago_oculto_hasta_agregar_producto(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1075,6 +1144,7 @@ class TestFormularioVenta:
         assert dialogo.productos_venta == []
         assert dialogo.grupo_pago.isHidden()
 
+    # Verifica la cantidad por defecto al hacer clic en el catalogo.
     def test_agregar_unidad_y_peso_por_defecto(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1117,6 +1187,7 @@ class TestFormularioVenta:
         dialogo._agregar_producto_venta(2)
         assert dialogo.productos_venta[1]["cantidad"] == Decimal("1.000")
 
+    # Un producto por peso entra con el peso del boton rapido pulsado.
     def test_agregar_peso_elige_el_peso_inicial(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1146,6 +1217,7 @@ class TestFormularioVenta:
         dialogo._agregar_producto_venta(3, peso=Decimal("0.500"))
         assert dialogo.productos_venta[0]["cantidad"] == Decimal("0.500")
 
+    # El catalogo PESO trae UN (+) azul; los 4 rapidos viven en la fila.
     def test_un_solo_mas_en_catalogo_agrega_1_kg_y_los_rapidos_viven_en_la_fila(
         self, qtbot: QtBot
     ) -> None:
@@ -1192,6 +1264,7 @@ class TestFormularioVenta:
         qtbot.mouseClick(botones[2], Qt.MouseButton.LeftButton)
         assert dialogo.productos_venta[0]["cantidad"] == Decimal("1.250")
 
+    # En el ticket los botones suman al peso de ESA linea (no crean otra).
     def test_peso_rapido_de_la_fila_suma_a_la_linea(self, qtbot: QtBot) -> None:
         """En el ticket los botones suman al peso de ESA linea (no crean otra)."""
         producto_peso = Producto(
@@ -1217,6 +1290,7 @@ class TestFormularioVenta:
         dialogo._sumar_peso_rapido(0, Decimal("0.100"))
         assert dialogo.productos_venta[0]["cantidad"] == Decimal("0.700")
 
+    # El 2x2 de botones rapidos deja un hueco antes del ✕ de la fila.
     def test_el_grupo_rapido_esta_separado_del_boton_quitar(self, qtbot: QtBot) -> None:
         """El 2x2 de botones rapidos deja un hueco antes del ✕ de la fila."""
         producto_peso = Producto(
@@ -1236,6 +1310,7 @@ class TestFormularioVenta:
         assert isinstance(grid, QGridLayout)
         assert grid.contentsMargins().right() >= MARGEN_DER_GRUPO_PESO
 
+    # La fila del ticket sobra para el 2x2 (antes no cabia en 36px).
     def test_el_alto_de_la_fila_alberga_el_grupo_rapido(self, qtbot: QtBot) -> None:
         """La fila del ticket sobra para el 2x2 (antes no cabia en 36px)."""
         dialogo = FormularioVenta()
@@ -1245,6 +1320,7 @@ class TestFormularioVenta:
         assert isinstance(grid, QGridLayout)
         assert grid.minimumSize().height() <= ALTO_FILA_TICKET
 
+    # Invariante: ningun widget embebido se sale de su celda.
     def test_ninguna_celda_desborda_su_contenedor(self, qtbot: QtBot) -> None:
         """Invariante: ningun widget embebido se sale de su celda."""
         producto_peso = Producto(
@@ -1289,6 +1365,7 @@ class TestFormularioVenta:
         dialogo._agregar_producto_venta(2)
         _verificar_celdas_no_desbordan(dialogo.tabla_productos_venta)
 
+    # Verifica que la busqueda y la categoria filtran la lista del catalogo.
     def test_catalogo_busca_y_filtra_por_categoria(self, qtbot: QtBot) -> None:
         """Verifica que la busqueda y la categoria filtran la lista del catalogo."""
         producto_arroz = Producto(
@@ -1332,6 +1409,7 @@ class TestFormularioVenta:
         dialogo._seleccionar_categoria("Todos")
         assert dialogo.tabla_productos_catalogo.rowCount() == 2
 
+    # Helper: POS con el catalogo cargado a partir de un unico producto.
     def _pos_con_catalogo(self, qtbot: QtBot, producto: Producto) -> FormularioVenta:
         """Helper: POS con el catalogo cargado a partir de un unico producto."""
         dialogo = FormularioVenta()
@@ -1344,6 +1422,7 @@ class TestFormularioVenta:
         dialogo._cargar_catalogo()
         return dialogo
 
+    # El catalogo es una QTableWidget de 5 columnas (no un grid).
     def test_catalogo_es_lista_de_5_columnas(self, qtbot: QtBot) -> None:
         """El catalogo es una QTableWidget de 5 columnas (no un grid)."""
         dialogo = FormularioVenta()
@@ -1353,6 +1432,7 @@ class TestFormularioVenta:
         assert isinstance(tabla, QTableWidget)
         assert tabla.columnCount() == 5
 
+    # Doble clic sobre una fila del catalogo agrega el producto al ticket.
     def test_doble_clic_en_lista_agrega_producto(self, qtbot: QtBot) -> None:
         """Doble clic sobre una fila del catalogo agrega el producto al ticket."""
         producto = Producto(
@@ -1373,6 +1453,7 @@ class TestFormularioVenta:
         assert len(dialogo.productos_venta) == 1
         assert dialogo.productos_venta[0]["idproducto"] == 7
 
+    # Enter sobre la lista agrega el producto de la fila seleccionada.
     def test_enter_agrega_fila_seleccionada(self, qtbot: QtBot) -> None:
         """Enter sobre la lista agrega el producto de la fila seleccionada."""
         producto = Producto(
@@ -1390,6 +1471,7 @@ class TestFormularioVenta:
         dialogo._agregar_fila_activa()
         assert len(dialogo.productos_venta) == 1
 
+    # El ticket tiene 7 columnas y cada fila un boton ✕ en la ultima.
     def test_ticket_tiene_columna_acciones_con_boton_quitar(self, qtbot: QtBot) -> None:
         """El ticket tiene 7 columnas y cada fila un boton ✕ en la ultima."""
         producto = Producto(
@@ -1438,6 +1520,7 @@ class TestFormularioVenta:
         assert celda_nombre is not None
         assert celda_nombre.toolTip() == "Harina"
 
+    # A 1024x680 el ticket entra COMPLETO: sin scrollbar horizontal.
     def test_ticket_no_necesita_scroll_horizontal_a_1024(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1481,6 +1564,7 @@ class TestFormularioVenta:
         assert panel_catalogo.minimumSizeHint().width() < ANCHO_MINIMO_TICKET
         assert tamanos[1] >= min(ANCHO_MINIMO_TICKET, ancho_fijo)
 
+    # El ✕ quita SOLO esa linea del ticket y el total vuelve a cero.
     def test_boton_quitar_elimina_la_fila_y_recalcula_total(self, qtbot: QtBot) -> None:
         """El ✕ quita SOLO esa linea del ticket y el total vuelve a cero."""
         producto = Producto(
@@ -1511,6 +1595,7 @@ class TestFormularioVenta:
         boton_restante.click()
         assert dialogo.productos_venta == []
 
+    # El boton (+) de la fila agrega el producto al ticket.
     def test_boton_mas_de_la_fila_agrega_producto(self, qtbot: QtBot) -> None:
         """El boton (+) de la fila agrega el producto al ticket."""
         producto = Producto(
@@ -1530,6 +1615,7 @@ class TestFormularioVenta:
         boton.click()
         assert len(dialogo.productos_venta) == 1
 
+    # TODOS los tipos traen un solo (+) azul; los rapidos viven en la fila.
     def test_boton_mas_por_tipo_venta(self, qtbot: QtBot) -> None:
         """TODOS los tipos traen un solo (+) azul; los rapidos viven en la fila."""
         dialogo = FormularioVenta()
@@ -1582,6 +1668,7 @@ class TestFormularioVenta:
         assert btn_legacy.property("rol") == "agregar_catalogo"
         assert "Ajusta el peso con los botones rapidos de la fila" in btn_legacy.toolTip()
 
+    # La fila muestra USD, Bs calculado con la tasa y stock formateado.
     def test_fila_catalogo_muestra_usd_bs_y_stock(self, qtbot: QtBot) -> None:
         """La fila muestra USD, Bs calculado con la tasa y stock formateado."""
         producto = Producto(
@@ -1621,6 +1708,7 @@ class TestFormularioVenta:
         assert celda_bs.toolTip() == "Precio en bolivares: 80,00 Bs."
         assert celda_stock.text() == "10"
 
+    # Verifica que editar Cant/Peso en el ticket recalcula el total.
     def test_editar_peso_recalcula_total(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1651,6 +1739,7 @@ class TestFormularioVenta:
         assert dialogo.tabla_productos_venta.item(0, 4) is not None
         assert dialogo.tabla_productos_venta.item(0, 4).text() == "18,00"  # type: ignore[union-attr]
 
+    # REGRESION: tocar la casilla de g NO puede leerla como kilos.
     def test_tocar_gramos_no_toma_esos_gramos_como_kilos(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1685,6 +1774,7 @@ class TestFormularioVenta:
         assert dialogo.productos_venta[0]["cantidad"] == Decimal("0.999")
         mock_warning.assert_not_called()
 
+    # Kg acepta decimales ("0.
     def test_casillas_de_peso_kg_decimal_y_g_enteros_con_limite(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1743,6 +1833,7 @@ class TestFormularioVenta:
 
         assert "999 kg y 999 g" in spin_kg_final.toolTip()
 
+    # Escribir 0.
     def test_kg_con_decimales_normaliza_a_gramos_al_refrescar(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1781,6 +1872,7 @@ class TestFormularioVenta:
         assert spin_g.value() == 500
         assert dialogo.total_bs == Decimal("6.00")
 
+    # UNIDAD: UNA casilla "Cant.
     def test_linea_unidad_tiene_casilla_cant_entera_y_editable(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1828,6 +1920,7 @@ class TestFormularioVenta:
         assert spin_cant is not None
         assert "2 und." in spin_cant.toolTip()
 
+    # Pedir mas piezas que el stock avisa y revierte la casilla entera.
     def test_linea_unidad_cantidad_mayor_al_stock_revierte(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1862,6 +1955,7 @@ class TestFormularioVenta:
         assert spin_cant is not None
         assert spin_cant.value() == 1
 
+    # El ticket muestra Kg/g SOLO si alguna linea es PESO/GRAMOS.
     def test_ticket_mezcla_unidad_y_peso_y_alterna_el_layout(self, qtbot: QtBot) -> None:
         """El ticket muestra Kg/g SOLO si alguna linea es PESO/GRAMOS."""
         unidad = Producto(
@@ -1922,6 +2016,7 @@ class TestFormularioVenta:
         assert tabla.isColumnHidden(5)
         assert dialogo._layout_ticket == "unidad"
 
+    # Un peso mayor al stock avisa y revierte la casilla editada.
     def test_editar_cantidad_mayor_al_stock_revierte(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1947,6 +2042,7 @@ class TestFormularioVenta:
         assert dialogo._spin_peso_de(0, "kg") is not None
         assert dialogo._spin_peso_de(0, "kg").value() == 1  # type: ignore[union-attr]
 
+    # Tras un peso invalido, el foco vuelve a Kg con el texto elegido.
     def test_revertir_peso_devuelve_el_foco_a_la_casilla_de_kg(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1975,6 +2071,7 @@ class TestFormularioVenta:
         assert linea_spin is not None
         assert linea_spin.selectedText() == "1"
 
+    # Verifica que ANULAR VENTA vacia el ticket actual.
     def test_anular_limpia_el_ticket(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verifica que ANULAR VENTA vacia el ticket actual."""
         producto = Producto(
@@ -1998,6 +2095,7 @@ class TestFormularioVenta:
         assert dialogo.tabla_productos_venta.rowCount() == 0
         assert dialogo.grupo_pago.isHidden()
 
+    # Verifica que el TOTAL muestra el precio completo (sin desglose IVA).
     def test_total_sin_desglose_iva(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verifica que el TOTAL muestra el precio completo (sin desglose IVA)."""
         producto = Producto(
@@ -2017,6 +2115,7 @@ class TestFormularioVenta:
         assert "11,60" in dialogo.lbl_total.text()
         assert "Sin tasa de cambio" in dialogo.lbl_total_usd.text()
 
+    # Verifica que el total en USD usa la tasa activa.
     def test_total_usd_con_tasa(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verifica que el total en USD usa la tasa activa."""
         producto = Producto(
@@ -2042,6 +2141,7 @@ class TestFormularioVenta:
         assert "80,00" in dialogo.lbl_total.text()
         assert "2.00" in dialogo.lbl_total_usd.text()
 
+    # Verifica que F12 esta ligado a la finalizacion de la venta.
     def test_atajo_f12_cobra(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verifica que F12 esta ligado a la finalizacion de la venta."""
         dialogo = FormularioVenta()
@@ -2059,6 +2159,7 @@ class TestFormularioVenta:
 
         mock_warning.assert_called_once()
 
+    # Helper: POS abierto con 1 producto en el ticket y tasa simulada.
     def _abrir_pos_con_ticket(
         self,
         qtbot: QtBot,
@@ -2089,6 +2190,7 @@ class TestFormularioVenta:
         self._agregar_producto_al_ticket(dialogo, producto, monkeypatch)
         return dialogo
 
+    # Los 6 metodos existen como botones y sin elegir uno no hay pago.
     def test_metodos_de_pago_en_botones(self, qtbot: QtBot) -> None:
         """Los 6 metodos existen como botones y sin elegir uno no hay pago."""
         dialogo = FormularioVenta()
@@ -2101,6 +2203,7 @@ class TestFormularioVenta:
         assert dialogo.fila_recibido.isHidden()
         assert dialogo.panel_mixto.isHidden()
 
+    # COBRAR deshabilitado sin pagos/parcial; habilitado con PAGO COMPLETO.
     def test_cobrar_solo_se_habilita_con_pago_completo(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2125,6 +2228,7 @@ class TestFormularioVenta:
         dialogo._eliminar_pago(0)
         assert dialogo.btn_cobrar.isEnabled() is False
 
+    # Flujo del usuario: Efectivo Bs 40 + Pago Movil (resto) → 2 pagos.
     @pytest.mark.aceptacion
     def test_flujo_pago_mixto_parcial_tras_parcial(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -2180,6 +2284,7 @@ class TestFormularioVenta:
         assert kwargs["pagos"][0]["metodo"] == "efectivo_bs"
         assert kwargs["pagos"][1]["metodo"] == "pago_movil"
 
+    # Elegir metodo pre-llena el recibido con el faltante (cobro rapido).
     def test_seleccionar_metodo_prellena_el_faltante(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2200,6 +2305,7 @@ class TestFormularioVenta:
         assert dialogo.spin_recibido.value() == 2.0
         assert "Pago exacto" in dialogo.lbl_estado_recibido.text()
 
+    # El POS muestra 'PAGO MIXTO' en el resumen al usar 2+ metodos.
     def test_indicador_pago_mixto_aparece_con_2_metodos(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2226,6 +2332,7 @@ class TestFormularioVenta:
         assert len(dialogo.pagos) == 3
         assert not dialogo.lbl_modo_pago.isHidden()
 
+    # Efectivo: si se teclea de mas, se aplica solo lo que cubre.
     def test_agregar_pago_registra_solo_lo_aplicado(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2249,6 +2356,7 @@ class TestFormularioVenta:
         assert dialogo._monto_restante_bs() == Decimal("0.00")
         assert "PAGO COMPLETO" in dialogo.lbl_restante.text()
 
+    # Regresion: USD cuando la tasa no divide exacto (100.
     @pytest.mark.aceptacion
     def test_pago_en_usd_con_tasa_no_redonda_cobra_en_un_paso(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -2297,6 +2405,7 @@ class TestFormularioVenta:
         assert args[1]["efectivo_usd"] == Decimal("3.34")
         assert kwargs["pagos"][0]["monto_bs"] == Decimal("100.00")
 
+    # Regresion: con el alto fijo de 88 px solo se veia la PRIMERA fila.
     def test_alto_de_la_tabla_de_pagos_acompana_a_las_filas(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2332,6 +2441,7 @@ class TestFormularioVenta:
         assert tabla.rowCount() == 0
         assert tabla.height() == alto_minimo
 
+    # La ultima columna (Borrar) queda fija y ninguna seccion desborda.
     def test_tabla_de_pagos_no_desborda_el_viewport(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2358,6 +2468,7 @@ class TestFormularioVenta:
         assert boton.minimumWidth() <= anchos[4]
         assert boton.maximumWidth() <= anchos[4]
 
+    # Si la tasa cambia, el recorte anterior deja de ser valido.
     def test_cambio_de_tasa_descarta_el_vuelto_por_redondeo(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2387,6 +2498,7 @@ class TestFormularioVenta:
         assert "Pago de mas" in str(mock_warning.call_args)
         dialogo.controlador_ventas.crear.assert_not_called()
 
+    # Con dos pagos el resumen cuadra; borrar uno vuelve a faltar.
     def test_varios_pagos_y_eliminar_uno(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2416,6 +2528,7 @@ class TestFormularioVenta:
         assert dialogo._monto_restante_bs() == Decimal("60.00")
         assert "RESTANTE" in dialogo.lbl_restante.text()
 
+    # Si el monto supera el faltante, se informa el cambio a devolver.
     def test_efectivo_avisa_el_cambio_en_vivo(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2433,6 +2546,7 @@ class TestFormularioVenta:
         assert "CAMBIO" in dialogo.lbl_info_mixto.text()
         assert "50,00" in dialogo.lbl_info_mixto.text()
 
+    # Sin metodo elegido en el panel mixto no se agrega nada y se avisa.
     def test_agregar_pago_mixto_sin_metodo_avisa(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2451,6 +2565,7 @@ class TestFormularioVenta:
         assert "Selecciona un metodo" in str(mock_warning.call_args)
         assert dialogo.pagos == []
 
+    # Sin tasa activa no se puede convertir ni cobrar en USD.
     def test_efectivo_usd_sin_tasa_queda_deshabilitado(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2464,6 +2579,7 @@ class TestFormularioVenta:
         assert dialogo.btn_registrar_recibido.isEnabled() is False
         assert "Sin tasa" in dialogo.lbl_estado_recibido.text()
 
+    # Quitar el ultimo producto descarta los pagos de esa venta.
     def test_ticket_vacio_descarta_el_desglose(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2479,6 +2595,7 @@ class TestFormularioVenta:
         assert dialogo.tabla_pagos.rowCount() == 0
         assert dialogo.grupo_pago.isHidden()
 
+    # ANULAR VENTA limpia el ticket y su desglose de pagos.
     def test_anular_tambien_limpia_el_desglose(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2496,6 +2613,7 @@ class TestFormularioVenta:
         assert dialogo.panel_mixto.isHidden()
         assert dialogo.fila_recibido.isHidden()
 
+    # Con ticket pero sin pagos, COBRAR avisa y no llama al controlador.
     def test_cobrar_sin_pagos_avisa_y_no_crea_la_venta(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2513,6 +2631,7 @@ class TestFormularioVenta:
         mock_warning.assert_called_once()
         dialogo.controlador_ventas.crear.assert_not_called()
 
+    # Si falta por cubrir, COBRAR avisa y no registra la venta.
     def test_cobrar_con_pago_parcial_avisa(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2536,6 +2655,7 @@ class TestFormularioVenta:
         assert "Falta por cubrir" in str(mock_warning.call_args)
         dialogo.controlador_ventas.crear.assert_not_called()
 
+    # COBRAR envia el desglose de pagos y su resumen por metodo.
     @pytest.mark.aceptacion
     def test_cobrar_envia_el_desglose_al_controlador(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -2579,6 +2699,7 @@ class TestFormularioVenta:
         assert kwargs["pagos"][1]["monto"] == Decimal("0.80")
         assert kwargs["pagos"][1]["monto_bs"] == Decimal("40.00")
 
+    # El POS tiene el boton '✏️ Tasa Manual' (rol QSS en la cabecera).
     def test_boton_tasa_manual_existe(self, qtbot: QtBot) -> None:
         """El POS tiene el boton '✏️ Tasa Manual' (rol QSS en la cabecera)."""
         dialogo = FormularioVenta()
@@ -2595,6 +2716,7 @@ class TestFormularioVenta:
         qtbot.addWidget(con_controlador)
         assert con_controlador.btn_tasa_manual.isEnabled() is True
 
+    # Fijar una manual cambia el label, la tasa en vivo y persiste con origen.
     @pytest.mark.aceptacion
     def test_fijar_tasa_manual_actualiza_label_y_registra(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -2616,6 +2738,7 @@ class TestFormularioVenta:
             registrado_por=None,
         )
 
+    # El clic en el boton abre el dialogo de tasa manual y la fija.
     @pytest.mark.aceptacion
     def test_pulsar_boton_tasa_manual_pide_y_fija(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -2637,6 +2760,7 @@ class TestFormularioVenta:
         assert dialogo._tasa is not None
         assert dialogo._tasa.tasa_venta == Decimal("860.00")
 
+    # Cancelar el dialogo de la tasa manual deja todo como estaba.
     @pytest.mark.aceptacion
     def test_cancelar_pedido_de_tasa_manual_no_cambia_nada(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -2657,6 +2781,7 @@ class TestFormularioVenta:
         assert dialogo._tasa is not None
         assert dialogo._tasa.tasa_venta == Decimal("50.00")
 
+    # Revertir vuelve a la tasa BCV base y apaga la manual en la BD.
     @pytest.mark.aceptacion
     def test_revertir_tasa_manual_restaura_la_bcv(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -2675,6 +2800,7 @@ class TestFormularioVenta:
         assert dialogo.lbl_tasa.property("rol") == "tasa_bcv_auto"
         dialogo.controlador_tasas.desactivar_tasa_manual.assert_called_once_with()
 
+    # Con manual activa, _actualizar_tasa() no consulta ni pisa la BCV.
     @pytest.mark.aceptacion
     def test_actualizar_tasa_no_pisa_la_manual(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -2695,6 +2821,7 @@ class TestFormularioVenta:
         assert dialogo._tasa.tasa_venta == Decimal("860.00")
         assert dialogo._tasa_manual_activa is True
 
+    # Sin venta en curso y con manual activa, el tick pregunta y revierte.
     @pytest.mark.aceptacion
     def test_comprobar_tasa_bcv_sin_ticket_ofrece_reversion(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -2721,6 +2848,7 @@ class TestFormularioVenta:
         assert dialogo._tasa is not None
         assert dialogo._tasa.tasa_venta == Decimal("50.00")
 
+    # Con ticket abierto el tick NUNCA pregunta: solo marca reversion.
     @pytest.mark.aceptacion
     def test_comprobar_tasa_bcv_con_ticket_solo_marca_pendiente(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -2745,6 +2873,7 @@ class TestFormularioVenta:
         assert dialogo._reversion_pendiente is True
         assert dialogo._tasa_manual_activa is True
 
+    # La reversion diferida se ofrece al terminar (vacio el ticket).
     @pytest.mark.aceptacion
     def test_reversion_pendiente_se_ofrece_al_vaciar_ticket(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -2773,6 +2902,7 @@ class TestFormularioVenta:
         assert dialogo._tasa is not None
         assert dialogo._tasa.tasa_venta == Decimal("50.00")
 
+    # Sin tasa activa el panel mixto informa sin lanzar AssertionError.
     @pytest.mark.aceptacion
     def test_mixto_sin_tasa_muestra_texto_sin_crash(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -2787,6 +2917,7 @@ class TestFormularioVenta:
 
         assert "sin tasa" in dialogo.lbl_info_mixto.text()
 
+    # '+ AGREGAR' sobre una venta ya cubierta avisa y no crashea (fix del clic).
     @pytest.mark.aceptacion
     def test_agregar_pago_mixto_venta_cubierta_avisa(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -2813,6 +2944,7 @@ class TestFormularioVenta:
         assert "ya esta cubierta" in str(mock_information.call_args)
 
 
+# Producto de prueba para tests de inventario.
 @pytest.fixture()
 def producto_ejemplo() -> Producto:
     """Producto de prueba para tests de inventario."""
@@ -2828,6 +2960,7 @@ def producto_ejemplo() -> Producto:
     )
 
 
+# Movimiento de inventario simulado para tests de tabla.
 @pytest.fixture()
 def movimiento_ejemplo(producto_ejemplo: Producto) -> MagicMock:
     """Movimiento de inventario simulado para tests de tabla."""
@@ -2847,6 +2980,7 @@ class TestFormularioCambioContrasena:
 
     pytestmark = pytest.mark.unitarias
 
+    # Verifica que el dialogo se crea con el titulo correcto.
     def test_crear_dialogo(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que el dialogo se crea con el titulo correcto."""
         dialogo = FormularioCambioContrasena(usuario=usuario_admin)
@@ -2854,6 +2988,7 @@ class TestFormularioCambioContrasena:
 
         assert "Cambiar Contraseña / Usuario" in dialogo.windowTitle()
 
+    # Verifica que los campos del formulario existen.
     def test_widgets_existen(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que los campos del formulario existen."""
         dialogo = FormularioCambioContrasena(usuario=usuario_admin)
@@ -2869,6 +3004,7 @@ class TestFormularioCambioContrasena:
         assert dialogo.txt_contrasena_actual.echoMode() == QLineEdit.EchoMode.Password
         assert dialogo.txt_nueva_contrasena.echoMode() == QLineEdit.EchoMode.Password
 
+    # Verifica que los campos se precargan con datos del usuario.
     def test_campos_precargados(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que los campos se precargan con datos del usuario."""
         dialogo = FormularioCambioContrasena(usuario=usuario_admin)
@@ -2876,6 +3012,7 @@ class TestFormularioCambioContrasena:
 
         assert dialogo.txt_nombre_completo.text() == "Administrador"
 
+    # Verifica que rechaza guardar sin escribir la contrasena actual.
     def test_guardar_sin_contrasena_actual(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2896,6 +3033,7 @@ class TestFormularioCambioContrasena:
 
         mock_warning.assert_called_once()
 
+    # Verifica que contrasena actual incorrecta muestra error.
     def test_guardar_contrasena_incorrecta(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2920,6 +3058,7 @@ class TestFormularioCambioContrasena:
 
         mock_warning.assert_called_once()
 
+    # Verifica que sin cambios muestra mensaje 'No se realizaron cambios'.
     def test_guardar_sin_cambios(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2944,6 +3083,7 @@ class TestFormularioCambioContrasena:
 
         mock_info.assert_called_once()
 
+    # Verifica que cambiar nombre completo guarda exitosamente.
     def test_guardar_exitoso(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2977,6 +3117,7 @@ class TestInventarioPagina:
 
     pytestmark = pytest.mark.integracion
 
+    # Verifica que la pagina se crea sin errores.
     def test_crear_pagina(self, qtbot: QtBot, producto_ejemplo: Producto) -> None:
         """Verifica que la pagina se crea sin errores."""
         mock_controlador_inv = MagicMock()
@@ -2992,6 +3133,7 @@ class TestInventarioPagina:
         assert label is not None
         assert "Inventario" in label.text()
 
+    # Verifica que los widgets principales existen.
     def test_widgets_existen(self, qtbot: QtBot, producto_ejemplo: Producto) -> None:
         """Verifica que los widgets principales existen."""
         mock_controlador_inv = MagicMock()
@@ -3012,6 +3154,7 @@ class TestInventarioPagina:
         assert "Ajuste" in botones
         assert "Refrescar" in botones
 
+    # El cajero (VENDEDOR) no ve Salida ni Ajuste: solo historial y Entrada.
     def test_vendedor_solo_entrada_y_historial(
         self, qtbot: QtBot, producto_ejemplo: Producto
     ) -> None:
@@ -3053,6 +3196,7 @@ class TestInventarioPagina:
         assert pagina_admin.btn_salida.isVisibleTo(pagina_admin)
         assert pagina_admin.btn_ajuste.isVisibleTo(pagina_admin)
 
+    # Verifica que el combo de productos se puebla correctamente.
     def test_combo_poblado(self, qtbot: QtBot, producto_ejemplo: Producto) -> None:
         """Verifica que el combo de productos se puebla correctamente."""
         mock_controlador_inv = MagicMock()
@@ -3066,6 +3210,7 @@ class TestInventarioPagina:
         assert pagina.cmb_producto_inventario.itemText(0) == "Todos los productos"
         assert "Arroz" in pagina.cmb_producto_inventario.itemText(1)
 
+    # Verifica que la tabla se muestra vacia cuando no hay movimientos.
     def test_tabla_movimientos_vacia(self, qtbot: QtBot, producto_ejemplo: Producto) -> None:
         """Verifica que la tabla se muestra vacia cuando no hay movimientos."""
         mock_controlador_inv = MagicMock()
@@ -3078,6 +3223,7 @@ class TestInventarioPagina:
 
         assert pagina.tabla_movimientos.rowCount() == 0
 
+    # Verifica que la tabla muestra datos de movimientos.
     def test_tabla_movimientos_poblada(
         self, qtbot: QtBot, producto_ejemplo: Producto, movimiento_ejemplo: MagicMock
     ) -> None:
@@ -3098,6 +3244,7 @@ class TestInventarioPagina:
         assert item_tipo is not None, "item(0,3) es None"
         assert item_tipo.text() == "ENTRADA"
 
+    # Verifica que el boton Entrada llama a registrar_entrada.
     def test_dialogo_entrada_flujo_exitoso(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, producto_ejemplo: Producto
     ) -> None:
@@ -3153,6 +3300,7 @@ class TestInventarioPagina:
         )
         mock_info.assert_called_once()
 
+    # Verifica que el boton Salida llama a registrar_salida.
     def test_dialogo_salida_flujo_exitoso(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, producto_ejemplo: Producto
     ) -> None:
@@ -3208,6 +3356,7 @@ class TestInventarioPagina:
         )
         mock_info.assert_called_once()
 
+    # Verifica que el boton Ajuste llama a registrar_ajuste.
     def test_dialogo_ajuste_flujo_exitoso(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, producto_ejemplo: Producto
     ) -> None:
@@ -3263,6 +3412,7 @@ class TestInventarioPagina:
         )
         mock_info.assert_called_once()
 
+    # Verifica que cancelar el dialogo no llama a los servicios.
     def test_dialogo_cancelado(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, producto_ejemplo: Producto
     ) -> None:
@@ -3288,6 +3438,7 @@ class TestInventarioPagina:
         mock_controlador_inv.registrar_salida.assert_not_called()
         mock_controlador_inv.registrar_ajuste.assert_not_called()
 
+    # Verifica que sin producto seleccionado muestra advertencia.
     def test_dialogo_producto_no_seleccionado(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, producto_ejemplo: Producto
     ) -> None:
@@ -3333,6 +3484,7 @@ class TestInventarioPagina:
         mock_warning.assert_called_once()
         mock_controlador_inv.registrar_entrada.assert_not_called()
 
+    # Verifica que cambiar el combo refresca la tabla con historial del producto.
     def test_tabla_refrescada_al_cambiar_producto(
         self, qtbot: QtBot, producto_ejemplo: Producto
     ) -> None:
@@ -3354,6 +3506,7 @@ class TestProductosPagina:
 
     pytestmark = pytest.mark.integracion
 
+    # La pagina creada tiene QTabWidget con pestanas Catalogo y Movimientos.
     def test_crear_pagina_con_pestanas(self, qtbot: QtBot, producto_ejemplo: Producto) -> None:
         """La pagina creada tiene QTabWidget con pestanas Catalogo y Movimientos."""
         mock_controlador_prod = MagicMock()
@@ -3382,6 +3535,7 @@ class TestProductosPagina:
         assert "Editar" in botones
         assert "Eliminar" in botones
 
+    # La pestana Movimientos contiene una InventarioPagina funcional.
     def test_pagina_embebe_inventario(self, qtbot: QtBot, producto_ejemplo: Producto) -> None:
         """La pestana Movimientos contiene una InventarioPagina funcional."""
         mock_controlador_prod = MagicMock()
@@ -3404,6 +3558,7 @@ class TestProductosPagina:
         pagina.pestanas.setCurrentIndex(1)
         mock_controlador_inv.movimientos_recientes.assert_called()
 
+    # Sin controlador de inventario: solo existe la pestana Catalogo.
     def test_sin_controlador_inventario_no_crea_pestana_movimientos(
         self, qtbot: QtBot, producto_ejemplo: Producto
     ) -> None:
@@ -3423,6 +3578,7 @@ class TestUsuariosPagina:
 
     pytestmark = pytest.mark.integracion
 
+    # Verifica que la pagina se crea sin errores.
     def test_crear_pagina(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que la pagina se crea sin errores."""
 
@@ -3435,6 +3591,7 @@ class TestUsuariosPagina:
         assert label is not None
         assert "Usuarios" in label.text()
 
+    # Verifica que los labels del perfil existen.
     def test_widgets_perfil_existen(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que los labels del perfil existen."""
 
@@ -3446,6 +3603,7 @@ class TestUsuariosPagina:
         assert hasattr(pagina, "lbl_rol")
         assert "Administrador" in pagina.lbl_nombre.text()
 
+    # Verifica que los botones de perfil existen.
     def test_botones_perfil_existen(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que los botones de perfil existen."""
 
@@ -3456,6 +3614,7 @@ class TestUsuariosPagina:
         assert "Editar Perfil" in botones
         assert "Cambiar Contraseña" in botones
 
+    # Verifica que la tabla de usuarios se crea correctamente.
     def test_tabla_usuarios_vacia(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -3471,6 +3630,7 @@ class TestUsuariosPagina:
         assert hasattr(pagina, "tabla_usuarios")
         assert pagina.tabla_usuarios.rowCount() == 0
 
+    # Verifica que los botones de admin existen.
     def test_botones_admin_existen(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """Verifica que los botones de admin existen."""
 
@@ -3482,6 +3642,7 @@ class TestUsuariosPagina:
         assert "Resetear Contraseña" in botones
         assert "Activar / Desactivar" in botones
 
+    # Verifica que resetear sin seleccionar muestra error.
     def test_seleccion_sin_usuario_muestra_error(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -3503,6 +3664,7 @@ class TestUsuariosPagina:
 
         mock_warning.assert_called_once()
 
+    # Verifica que activar/desactivar sin seleccionar muestra error.
     def test_toggle_sin_seleccion_muestra_error(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -3530,6 +3692,7 @@ class TestVentanaPrincipalAdmin:
 
     pytestmark = pytest.mark.sistema
 
+    # Usuario con rol ADMINISTRADOR.
     @pytest.fixture()
     def usuario_real_admin(self) -> Usuario:
         """Usuario con rol ADMINISTRADOR."""
@@ -3542,6 +3705,7 @@ class TestVentanaPrincipalAdmin:
             rol="ADMINISTRADOR",
         )
 
+    # Verifica que el menu incluye 'Usuarios' para admin.
     def test_menu_incluye_usuarios(self, qtbot: QtBot, usuario_real_admin: Usuario) -> None:
         """Verifica que el menu incluye 'Usuarios' para admin."""
         ventana = VentanaPrincipal(usuario_real_admin)
@@ -3556,6 +3720,7 @@ class TestVentanaPrincipalAdmin:
             nombres.append(item.text())
         assert "Usuarios" in nombres
 
+    # Verifica que hay 5 paginas para admin.
     def test_paginas_con_admin(self, qtbot: QtBot, usuario_real_admin: Usuario) -> None:
         """Verifica que hay 5 paginas para admin."""
         ventana = VentanaPrincipal(usuario_real_admin)
@@ -3563,6 +3728,7 @@ class TestVentanaPrincipalAdmin:
 
         assert ventana.paginas.count() == 5
 
+    # El admin ve Dashboard: Ventas en la fila 1 y el timer activo.
     def test_admin_indice_ventas_y_timer_activo(
         self, qtbot: QtBot, usuario_real_admin: Usuario
     ) -> None:
@@ -3573,6 +3739,7 @@ class TestVentanaPrincipalAdmin:
         assert ventana._indice_ventas == 1
         assert ventana._timer_dashboard.isActive() is True
 
+    # El VENDEDOR solo ve "Ventas" (sin Usuarios ni otras paginas).
     def test_menu_sin_usuarios_para_vendedor(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """El VENDEDOR solo ve "Ventas" (sin Usuarios ni otras paginas)."""
         ventana = VentanaPrincipal(usuario_admin)
@@ -3593,6 +3760,7 @@ class TestVentasPagina:
 
     pytestmark = pytest.mark.integracion
 
+    # Construye una VentasPagina con ventas simuladas y controlador mock.
     def _pagina(self, session: Session, rol: str, ventas: list[Venta]) -> VentasPagina:
         """Construye una VentasPagina con ventas simuladas y controlador mock."""
         usuario = Usuario(
@@ -3613,6 +3781,7 @@ class TestVentasPagina:
         )
         return pagina
 
+    # Crea una venta de prueba con los campos del historial.
     @staticmethod
     def _venta(idventa: int, factura: str, estado: str) -> Venta:
         return Venta(
@@ -3630,6 +3799,7 @@ class TestVentasPagina:
             estado=estado,
         )
 
+    # Admin ve la columna Acciones con botones 🚫; el cajero NO.
     def test_columna_acciones_solo_para_administrador(self, qtbot: QtBot, session: Session) -> None:
         """Admin ve la columna Acciones con botones 🚫; el cajero NO."""
         ventas = [self._venta(1, "F-0001", "COMPLETADA")]
@@ -3649,6 +3819,7 @@ class TestVentasPagina:
         assert pagina_cajera.tabla_ventas.columnCount() == 6
         assert pagina_cajera.tabla_ventas.cellWidget(0, 6) is None
 
+    # Una venta ya anulada no puede anularse dos veces (boton disabled).
     @pytest.mark.aceptacion
     def test_boton_anular_fila_deshabilitado_en_venta_anulada(
         self, qtbot: QtBot, session: Session
@@ -3669,6 +3840,7 @@ class TestVentasPagina:
         assert fila_anulada is not None
         assert not fila_anulada.isEnabled()
 
+    # Cancelar el dialogo de anulacion NO anula la venta.
     def test_anular_fila_cancelada_no_llama_al_controlador(
         self,
         qtbot: QtBot,
@@ -3696,6 +3868,7 @@ class TestVentasPagina:
 
         pagina.controlador_ventas.anular.assert_not_called()
 
+    # Diálogo aceptado: anular() recibe el motivo y quien autoriza.
     @pytest.mark.aceptacion
     def test_anular_fila_con_motivo_llama_al_controlador(
         self,
@@ -3743,6 +3916,7 @@ class TestVentasPagina:
             anulado_por="jefa",
         )
 
+    # Si anular() lanza un error inesperado, se muestra dialogo critico.
     def test_anular_fila_muestra_error_si_el_controlador_falla(
         self,
         qtbot: QtBot,
@@ -3783,6 +3957,7 @@ class TestVentasPagina:
             mock_registrar,
         )
 
+        # Funcion que lanza un RuntimeError para forzar el fallo.
         def _fallar(*args: object, **kwargs: object) -> None:
             raise RuntimeError("error inesperado de prueba")
 
@@ -3797,6 +3972,7 @@ class TestVentasPagina:
         mensaje = mock_critico.call_args.args[2]
         assert "No se pudo anular" in mensaje
 
+    # Columna Total de Venta: UNA cantidad clara en Bs (pago no-USD).
     def test_tabla_muestra_total_bs_una_cantidad(self, qtbot: QtBot, session: Session) -> None:
         """Columna Total de Venta: UNA cantidad clara en Bs (pago no-USD)."""
         ventas = [self._venta(1, "F-0001", "COMPLETADA")]
@@ -3817,6 +3993,7 @@ class TestVentasPagina:
         assert labels[0].text() == formatear_bs(Decimal("100.00"))
         assert labels[0].property("rol") == "total_tabla_bs"
 
+    # Venta pagada SOLO en Efectivo USD → la celda muestra el USD.
     @pytest.mark.aceptacion
     def test_tabla_total_usd_solo_con_efectivo_usd(self, qtbot: QtBot, session: Session) -> None:
         """Venta pagada SOLO en Efectivo USD → la celda muestra el USD."""
@@ -3832,6 +4009,7 @@ class TestVentasPagina:
         assert len(labels) == 1
         assert labels[0].text() == formatear_usd(Decimal("2.50"))
 
+    # Pago mixto → la celda muestra el total en Bolivares (no USD).
     @pytest.mark.aceptacion
     def test_tabla_total_mixto_muestra_bs(self, qtbot: QtBot, session: Session) -> None:
         """Pago mixto → la celda muestra el total en Bolivares (no USD)."""
@@ -3849,6 +4027,7 @@ class TestVentasPagina:
         assert labels[0].text() == formatear_bs(Decimal("100.00"))
         assert labels[0].property("rol") == "total_tabla_bs"
 
+    # Solo un metodo con monto > 0 → su nombre legible.
     def test_metodo_pago_solo_con_efectivo_usd(self, qtbot: QtBot, session: Session) -> None:
         """Solo un metodo con monto > 0 → su nombre legible."""
         venta = self._venta(1, "F-0001", "COMPLETADA")
@@ -3866,6 +4045,7 @@ class TestVentasPagina:
         assert item.text() == "Efectivo USD"
         assert item.toolTip() == ""
 
+    # Dos metodos → 'Pago Mixto (A + B)' en la celda y en el tooltip.
     @pytest.mark.aceptacion
     def test_metodo_pago_resumen_mixto_corto(self, qtbot: QtBot, session: Session) -> None:
         """Dos metodos → 'Pago Mixto (A + B)' en la celda y en el tooltip."""
@@ -3881,6 +4061,7 @@ class TestVentasPagina:
         assert item.text() == "Pago Mixto (Efectivo Bs + Pago Movil)"
         assert item.toolTip() == "Pago Mixto (Efectivo Bs + Pago Movil)"
 
+    # Tres o mas metodos → celda 'Pago Mixto' + tooltip con detalle.
     @pytest.mark.aceptacion
     def test_metodo_pago_mixto_largo_resume_con_tooltip(
         self, qtbot: QtBot, session: Session
@@ -3900,6 +4081,7 @@ class TestVentasPagina:
         assert item.text() == "Pago Mixto"
         assert item.toolTip() == ("Pago Mixto (Efectivo Bs + Efectivo USD + Tarjeta + Pago Movil)")
 
+    # Venta sin pagos registrados (ventas viejas) → '-' en la celda.
     def test_metodo_pago_sin_desglose_muestra_guion(self, qtbot: QtBot, session: Session) -> None:
         """Venta sin pagos registrados (ventas viejas) → '-' en la celda."""
         venta = self._venta(1, "F-0001", "COMPLETADA")
@@ -3916,6 +4098,7 @@ class TestVentasPagina:
         assert item is not None
         assert item.text() == "-"
 
+    # Se puede abrir la caja con fondo inicial 0 (dialogo ya impide negativos).
     @pytest.mark.aceptacion
     def test_abrir_caja_con_fondo_cero(
         self, qtbot: QtBot, session: Session, monkeypatch: pytest.MonkeyPatch
@@ -3955,12 +4138,14 @@ class TestDialogoAnulacion:
 
     pytestmark = pytest.mark.unitarias
 
+    # Crea un DialogoAnulacion de prueba con el servicio mockeado.
     @staticmethod
     def _dialogo(qtbot: QtBot, auth_service: MagicMock) -> DialogoAnulacion:
         dialogo = DialogoAnulacion(auth_service=auth_service, numero_factura="F-0001")
         qtbot.addWidget(dialogo)
         return dialogo
 
+    # Sin motivo, el boton Anular Venta esta deshabilitado.
     def test_motivo_vacio_deshabilita_anular(self, qtbot: QtBot) -> None:
         """Sin motivo, el boton Anular Venta esta deshabilitado."""
         dialogo = DialogoAnulacion(auth_service=MagicMock())
@@ -3974,6 +4159,7 @@ class TestDialogoAnulacion:
         dialogo.txt_motivo.clear()
         assert not dialogo.btn_anular.isEnabled()
 
+    # Usuario/contrasena mal: aviso generico y el dialogo NO se cierra.
     @pytest.mark.aceptacion
     def test_credenciales_incorrectas_no_cierran_el_dialogo(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -4000,6 +4186,7 @@ class TestDialogoAnulacion:
         assert dialogo.usuario_autorizante() is None
         assert dialogo.result() != QDialog.DialogCode.Accepted
 
+    # Un VENDEDOR no tiene permisos para anular (rol sera credencial).
     @pytest.mark.aceptacion
     def test_usuario_no_administrador_no_puede_anular(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -4032,6 +4219,7 @@ class TestDialogoAnulacion:
         assert "Solo un administrador" in mensaje
         assert dialogo.usuario_autorizante() is None
 
+    # Con credenciales validas de admin, el dialogo se cierra con exito.
     @pytest.mark.aceptacion
     def test_admin_valido_acepta_con_motivo(self, qtbot: QtBot) -> None:
         """Con credenciales validas de admin, el dialogo se cierra con exito."""
@@ -4055,6 +4243,7 @@ class TestDialogoAnulacion:
         assert dialogo.motivo() == "doble facturacion"
         assert dialogo.usuario_autorizante() is admin
 
+    # Cancelar el dialogo deja motivo y autorizante vacios.
     def test_cancelar_no_registra_autorizacion(self, qtbot: QtBot) -> None:
         """Cancelar el dialogo deja motivo y autorizante vacios."""
         dialogo = DialogoAnulacion(auth_service=MagicMock())
@@ -4072,6 +4261,7 @@ class TestCierreCajaPagina:
 
     pytestmark = pytest.mark.integracion
 
+    # Flujo completo: arqueo aceptado y la caja queda CERRADA.
     @pytest.mark.aceptacion
     def test_boton_cerrar_caja_cierra_la_caja(
         self,
@@ -4111,6 +4301,7 @@ class TestCierreCajaPagina:
         mensaje = mock_informacion.call_args.args[2]
         assert "cerrada correctamente" in mensaje
 
+    # Si el usuario cancela el primer dialogo, la caja sigue ABIERTA.
     @pytest.mark.aceptacion
     def test_cancelar_el_arqueo_no_cierra_la_caja(
         self,
@@ -4150,6 +4341,7 @@ class TestCierreCajaPagina:
         mock_informacion.assert_not_called()
         mock_critico.assert_not_called()
 
+    # Cerrar Caja sin caja abierta: aviso claro, sin error.
     def test_cerrar_sin_caja_abierta_muestra_aviso(
         self,
         qtbot: QtBot,
@@ -4178,6 +4370,7 @@ class TestCierreCajaPagina:
         mensaje = mock_aviso.call_args.args[2]
         assert "No hay caja abierta" in mensaje
 
+    # El reporte se regenera APARTE: su fallo no debe parecer un fallo del cierre.
     @pytest.mark.aceptacion
     def test_si_el_reporte_falla_la_caja_ya_quedo_cerrada(
         self,
@@ -4236,6 +4429,7 @@ class TestSalidaConCajaAbierta:
 
     pytestmark = pytest.mark.sistema
 
+    # Sin caja abierta la ventana se cierra sin preguntar nada.
     def test_salida_normal_sin_caja_abierta(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4249,6 +4443,7 @@ class TestSalidaConCajaAbierta:
 
         assert evento.isAccepted()
 
+    # Con caja abierta y respuesta No, se cancela la salida y se navega a Ventas.
     def test_con_caja_abierta_ir_a_cerrar_cancela_la_salida(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4273,6 +4468,7 @@ class TestSalidaConCajaAbierta:
         assert ventana.paginas.currentIndex() == 0
         assert ventana.paginas.currentWidget() is ventana.pagina_ventas
 
+    # Forzar la salida exige confirmar DOS veces (Si + Si).
     def test_fuerza_la_salida_con_doble_confirmacion(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4296,6 +4492,7 @@ class TestSalidaConCajaAbierta:
         assert evento.isAccepted()
         assert mock_question.call_count == 2
 
+    # Primera respuesta Si pero segunda No: la salida se cancela.
     def test_cancela_en_la_segunda_confirmacion(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4326,11 +4523,13 @@ class TestSalidaConCajaAbierta:
         assert mock_question.call_count == 2
         assert not evento.isAccepted()
 
+    # Si consultar la caja falla, NO bloquear la salida (evita quedar atrapado).
     def test_error_al_consultar_caja_no_bloquea_la_salida(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Si consultar la caja falla, NO bloquear la salida (evita quedar atrapado)."""
 
+        # Simula que la consulta de caja falla.
         def _fallar_consulta_caja() -> object:
             raise RuntimeError("caja rota")
 
@@ -4357,6 +4556,7 @@ class TestSalidaConCajaAbierta:
 class TestCerrarSesion:
     pytestmark = pytest.mark.sistema
 
+    # La cabecera lleva el boton 'Cerrar Sesion' con rol cabecera_salir.
     def test_boton_existe_en_la_cabecera(self, qtbot: QtBot, usuario_admin: Usuario) -> None:
         """La cabecera lleva el boton 'Cerrar Sesion' con rol cabecera_salir."""
         ventana = VentanaPrincipal(usuario_admin)
@@ -4366,6 +4566,7 @@ class TestCerrarSesion:
         assert ventana.btn_cerrar_sesion.text() == "Cerrar Sesion"
         assert ventana.btn_cerrar_sesion.property("rol") == "cabecera_salir"
 
+    # Caja cerrada: el cierre se autoriza sin preguntar y se emite la.
     def test_logout_sin_caja_abierta_emite_senal_y_cierra(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4387,6 +4588,7 @@ class TestCerrarSesion:
         mock_question.assert_not_called()
         assert ventana._cierre_autorizado is True
 
+    # El clic real en el boton ejecuta el mismo flujo (caja cerrada).
     def test_logout_clic_boton_emite_senal(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4401,6 +4603,7 @@ class TestCerrarSesion:
 
         receptor.assert_called_once()
 
+    # Caja abierta y 'No': se cancela el logout y se navega a Ventas.
     def test_logout_con_caja_abierta_y_no_redirige_a_ventas(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4426,6 +4629,7 @@ class TestCerrarSesion:
         assert ventana.paginas.currentIndex() == 0
         assert ventana.paginas.currentWidget() is ventana.pagina_ventas
 
+    # Admin: caja abierta y 'No' navega a Ventas en la fila 1 del menu.
     def test_logout_con_caja_abierta_y_no_redirige_a_ventas_admin(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4460,6 +4664,7 @@ class TestCerrarSesion:
         assert ventana.paginas.currentIndex() == 1
         assert ventana.paginas.currentWidget() is ventana.pagina_ventas
 
+    # Caja abierta y 'Si + Si': se autoriza el logout.
     def test_logout_con_caja_abierta_y_doble_confirmacion_emite(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4484,6 +4689,7 @@ class TestCerrarSesion:
         receptor.assert_called_once()
         assert mock_question.call_count == 2
 
+    # Caja abierta y 'Si + No': el logout se cancela en la 2a confirmacion.
     def test_logout_con_caja_abierta_si_y_no_no_emite(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4515,6 +4721,7 @@ class TestCerrarSesion:
         receptor.assert_not_called()
         assert ventana._cierre_autorizado is False
 
+    # Tras autorizar el logout, el close() resultante NO repregunta.
     def test_closeevent_tras_logout_no_vuelve_a_preguntar(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4543,6 +4750,7 @@ class TestCerrarSesion:
 class TestRefrescoPostVenta:
     pytestmark = pytest.mark.integracion
 
+    # Ventana con caja abierta y FormularioVenta reemplazado por un mock.
     def _ventana_con_pos_falso(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
     ) -> VentanaPrincipal:
@@ -4562,6 +4770,7 @@ class TestRefrescoPostVenta:
         )
         return ventana
 
+    # Tras cobrar (Accepted) se refresca la tabla de ventas y la caja.
     @pytest.mark.aceptacion
     def test_venta_aceptada_refresca_tabla_y_estado_de_caja(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
@@ -4581,6 +4790,7 @@ class TestRefrescoPostVenta:
         spy_indicador.assert_called_once_with()
         mock_warning.assert_not_called()
 
+    # El refresco no puede fallar en silencio: se registra y se avisa.
     @pytest.mark.aceptacion
     def test_fallo_de_refresco_se_registra_y_avisa(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
@@ -4607,6 +4817,7 @@ class TestRefrescoPostVenta:
         assert titulo == "Refresco"
         assert "La venta se registro correctamente" in mensaje
 
+    # Si el POS se cierra sin cobrar (Rejected) no hay refresco.
     @pytest.mark.aceptacion
     def test_venta_cancelada_no_refresca(
         self, qtbot: QtBot, usuario_admin: Usuario, monkeypatch: pytest.MonkeyPatch
@@ -4638,6 +4849,7 @@ class TestDialogoFactura:
 
     pytestmark = pytest.mark.integracion
 
+    # Crea un item de la factura de prueba.
     @staticmethod
     def _item(
         nombre: str = "Premium",
@@ -4652,6 +4864,7 @@ class TestDialogoFactura:
             "subtotal": Decimal("426.75"),
         }
 
+    # Crea un pago de la factura de prueba.
     @staticmethod
     def _pago(
         monto: str = "100.00",
@@ -4668,6 +4881,7 @@ class TestDialogoFactura:
             "referencia": referencia,
         }
 
+    # Crea un DialogoFactura de prueba con datos fijos.
     @staticmethod
     def _dialogo() -> DialogoFactura:
         return DialogoFactura(
@@ -4681,6 +4895,7 @@ class TestDialogoFactura:
             pagos=[TestDialogoFactura._pago()],
         )
 
+    # Prueba que el HTML de la factura trae los datos basicos.
     def test_generar_html_contiene_datos_basicos(self) -> None:
         html_doc = generar_html_factura(
             numero_factura="F-0001",
@@ -4703,6 +4918,7 @@ class TestDialogoFactura:
         assert "Efectivo Bs" in html_doc
         assert "Gracias por su compra" in html_doc
 
+    # La factura imprime el peso en palabras, no el crudo en kg.
     @pytest.mark.parametrize(
         ("cantidad", "esperado"),
         [
@@ -4726,6 +4942,7 @@ class TestDialogoFactura:
         assert f"<td>{esperado}</td>" in html_doc
         assert f"<td>{cantidad}</td>" not in html_doc
 
+    # Una fila antigua con tipo_venta GRAMOS tambien se lee en kg/g.
     def test_generar_html_muestra_el_peso_legacy_gramos(self) -> None:
         """Una fila antigua con tipo_venta GRAMOS tambien se lee en kg/g."""
         html_doc = generar_html_factura(
@@ -4740,6 +4957,7 @@ class TestDialogoFactura:
         )
         assert "<td>250 g</td>" in html_doc
 
+    # Prueba que el HTML escapa textos y maneja nulos.
     def test_generar_html_escapa_textos_y_nulos(self) -> None:
         html_doc = generar_html_factura(
             numero_factura=None,
@@ -4768,6 +4986,7 @@ class TestDialogoFactura:
         assert "Tasa usada" not in html_doc
         assert "Equivalente USD" not in html_doc
 
+    # Prueba que el vuelto solo se muestra si existe.
     def test_generar_html_vuelto_visible_solo_si_hay(self) -> None:
         html_con_vuelto = generar_html_factura(
             numero_factura="F-0001",
@@ -4794,6 +5013,7 @@ class TestDialogoFactura:
         assert '<td align="right">-</td>' in html_sin_vuelto
         assert "0,20" not in html_sin_vuelto
 
+    # Prueba que el dialogo muestra preview y botones.
     def test_dialogo_muestra_preview_con_botones(self, qtbot: QtBot) -> None:
         dialogo = self._dialogo()
         qtbot.addWidget(dialogo)
@@ -4806,6 +5026,7 @@ class TestDialogoFactura:
         assert dialogo.btn_pdf.property("rol") == "secundario"
         assert dialogo.btn_cerrar.text() == "Cerrar"
 
+    # Prueba que Guardar PDF escribe un archivo real.
     @pytest.mark.aceptacion
     def test_guardar_pdf_escribe_archivo_real(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -4825,6 +5046,7 @@ class TestDialogoFactura:
         with destino.open("rb") as f:
             assert f.read(4) == b"%PDF"
 
+    # Prueba que cancelar el PDF no crea archivos.
     def test_guardar_pdf_cancelado_no_crea_nada(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
@@ -4839,6 +5061,7 @@ class TestDialogoFactura:
 
         assert not list(tmp_path.iterdir())
 
+    # Prueba que imprimir envia el documento a la impresora.
     def test_imprimir_envia_documento_a_la_impresora(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4863,6 +5086,7 @@ class TestDialogoFactura:
         dialogo_impresion.exec.assert_called_once()
         doc_mock.print.assert_called_once_with(printer_mock)
 
+    # Prueba que cancelar la impresion no envia nada.
     def test_imprimir_cancelado_envia_nada(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4889,23 +5113,28 @@ class TestDialogoFactura:
 
 
 class _ResultadoVacio:
+    # Devuelve una lista vacia (sin resultados).
     def all(self) -> list:
         return []
 
 
 class _SesionVacia:
+    # Entra en el contexto de la sesion vacia.
     def __enter__(self) -> _SesionVacia:
         return self
 
+    # Cierra el contexto de la sesion sin efectos.
     def __exit__(self, *args: object) -> None:
         return None
 
+    # Ejecuta cualquier consulta y devuelve un resultado vacio.
     def exec(self, _stmt: object) -> _ResultadoVacio:
         return _ResultadoVacio()
 
 
 @pytest.mark.integracion
 class TestDashboardRefrescoBcv:
+    # El refresco del dashboard no toca la BD real en estos tests.
     @pytest.fixture(autouse=True)
     def _sin_bd_dashboard(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """El refresco del dashboard no toca la BD real en estos tests."""
@@ -4914,11 +5143,13 @@ class TestDashboardRefrescoBcv:
             _SesionVacia,
         )
 
+    # Reemplaza _iniciar_fetch_bcv por un espia que marca el fetch activo.
     @staticmethod
     def _espia_fetch(monkeypatch: pytest.MonkeyPatch) -> list:
         """Reemplaza _iniciar_fetch_bcv por un espia que marca el fetch activo."""
         llamadas: list = []
 
+        # Espia el fetch BCV y marca el estado de descarga activa.
         def _espia(self: DashboardPagina) -> None:
             llamadas.append(True)
             self._bcv_fetching = True
@@ -4926,6 +5157,7 @@ class TestDashboardRefrescoBcv:
         monkeypatch.setattr(DashboardPagina, "_iniciar_fetch_bcv", _espia)
         return llamadas
 
+    # Crea un DashboardPagina con un controlador de tasas mockeado.
     @staticmethod
     def _pagina(qtbot: QtBot, tasa: object) -> DashboardPagina:
         controlador = MagicMock()
@@ -4934,6 +5166,7 @@ class TestDashboardRefrescoBcv:
         qtbot.addWidget(pagina)
         return pagina
 
+    # Sin tasa BCV activa, refrescar() consulta aunque la ultima.
     def test_refrescar_sin_tasa_de_hoy_consulta(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4949,6 +5182,7 @@ class TestDashboardRefrescoBcv:
         assert len(llamadas) == 1
         assert pagina._bcv_fetching is True
 
+    # Con la tasa de hoy presente y SIN intervalo cumplido, refrescar().
     def test_refrescar_dentro_del_intervalo_no_reconsulta(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -4967,6 +5201,7 @@ class TestDashboardRefrescoBcv:
         pagina.refrescar()
         assert len(llamadas) == 1
 
+    # Tras el intervalo (10 min), refrescar() re-consulta aunque la.
     def test_refrescar_tras_intervalo_reconsulta(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -24,6 +24,7 @@ from .widgets import TablaProductos, TituloPagina
 class UsuariosPagina(QWidget):
     """Pagina de gestion de usuarios (solo admin)."""
 
+    # Construye la pagina de usuarios con perfil y CRUD.
     def __init__(self, usuario_actual: Usuario) -> None:
         super().__init__()
 
@@ -44,6 +45,7 @@ class UsuariosPagina(QWidget):
 
         layout.addStretch()
 
+    # Muestra los datos del usuario actual con boton para editar.
     def _crear_seccion_perfil(self) -> QWidget:
         """Muestra los datos del usuario actual con boton para editar."""
         contenedor = QWidget()
@@ -86,6 +88,7 @@ class UsuariosPagina(QWidget):
 
         return contenedor
 
+    # Tabla con los otros usuarios y acciones de admin.
     def _crear_seccion_otros_usuarios(self) -> QWidget:
         """Tabla con los otros usuarios y acciones de admin."""
         contenedor = QWidget()
@@ -128,6 +131,7 @@ class UsuariosPagina(QWidget):
 
         return contenedor
 
+    # Abre el dialogo de edicion de perfil.
     def _editar_perfil(self) -> None:
         """Abre el dialogo de edicion de perfil."""
         dialogo = FormularioCambioContrasena(
@@ -137,6 +141,7 @@ class UsuariosPagina(QWidget):
         if dialogo.exec() == QDialog.DialogCode.Accepted:
             self._refrescar_perfil()
 
+    # Abre el dialogo de cambio de contrasena.
     def _cambiar_contrasena(self) -> None:
         """Abre el dialogo de cambio de contrasena."""
         dialogo = FormularioCambioContrasena(
@@ -145,12 +150,14 @@ class UsuariosPagina(QWidget):
         )
         dialogo.exec()
 
+    # Abre el dialogo para crear un nuevo usuario.
     def _crear_usuario(self) -> None:
         """Abre el dialogo para crear un nuevo usuario."""
         dialogo = DialogoCrearUsuario(parent=self)
         if dialogo.exec() == QDialog.DialogCode.Accepted:
             self._cargar_tabla()
 
+    # Resetea la contrasena del usuario seleccionado.
     def _resetear_contrasena(self) -> None:
         """Resetea la contrasena del usuario seleccionado."""
         fila = self.tabla_usuarios.currentRow()
@@ -173,6 +180,7 @@ class UsuariosPagina(QWidget):
         )
         dialogo.exec()
 
+    # Activa o desactiva el usuario seleccionado.
     def _toggle_activo(self) -> None:
         """Activa o desactiva el usuario seleccionado."""
         fila = self.tabla_usuarios.currentRow()
@@ -198,6 +206,7 @@ class UsuariosPagina(QWidget):
 
         self._cargar_tabla()
 
+    # Carga todos los usuarios excepto el actual.
     def _cargar_tabla(self) -> None:
         """Carga todos los usuarios excepto el actual."""
         todos = self.auth_service.listar_usuarios()
@@ -212,12 +221,14 @@ class UsuariosPagina(QWidget):
             estado = "Activo" if user.activo else "Inactivo"
             self.tabla_usuarios.setItem(fila, 4, QTableWidgetItem(estado))
 
+    # Refresca los labels del perfil con datos actualizados.
     def _refrescar_perfil(self) -> None:
         """Refresca los labels del perfil con datos actualizados."""
         self.lbl_nombre.setText(f"Nombre: {self.usuario_actual.nombre_completo or '-'}")
         self.lbl_usuario.setText(f"Usuario: {self.usuario_actual.usuario}")
         self.lbl_rol.setText(f"Rol: {self.usuario_actual.rol}")
 
+    # Recarga datos (llamado desde VentanaPrincipal si es necesario).
     def cargar(self) -> None:
         """Recarga datos (llamado desde VentanaPrincipal si es necesario)."""
         self._cargar_tabla()
@@ -228,6 +239,7 @@ class UsuariosPagina(QWidget):
 class DialogoCrearUsuario(QDialog):
     """Dialogo simple para crear un usuario."""
 
+    # Monta el dialogo para crear un usuario.
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.auth_service = AuthService()
@@ -274,6 +286,7 @@ class DialogoCrearUsuario(QDialog):
 
         layout.addLayout(btn_layout)
 
+    # Crea el usuario con los datos del formulario y avisa del resultado.
     def _crear(self) -> None:
         nombre = self.txt_nombre_completo.text().strip()
         usuario = self.txt_usuario.text().strip()
@@ -304,6 +317,7 @@ class DialogoCrearUsuario(QDialog):
 class DialogoResetContrasena(QDialog):
     """Dialogo para que el admin resetee la contrasena de otro usuario."""
 
+    # Monta el dialogo de cambio de contrasena.
     def __init__(
         self,
         parent: QWidget | None = None,
@@ -345,6 +359,7 @@ class DialogoResetContrasena(QDialog):
 
         layout.addLayout(btn_layout)
 
+    # Guarda la nueva contrasena tras validar los campos.
     def _guardar(self) -> None:
         nueva = self.txt_nueva.text()
         if not nueva:

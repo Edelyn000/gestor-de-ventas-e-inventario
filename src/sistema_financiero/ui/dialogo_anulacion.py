@@ -20,6 +20,7 @@ from ..utils.logging_setup import registrar_excepcion
 class DialogoAnulacion(QDialog):
     """Solicita motivo de anulacion + credenciales de un administrador."""
 
+    # Configura el dialogo de doble autorizacion para anular una venta.
     def __init__(
         self,
         parent: QWidget | None = None,
@@ -84,10 +85,12 @@ class DialogoAnulacion(QDialog):
 
         layout.addLayout(btn_layout)
 
+    # El motivo es obligatorio para poder anular.
     def _actualizar_estado_boton(self) -> None:
         """El motivo es obligatorio para poder anular."""
         self.btn_anular.setEnabled(bool(self.txt_motivo.text().strip()))
 
+    # Valida credenciales de administrador y cierra con exito si pasan.
     def _validar(self) -> None:
         """Valida credenciales de administrador y cierra con exito si pasan."""
         motivo = self.txt_motivo.text().strip()
@@ -132,10 +135,12 @@ class DialogoAnulacion(QDialog):
         self._motivo = motivo
         self.accept()
 
+    # Motivo de anulacion validado (vacio si el dialogo fue cancelado).
     def motivo(self) -> str:
         """Motivo de anulacion validado (vacio si el dialogo fue cancelado)."""
         return self._motivo
 
+    # Administrador que autorizo la anulacion (None si se cancelo).
     def usuario_autorizante(self) -> Usuario | None:
         """Administrador que autorizo la anulacion (None si se cancelo)."""
         return self._usuario_autorizante

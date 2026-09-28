@@ -12,6 +12,7 @@ from sistema_financiero.core.tasa_cambio_service import TasaCambioService
 from sistema_financiero.core.venta_controller import VentaController
 
 
+# Crea una BD SQLite en memoria y todas las tablas para pruebas.
 @pytest.fixture()
 def session() -> Generator[Session]:
     """Crea una BD SQLite en memoria y todas las tablas para pruebas."""
@@ -26,36 +27,42 @@ def session() -> Generator[Session]:
         yield sesion
 
 
+# Devuelve un ProductoController listo para usar.
 @pytest.fixture()
 def producto_controller() -> ProductoController:
     """Devuelve un ProductoController listo para usar."""
     return ProductoController()
 
 
+# Devuelve un InventarioService listo para usar.
 @pytest.fixture()
 def inventario_service() -> InventarioService:
     """Devuelve un InventarioService listo para usar."""
     return InventarioService()
 
 
+# Devuelve un AuthService listo para usar.
 @pytest.fixture()
 def auth_service() -> AuthService:
     """Devuelve un AuthService listo para usar."""
     return AuthService()
 
 
+# Devuelve un TasaCambioService listo para usar.
 @pytest.fixture()
 def tasa_cambio_service() -> TasaCambioService:
     """Devuelve un TasaCambioService listo para usar."""
     return TasaCambioService()
 
 
+# Devuelve un VentaController listo para usar.
 @pytest.fixture()
 def venta_controller() -> VentaController:
     """Devuelve un VentaController listo para usar."""
     return VentaController()
 
 
+# Devuelve un ReporteService listo para usar.
 @pytest.fixture()
 def reporte_service() -> ReporteService:
     """Devuelve un ReporteService listo para usar."""

@@ -109,6 +109,7 @@ _VARIANTES_UNIDAD: dict[str, str] = {
 }
 
 
+# Normaliza una unidad a su forma canonica del combo (UNIDAD/KILO).
 def normalizar_unidad(unidad: str) -> str:
     """Normaliza una unidad a su forma canonica del combo (UNIDAD/KILO)."""
     clave = (unidad or "").strip().upper()
@@ -117,6 +118,7 @@ def normalizar_unidad(unidad: str) -> str:
     return unidad or TIPO_VENTA_UNIDAD
 
 
+# Deduce el tipo de venta de un producto a partir de su unidad de medida.
 def deducir_tipo_venta(unidad: str) -> str:
     """Deduce el tipo de venta de un producto a partir de su unidad de medida."""
     unidad_normal = (unidad or "").strip().upper()
@@ -125,6 +127,7 @@ def deducir_tipo_venta(unidad: str) -> str:
     return TIPO_VENTA_UNIDAD
 
 
+# True si el tipo de venta es por PESO (se captura Kg + g).
 def es_medida(tipo_venta: str | None) -> bool:
     """True si el tipo de venta es por PESO (se captura Kg + g)."""
     return (tipo_venta or "").strip().upper() in (
@@ -149,6 +152,7 @@ PASOS_PESO_RAPIDO: tuple[Decimal, ...] = (
 )
 
 
+# Convierte a Decimal tolerando None/str/int/float (0.
 def _a_decimal(valor: Decimal | int | float | str | None) -> Decimal:
     """Convierte a Decimal tolerando None/str/int/float (0.0 si no se puede)."""
     if valor is None:
@@ -161,6 +165,7 @@ def _a_decimal(valor: Decimal | int | float | str | None) -> Decimal:
         return Decimal("0")
 
 
+# Suma las casillas Kg y g del POS y devuelve KILOGRAMOS.
 def a_kg(
     kilos: Decimal | int | float | str | None, gramos: Decimal | int | float | str | None
 ) -> Decimal:
@@ -172,6 +177,7 @@ def a_kg(
     return peso
 
 
+# Parte un peso en kg en las casillas (Kg, g) del POS.
 def descomponer_kg(peso_kg: Decimal | int | float | None) -> tuple[int, int]:
     """Parte un peso en kg en las casillas (Kg, g) del POS. Inverso de a_kg()."""
     peso = _a_decimal(peso_kg).quantize(PESO_KG_GRANO, rounding=ROUND_HALF_UP)

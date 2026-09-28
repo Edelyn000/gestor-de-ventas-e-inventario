@@ -15,6 +15,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+# True si la columna ya existe (BD creada por create_db_and_tables).
 def _columna_existe(tabla: str, columna: str) -> bool:
     """True si la columna ya existe (BD creada por create_db_and_tables)."""
     inspector = Inspector.from_engine(engine)
@@ -24,6 +25,7 @@ def _columna_existe(tabla: str, columna: str) -> bool:
     return columna in nombres
 
 
+# Agrega la columna transferencia a las tres tablas.
 def upgrade() -> None:
     """Agrega la columna transferencia a las tres tablas."""
     # venta usa Numeric(10,2) en sus metodos de pago; caja y reportes usan (12,2).
@@ -44,6 +46,7 @@ def upgrade() -> None:
             )
 
 
+# Elimina la columna transferencia de las tres tablas.
 def downgrade() -> None:
     """Elimina la columna transferencia de las tres tablas."""
     for tabla in ("reportediario", "caja", "venta"):

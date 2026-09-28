@@ -13,6 +13,7 @@ from sistema_financiero.models import Usuario
 pytestmark = pytest.mark.unitarias
 
 
+# Prepara una BD en memoria y parchea obtener_sesion para usarla.
 @pytest.fixture()
 def _mock_obtener_sesion(mocker: pytest_mock.MockerFixture) -> Engine:
     engine = create_engine(
@@ -21,6 +22,7 @@ def _mock_obtener_sesion(mocker: pytest_mock.MockerFixture) -> Engine:
     )
     SQLModel.metadata.create_all(engine)
 
+    # Generador de sesiones sobre el engine de prueba.
     @contextmanager
     def _fake_obtener_sesion(session: Session | None = None) -> Generator[Session]:
         if session is not None:
@@ -36,6 +38,7 @@ def _mock_obtener_sesion(mocker: pytest_mock.MockerFixture) -> Engine:
     return engine
 
 
+# Prueba que el seed crea el usuario admin con su hash.
 def test_seed_admin_crea_admin(_mock_obtener_sesion: Engine) -> None:
     with Session(_mock_obtener_sesion) as session:
         assert session.exec(select(Usuario)).first() is None
@@ -51,6 +54,7 @@ def test_seed_admin_crea_admin(_mock_obtener_sesion: Engine) -> None:
         assert bcrypt.checkpw(b"admin", admin.contrasena.encode("utf-8"))
 
 
+# Prueba que el seed no duplica al admin si ya existe.
 def test_seed_admin_no_duplica(_mock_obtener_sesion: Engine) -> None:
     with Session(_mock_obtener_sesion) as session:
         admin = Usuario(

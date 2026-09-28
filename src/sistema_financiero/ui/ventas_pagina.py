@@ -37,6 +37,7 @@ class VentasPagina(QWidget):
 
     MAX_METODOS_LISTADOS = 3
 
+    # Construye la pagina de ventas con panel de caja, filtros y tabla.
     def __init__(
         self,
         usuario_actual: Usuario,
@@ -72,6 +73,7 @@ class VentasPagina(QWidget):
 
         self.cargar()
 
+    # Una celda del panel 2x2: etiqueta a la izquierda + caja con valor.
     def _crear_fila_panel_caja(
         self, grid: QGridLayout, fila: int, col: int, texto: str
     ) -> tuple[QLabel, QLabel]:
@@ -86,6 +88,7 @@ class VentasPagina(QWidget):
         grid.addWidget(valor, fila, col + 1)
         return etiqueta, valor
 
+    # Crea el panel Caja del Turno en 2x2 con botones.
     def _crear_panel_caja(self) -> QGroupBox:
         grupo = QGroupBox("Caja del Turno")
         grupo.setProperty("rol", "panel_caja")
@@ -125,6 +128,7 @@ class VentasPagina(QWidget):
 
         return grupo
 
+    # Refresca el estado, fondo, hora y observaciones de la caja.
     def _actualizar_estado_caja(self) -> None:
         caja = self.caja_service.obtener_caja_abierta()
 
@@ -158,6 +162,7 @@ class VentasPagina(QWidget):
             self.btn_cerrar_caja.setVisible(False)
             self.btn_cerrar_caja.setEnabled(False)
 
+    # Cambia el rol QSS de un widget y lo repinta (mismo patron del POS).
     @staticmethod
     def _set_rol(widget: QWidget, rol: str) -> None:
         """Cambia el rol QSS de un widget y lo repinta (mismo patron del POS)."""
@@ -167,6 +172,7 @@ class VentasPagina(QWidget):
             estilo.unpolish(widget)
             estilo.polish(widget)
 
+    # Pide el fondo y abre la caja del turno.
     def _on_abrir_caja(self) -> None:
         try:
             self.caja_service.validar_caja_abierta()
@@ -216,6 +222,7 @@ class VentasPagina(QWidget):
             registrar_excepcion(e, "_on_abrir_caja (abrir)")
             QMessageBox.critical(self, "Error inesperado", f"No se pudo abrir la caja.\n{e}")
 
+    # Recoge el arqueo, cierra la caja y regenera el reporte.
     def _on_cerrar_caja(self) -> None:
         try:
             caja = self.caja_service.obtener_caja_abierta()
@@ -274,6 +281,7 @@ class VentasPagina(QWidget):
                 f"La caja se cerro correctamente, pero no se pudo regenerar el reporte.\n{e}",
             )
 
+    # Pide el total en billetes de Bs para el arqueo.
     def _pedir_billetes_bs(self) -> Decimal | None:
         billetes_bs, ok_bs = QInputDialog.getDouble(
             self,
@@ -288,6 +296,7 @@ class VentasPagina(QWidget):
             return None
         return Decimal(str(billetes_bs))
 
+    # Pide el total en billetes de USD para el arqueo.
     def _pedir_billetes_usd(self) -> Decimal | None:
         billetes_usd, ok_usd = QInputDialog.getDouble(
             self,
@@ -302,6 +311,7 @@ class VentasPagina(QWidget):
             return None
         return Decimal(str(billetes_usd))
 
+    # Dialogo de observaciones: devuelve (aceptado, texto|None).
     def _pedir_observaciones_cierre(self) -> tuple[bool, str | None]:
         """Dialogo de observaciones: devuelve (aceptado, texto|None)."""
         dialogo = QDialog(self)
@@ -324,6 +334,7 @@ class VentasPagina(QWidget):
             return True, campo_obs.text().strip() or None
         return False, None
 
+    # Pide billetes Bs, billetes USD y observaciones.
     def _recoger_arqueo(self) -> tuple[Decimal, Decimal, str | None] | None:
         """Pide billetes Bs, billetes USD y observaciones. None si se cancela."""
         billetes_bs = self._pedir_billetes_bs()
@@ -340,6 +351,7 @@ class VentasPagina(QWidget):
 
         return billetes_bs, billetes_usd, observaciones
 
+    # Crea la barra con Nueva Venta y Refrescar.
     def _crear_barra_herramientas(self) -> QHBoxLayout:
         barra = QHBoxLayout()
         self.btn_nueva = QPushButton("+ Nueva Venta")
@@ -352,6 +364,7 @@ class VentasPagina(QWidget):
         barra.addStretch()
         return barra
 
+    # Crea el selector de fechas con su boton Filtrar.
     def _crear_filtro_fechas(self) -> QHBoxLayout:
         filtro = QHBoxLayout()
         self.selector_fechas = SelectorFecha(dias_por_defecto=30)
@@ -362,6 +375,7 @@ class VentasPagina(QWidget):
         filtro.addStretch()
         return filtro
 
+    # Metodos con monto > 0 de la venta, en orden de columnas.
     @staticmethod
     def _metodos_de_pago(venta: object) -> list[str]:
         """Metodos con monto > 0 de la venta, en orden de columnas."""
@@ -380,6 +394,7 @@ class VentasPagina(QWidget):
                 metodos.append(etiqueta)
         return metodos
 
+    # Celda 'Total de Venta': UNA cantidad clara.
     @staticmethod
     def _crear_celda_total(venta: object) -> QWidget:
         """Celda 'Total de Venta': UNA cantidad clara."""
@@ -400,6 +415,7 @@ class VentasPagina(QWidget):
 
         return contenedor
 
+    # (texto_celda, tooltip) para la columna 'Metodo de Pago'.
     @staticmethod
     def _resumen_metodo_pago(venta: object) -> tuple[str, str]:
         """(texto_celda, tooltip) para la columna 'Metodo de Pago'."""
@@ -414,6 +430,7 @@ class VentasPagina(QWidget):
             return "Pago Mixto", detalle
         return detalle, detalle
 
+    # Crea la tabla de ventas con columnas por rol.
     def _crear_tabla_ventas(self) -> TablaProductos:
         columnas = [
             ("ID", 50),
@@ -430,6 +447,7 @@ class VentasPagina(QWidget):
         tabla.cellDoubleClicked.connect(self._detalle_venta)
         return tabla
 
+    # Recarga el estado de caja y el historial del rango de fechas.
     def cargar(self) -> None:
         self._actualizar_estado_caja()
 
@@ -472,6 +490,7 @@ class VentasPagina(QWidget):
                 )
                 self.tabla_ventas.setCellWidget(fila, 6, btn_anular_fila)
 
+    # Anula la venta de la fila con doble autorizacion de admin.
     def _anular_venta(self, fila: int) -> None:
         item_id = self.tabla_ventas.item(fila, 0)
         if item_id is None:
@@ -519,6 +538,7 @@ class VentasPagina(QWidget):
                 f"No se pudo anular la venta.\n{e}",
             )
 
+    # Muestra el detalle de la venta seleccionada.
     def _detalle_venta(self) -> None:
         fila = self.tabla_ventas.currentRow()
         if fila < 0:

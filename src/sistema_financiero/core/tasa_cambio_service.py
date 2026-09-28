@@ -17,6 +17,7 @@ from ..utils.logging_setup import registrar_excepcion
 
 # TasaCambioService: Tasas de cambio BCV, manuales e historial.
 class TasaCambioService:
+    # Registra una nueva tasa de cambio para una fecha especifica.
     def registrar(
         self,
         fecha: date,
@@ -58,6 +59,7 @@ class TasaCambioService:
 
         return tasa
 
+    # Devuelve la tasa BCV activa mas reciente.
     def tasa_activa(
         self,
         db_session: Session | None = None,
@@ -74,6 +76,7 @@ class TasaCambioService:
             )
             return session.exec(stmt).first()
 
+    # Busca la tasa BCV registrada para una fecha especifica.
     def obtener_por_fecha(
         self,
         fecha: date,
@@ -88,6 +91,7 @@ class TasaCambioService:
                 )
             ).first()
 
+    # Devuelve todas las tasas registradas, de la mas reciente a la mas antigua.
     def historial(
         self,
         db_session: Session | None = None,
@@ -97,6 +101,7 @@ class TasaCambioService:
             stmt = select(TasaCambio).order_by(TasaCambio.fecha.desc())  # type: ignore[attr-defined]
             return list(session.exec(stmt).all())
 
+    # Marca una tasa como inactiva.
     def desactivar_tasa(
         self,
         tasa_id: int,
@@ -112,6 +117,7 @@ class TasaCambioService:
             session.commit()
         return True
 
+    # Obtiene la tasa actual desde el BCV via servicios/bcv.
     def obtener_desde_bcv(self) -> TasaCambio | None:
         """Obtiene la tasa actual desde el BCV via servicios/bcv.py
         y la registra/actualiza en la BD. Retorna None si no se pudo obtener.
@@ -155,6 +161,7 @@ class TasaCambioService:
             registrar_excepcion(e, "TasaCambioService.obtener_desde_bcv")
             return None
 
+    # Registra (o actualiza si ya existe HOY) la tasa MANUAL del POS.
     def registrar_tasa_manual(
         self,
         tasa_venta: Decimal,
@@ -200,6 +207,7 @@ class TasaCambioService:
 
         return tasa
 
+    # Apaga la tasa MANUAL de hoy (activa=False).
     def desactivar_tasa_manual(
         self,
         db_session: Session | None = None,

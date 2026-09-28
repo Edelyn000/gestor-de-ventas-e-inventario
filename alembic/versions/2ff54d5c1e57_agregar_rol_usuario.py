@@ -17,6 +17,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+# Agrega la columna rol a usuario con default VENDEDOR.
 def upgrade() -> None:
     op.add_column(
         'usuario',
@@ -24,5 +25,6 @@ def upgrade() -> None:
     )
 
 
+# Elimina la columna rol de usuario.
 def downgrade() -> None:
     op.drop_column('usuario', 'rol')

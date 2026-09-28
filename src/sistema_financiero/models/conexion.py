@@ -12,11 +12,13 @@ DATABASE_URL = f"sqlite:///{DB_PATH}"
 engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
 
 
+# Crea todas las tablas definidas en modelos.
 def create_db_and_tables() -> None:
     """Crea todas las tablas definidas en modelos.py si no existen."""
     SQLModel.metadata.create_all(engine)
 
 
+# Context manager: si recibe una sesion existente la usa, si no, crea una nueva.
 @contextmanager
 def obtener_sesion(session: Session | None = None) -> Iterator[Session]:
     """Context manager: si recibe una sesion existente la usa, si no, crea una nueva."""

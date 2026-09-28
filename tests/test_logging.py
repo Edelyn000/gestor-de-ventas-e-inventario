@@ -9,6 +9,7 @@ from sistema_financiero.utils import logging_setup
 pytestmark = pytest.mark.unitarias
 
 
+# Redirige el log a un archivo temporal y resetea el logger.
 @pytest.fixture(autouse=True)
 def _log_en_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Redirige el log a un archivo temporal y resetea el logger."""
@@ -23,6 +24,7 @@ def _log_en_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class TestConfigurarLogging:
+    # configurar_logging() crea logs/errores.
     def test_crea_archivo_y_directorio(self, tmp_path: Path) -> None:
         """configurar_logging() crea logs/errores.log."""
         logger = logging_setup.configurar_logging()
@@ -30,6 +32,7 @@ class TestConfigurarLogging:
         assert logger is not None
         assert (tmp_path / "logs" / "errores.log").exists()
 
+    # Llamar dos veces no duplica handlers ni recrea el logger.
     def test_reutiliza_el_mismo_logger(self) -> None:
         """Llamar dos veces no duplica handlers ni recrea el logger."""
         primero = logging_setup.configurar_logging()
@@ -40,6 +43,7 @@ class TestConfigurarLogging:
 
 
 class TestRegistrarExcepcion:
+    # El archivo del log contiene contexto, mensaje y traceback.
     def test_escribe_error_con_traceback(self, tmp_path: Path) -> None:
         """El archivo del log contiene contexto, mensaje y traceback."""
         try:
@@ -56,6 +60,7 @@ class TestRegistrarExcepcion:
 
 
 class TestManejarExcepcionNoManejada:
+    # Una excepcion que escapa de un slot queda en el log.
     def test_registra_error_no_manejado(self, tmp_path: Path) -> None:
         """Una excepcion que escapa de un slot queda en el log."""
         try:
@@ -69,6 +74,7 @@ class TestManejarExcepcionNoManejada:
         assert "fallo en boton" in contenido
         assert "manejador global" in contenido
 
+    # KeyboardInterrupt se deja pasar al excepthook original.
     def test_keyboard_interrupt_no_se_registra(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """KeyboardInterrupt se deja pasar al excepthook original."""
         mock_registrar = MagicMock()
