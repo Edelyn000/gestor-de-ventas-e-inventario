@@ -3,26 +3,19 @@ from decimal import Decimal
 
 from sqlmodel import Session, select
 
-from sistema_financiero.utils import ahora, hoy
+from sistema_financiero.utils import (
+    ORIGEN_TASA_BCV,
+    ORIGEN_TASA_MANUAL,
+    ahora,
+    hoy,
+)
 
 from ..models import TasaCambio, obtener_sesion
 from ..services.bcv import obtener_tasa as bcv_obtener_tasa
+from ..utils.logging_setup import registrar_excepcion
 
 
-# ============================================================
-# SERVICIO: TasaCambioService
-# Gestion de tasas de cambio VES/USD.
-# Permite registrar, consultar y activar/desactivar tasas.
-# Tambien puede obtener la tasa desde el BCV via bcv.py.
-#
-# Metodos:
-#   registrar()            → Crea una nueva tasa para una fecha
-#   tasa_activa()          → Devuelve la tasa activa mas reciente
-#   obtener_por_fecha()    → Busca tasa de una fecha especifica
-#   historial()            → Todas las tasas ordenadas
-#   desactivar_tasa()      → Marca una tasa como inactiva
-#   obtener_desde_bcv()    → Obtiene la tasa actual del BCV
-# ============================================================
+# TasaCambioService: Tasas de cambio BCV, manuales e historial.
 class TasaCambioService:
     def registrar(
         self,
@@ -31,22 +24,29 @@ class TasaCambioService:
         tasa_compra: Decimal,
         activa: bool = True,
         db_session: Session | None = None,
+        origen: str = ORIGEN_TASA_BCV,
+        registrado_por: str | None = None,
     ) -> TasaCambio:
-        """Registra una nueva tasa de cambio para una fecha especifica.
-        db_session: sesion opcional para tests con BD en memoria."""
+        """Registra una nueva tasa de cambio para una fecha especifica."""
         if tasa_venta <= 0 or tasa_compra <= 0:
             msg = "Las tasas deben ser mayores a cero."
             raise ValueError(msg)
 
-        # Verificar si ya existe una tasa para esta fecha.
         with obtener_sesion(db_session) as session:
-            existente = session.exec(select(TasaCambio).where(TasaCambio.fecha == fecha)).first()
+            existente = session.exec(
+                select(TasaCambio).where(
+                    TasaCambio.fecha == fecha,
+                    TasaCambio.origen == origen,
+                )
+            ).first()
             if existente:
-                msg = f"Ya existe una tasa registrada para la fecha {fecha}."
+                msg = f"Ya existe una tasa {origen} registrada para la fecha {fecha}."
                 raise ValueError(msg)
 
             tasa = TasaCambio(
                 fecha=fecha,
+                origen=origen,
+                registrado_por=registrado_por,
                 tasa_venta=tasa_venta,
                 tasa_compra=tasa_compra,
                 activa=activa,
@@ -62,13 +62,14 @@ class TasaCambioService:
         self,
         db_session: Session | None = None,
     ) -> TasaCambio | None:
-        """Devuelve la tasa de cambio activa mas reciente.
-        Si hay varias activas, retorna la de fecha mas reciente.
-        db_session: sesion opcional para tests con BD en memoria."""
+        """Devuelve la tasa BCV activa mas reciente."""
         with obtener_sesion(db_session) as session:
             stmt = (
                 select(TasaCambio)
-                .where(TasaCambio.activa == True)  # noqa: E712
+                .where(
+                    TasaCambio.activa == True,  # noqa: E712
+                    TasaCambio.origen == ORIGEN_TASA_BCV,
+                )
                 .order_by(TasaCambio.fecha.desc())  # type: ignore[attr-defined]
             )
             return session.exec(stmt).first()
@@ -78,17 +79,20 @@ class TasaCambioService:
         fecha: date,
         db_session: Session | None = None,
     ) -> TasaCambio | None:
-        """Busca la tasa registrada para una fecha especifica.
-        db_session: sesion opcional para tests con BD en memoria."""
+        """Busca la tasa BCV registrada para una fecha especifica."""
         with obtener_sesion(db_session) as session:
-            return session.exec(select(TasaCambio).where(TasaCambio.fecha == fecha)).first()
+            return session.exec(
+                select(TasaCambio).where(
+                    TasaCambio.fecha == fecha,
+                    TasaCambio.origen == ORIGEN_TASA_BCV,
+                )
+            ).first()
 
     def historial(
         self,
         db_session: Session | None = None,
     ) -> list[TasaCambio]:
-        """Devuelve todas las tasas registradas, de la mas reciente a la mas antigua.
-        db_session: sesion opcional para tests con BD en memoria."""
+        """Devuelve todas las tasas registradas, de la mas reciente a la mas antigua."""
         with obtener_sesion(db_session) as session:
             stmt = select(TasaCambio).order_by(TasaCambio.fecha.desc())  # type: ignore[attr-defined]
             return list(session.exec(stmt).all())
@@ -98,8 +102,7 @@ class TasaCambioService:
         tasa_id: int,
         db_session: Session | None = None,
     ) -> bool:
-        """Marca una tasa como inactiva. Retorna False si no existe.
-        db_session: sesion opcional para tests con BD en memoria."""
+        """Marca una tasa como inactiva. Retorna False si no existe."""
         with obtener_sesion(db_session) as session:
             tasa = session.get(TasaCambio, tasa_id)
             if not tasa:
@@ -111,7 +114,8 @@ class TasaCambioService:
 
     def obtener_desde_bcv(self) -> TasaCambio | None:
         """Obtiene la tasa actual desde el BCV via servicios/bcv.py
-        y la registra/actualiza en la BD. Retorna None si no se pudo obtener."""
+        y la registra/actualiza en la BD. Retorna None si no se pudo obtener.
+        Actualiza SOLO la fila BCV (nunca pisa una tasa MANUAL del dia)."""
         try:
             tasa_actual = bcv_obtener_tasa()
             hoy_dt = hoy()
@@ -119,11 +123,13 @@ class TasaCambioService:
 
             with obtener_sesion() as session:
                 existente = session.exec(
-                    select(TasaCambio).where(TasaCambio.fecha == hoy_dt)
+                    select(TasaCambio).where(
+                        TasaCambio.fecha == hoy_dt,
+                        TasaCambio.origen == ORIGEN_TASA_BCV,
+                    )
                 ).first()
 
                 if existente:
-                    # Actualizar tasa existente
                     existente.tasa_venta = tasa_redondeada
                     existente.tasa_compra = tasa_redondeada
                     existente.activa = True
@@ -133,11 +139,83 @@ class TasaCambioService:
                     session.refresh(existente)
                     return existente
                 else:
-                    # Crear nueva tasa
                     return self.registrar(
                         fecha=hoy_dt,
                         tasa_venta=tasa_redondeada,
                         tasa_compra=tasa_redondeada,
+                        origen=ORIGEN_TASA_BCV,
                     )
-        except ImportError, ValueError, ConnectionError:
+        except (
+            ImportError,
+            ValueError,
+            ConnectionError,
+            KeyError,
+            TimeoutError,
+        ) as e:
+            registrar_excepcion(e, "TasaCambioService.obtener_desde_bcv")
             return None
+
+    def registrar_tasa_manual(
+        self,
+        tasa_venta: Decimal,
+        registrado_por: str | None = None,
+        db_session: Session | None = None,
+    ) -> TasaCambio:
+        """Registra (o actualiza si ya existe HOY) la tasa MANUAL del POS."""
+        if tasa_venta <= 0:
+            msg = "La tasa debe ser mayor a cero."
+            raise ValueError(msg)
+
+        with obtener_sesion(db_session) as session:
+            existente = session.exec(
+                select(TasaCambio).where(
+                    TasaCambio.fecha == hoy(),
+                    TasaCambio.origen == ORIGEN_TASA_MANUAL,
+                )
+            ).first()
+
+            if existente:
+                existente.tasa_venta = tasa_venta
+                existente.tasa_compra = tasa_venta
+                existente.activa = True
+                existente.registrado_por = registrado_por
+                existente.fecha_registro = ahora()
+                session.add(existente)
+                session.commit()
+                session.refresh(existente)
+                return existente
+
+            tasa = TasaCambio(
+                fecha=hoy(),
+                origen=ORIGEN_TASA_MANUAL,
+                registrado_por=registrado_por,
+                tasa_venta=tasa_venta,
+                tasa_compra=tasa_venta,
+                activa=True,
+                fecha_registro=ahora(),
+            )
+            session.add(tasa)
+            session.commit()
+            session.refresh(tasa)
+
+        return tasa
+
+    def desactivar_tasa_manual(
+        self,
+        db_session: Session | None = None,
+    ) -> bool:
+        """Apaga la tasa MANUAL de hoy (activa=False)."""
+        with obtener_sesion(db_session) as session:
+            existente = session.exec(
+                select(TasaCambio).where(
+                    TasaCambio.fecha == hoy(),
+                    TasaCambio.origen == ORIGEN_TASA_MANUAL,
+                )
+            ).first()
+            if not existente:
+                return False
+            existente.activa = False
+            session.add(existente)
+            session.commit()
+        return True
+

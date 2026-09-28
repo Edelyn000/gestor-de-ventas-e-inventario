@@ -1,23 +1,4 @@
-# ============================================================
-# ARCHIVO: utils/logging_setup.py
-# Configuracion de logging y manejo global de excepciones.
-#
-# PROPOSITO:
-#   - registrar_excepcion(): guarda CUALQUIER error con su
-#     traceback completo en logs/errores.log.
-#   - registrar_evento(): guarda eventos de la aplicacion
-#     (auditoria: logins exitosos/fallidos, etc.) en
-#     logs/eventos.log. Jamas registrar contrasenas.
-#   - manejar_excepcion_no_manejada(): sys.excepthook de la app.
-#     Si un boton u operacion falla con una excepcion que no se
-#     capturo en la UI, aqui se registra en el log y se muestra
-#     un dialogo con el error. Asi NINGUN fallo queda invisible.
-#
-# QUE NO SE DEBE TOCAR:
-#   - Nombres publicos (configurar_logging, registrar_excepcion,
-#     registrar_evento, manejar_excepcion_no_manejada).
-#   - Las rutas logs/errores.log y logs/eventos.log.
-# ============================================================
+# logging_setup.py: Configuracion de logging de errores y eventos.
 import logging
 import sys
 from pathlib import Path
@@ -25,7 +6,6 @@ from types import TracebackType
 
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
-# Ruta del log: <raiz-del-proyecto>/logs
 LOG_DIR = Path(__file__).resolve().parent.parent.parent.parent / "logs"
 LOG_FILE = LOG_DIR / "errores.log"
 LOG_FILE_EVENTOS = LOG_DIR / "eventos.log"
@@ -71,20 +51,13 @@ def configurar_logging_eventos() -> logging.Logger:
 
 
 def registrar_evento(nivel: int, mensaje: str) -> None:
-    """Registra un evento de la aplicacion (auditoria) en logs/eventos.log.
-
-    nivel: logging.INFO / logging.WARNING / etc.
-    mensaje: texto descriptivo. NUNCA incluir contrasenas.
-    """
+    """Registra un evento de la aplicacion (auditoria) en logs/eventos.log."""
     logger = configurar_logging_eventos()
     logger.log(nivel, mensaje)
 
 
 def registrar_excepcion(exc: BaseException, contexto: str) -> None:
-    """Registra una excepcion (con traceback completo) en logs/errores.log.
-
-    contexto: nombre del metodo/operacion donde ocurrio (ej. '_anular_venta').
-    """
+    """Registra una excepcion (con traceback completo) en logs/errores.log."""
     logger = configurar_logging()
     logger.error(
         "Excepcion en %s: %s",
@@ -99,12 +72,7 @@ def manejar_excepcion_no_manejada(
     exc_value: BaseException,
     exc_tb: TracebackType | None,
 ) -> None:
-    """sys.excepthook: registra y muestra cualquier error no controlado.
-
-    Se instala en __main__.py: si una excepcion escapa de un slot de
-    PyQt6 (boton, timer, etc.), aqui queda registrada en el log y se
-    muestra un dialogo, en lugar de desaparecer en silencio.
-    """
+    """sys.excepthook: registra y muestra cualquier error no controlado."""
     if issubclass(exc_type, KeyboardInterrupt):
         sys.__excepthook__(exc_type, exc_value, exc_tb)
         return
@@ -119,5 +87,5 @@ def manejar_excepcion_no_manejada(
                 f"Ocurrio un error en la aplicacion:\n{exc_value}",
             )
     except Exception:
-        # El manejador de errores nunca debe fallar.
         pass
+

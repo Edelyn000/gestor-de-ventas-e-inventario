@@ -1,11 +1,3 @@
-# ============================================================
-# IMPORTACIONES
-# ============================================================
-# datetime: la necesitamos para poner la fecha/hora actual en cada venta.
-# Decimal: los precios y totales usan este tipo para evitar errores
-#   de redondeo que darian float (ej: 0.1 + 0.2 = 0.30000000000000004).
-# select: funcion de SQLModel para construir consultas SELECT.
-#   Sin ella no podriamos buscar ventas en la BD.
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -13,19 +5,18 @@ from sqlmodel import Session, col, select
 
 from sistema_financiero.utils import (
     DECIMAL_CENTIMO,
+    METODO_PAGO_EFECTIVO_BS,
     METODO_PAGO_EFECTIVO_USD,
     METODOS_PAGO,
     MONEDA_BS,
     MONEDA_USD,
+    MOTIVO_DEVOLUCION_ANULACION,
     TOLERANCIA_REDONDEO,
     ahora,
+    hoy,
 )
+from sistema_financiero.utils.fecha import rango_dia_utc
 
-# Venta y VentaDetalle son los modelos ORM que representan las tablas.
-# Venta = la cabecera de la venta (fecha, totales, metodo de pago).
-# VentaDetalle = cada producto que se vendio (cantidad, precio, subtotal).
-# PagoVenta = desglose de cada pago (multi-pago) de la venta.
-# obtener_sesion: context manager que acepta sesion opcional (BD en memoria para tests).
 from ..models import (
     Caja,
     MovimientoInventario,
@@ -36,71 +27,24 @@ from ..models import (
     VentaDetalle,
     obtener_sesion,
 )
-
-# CajaService: fuente unica de verdad del estado de caja.
-#   La venta solo se registra si hay una caja ABIERTA (ver crear()).
 from .caja_service import CajaService
-
-# InventarioService: lo necesitamos para descontar el stock
-#   de cada producto cuando se confirma la venta.
 from .inventario_service import InventarioService
-
-# ProductoController: lo necesitamos para obtener los precios
-#   de los productos al momento de crear la venta.
 from .producto_controller import ProductoController
-
-# TasaCambioService: necesario para obtener la tasa de cambio
-#   activa y poder calcular el total en USD.
 from .tasa_cambio_service import TasaCambioService
 
 
 def _a_centimos(valor: Decimal) -> Decimal:
-    """Cuantiza un monto a centimos (redondeo comercial).
-
-    La UI entrega numeros como float y los calculos pueden arrastrar
-    fracciones de centimo; en dinero solo existen 2 decimales.
-    """
+    """Cuantiza un monto a centimos (redondeo comercial)."""
     return valor.quantize(DECIMAL_CENTIMO, rounding=ROUND_HALF_UP)
 
 
-# ============================================================
-# CONTROLADOR: VentaController
-# ============================================================
-# Este controlador maneja todo el flujo de una venta:
-#   1. Crear la venta con sus productos (detalles)
-#   2. Validar que haya stock suficiente
-#   3. Calcular totales en VES y USD
-#   4. Descontar del inventario
-#   5. Consultar historial de ventas
-#   6. Anular ventas (devolver el stock)
-#
-# Por que un controlador y no un servicio?
-#   - Porque orquesta varios servicios (inventario + tasas).
-#   - Un controlador COORDINA, un servicio EJECUTA una tarea especifica.
-# ============================================================
+# VentaController: Crear y anular ventas con facturacion y pagos.
 class VentaController:
-    # ------------------------------------------------------------------
-    # __init__: constructor de la clase
-    # ------------------------------------------------------------------
-    # Aqui creamos las instancias de los servicios que vamos a usar.
-    # Podriamos crearlas dentro de cada metodo, pero si las guardamos
-    # en self.* se crean UNA SOLA VEZ cuando se crea el controlador,
-    # en lugar de crearse cada vez que llamamos a un metodo.
-    # Esto ahorra memoria y es mas limpio.
     def __init__(self, caja_service: CajaService | None = None) -> None:
-        # InventarioService: lo usaremos para descontar stock al vender
-        #   y para devolver stock al anular una venta.
         self.inventario = InventarioService()
 
-        # TasaCambioService: lo usaremos para obtener la tasa del dia
-        #   y calcular el equivalente en USD de la venta.
         self.tasas = TasaCambioService()
 
-        # CajaService: fuente unica de verdad del estado de caja.
-        # La app lo inyecta (ui/interfaz.py) para que la venta valide
-        # contra la MISMA instancia que usa la pagina "Caja".
-        # Si es None (tests), crear() valida la caja dentro de la
-        # sesion que recibe como db_session.
         self.caja_service = caja_service
 
     def crear(
@@ -115,9 +59,6 @@ class VentaController:
         detalles_lista, total_bs = self._procesar_detalles(productos, db_session)
         total_usd = self._calcular_total_usd(total_bs, tasa)
 
-        # Desglose multi-pago (opcional). Si llega, el detalle manda:
-        # los montos por metodo se derivan de el, para que el resumen de
-        # la venta y el desglose no puedan quedar descuadrados.
         pagos_normalizados = self._normalizar_pagos(pagos, total_bs, tasa)
         if pagos_normalizados is not None:
             metodo_pago = self._derivar_metodo_pago(pagos_normalizados, metodo_pago)
@@ -134,18 +75,14 @@ class VentaController:
 
         with obtener_sesion(db_session) as session:
             hoy = ahora()
-            # Regla de negocio: sin caja ABIERTA no se puede vender.
             if self.caja_service is not None and db_session is None:
-                # App: valida contra la misma instancia compartida con la
-                # pagina "Caja" (una sola fuente de verdad del estado).
                 caja = self.caja_service.validar_caja_abierta()
             else:
-                # Tests/llamadas con sesion propia: la caja se consulta
-                # dentro de la misma sesion que recibe el metodo.
-                caja = session.exec(select(Caja).where(Caja.estado == "ABIERTA")).first()
-                if caja is None:
+                caja_en_sesion = session.exec(select(Caja).where(Caja.estado == "ABIERTA")).first()
+                if caja_en_sesion is None:
                     msg = "No hay caja abierta. Abra la caja antes de registrar ventas."
                     raise ValueError(msg)
+                caja = caja_en_sesion
             venta = Venta(
                 numero_factura=numero_factura,
                 fecha_venta=hoy,
@@ -213,8 +150,18 @@ class VentaController:
                 msg = f"El producto ID {producto_id} no existe."
                 raise ValueError(msg)
 
-            precio_unitario = producto.precio_venta_bs
-            subtotal = precio_unitario * Decimal(str(cantidad))
+            precio_bs_dado = item.get("precio_bs")
+            subtotal_bs_dado = item.get("subtotal_bs")
+            if precio_bs_dado is not None:
+                precio_unitario = Decimal(str(precio_bs_dado))
+                subtotal = (
+                    Decimal(str(subtotal_bs_dado))
+                    if subtotal_bs_dado is not None
+                    else precio_unitario * cantidad
+                )
+            else:
+                precio_unitario = producto.precio_venta_bs
+                subtotal = precio_unitario * Decimal(str(cantidad))
 
             detalles_lista.append(
                 {
@@ -260,16 +207,12 @@ class VentaController:
                 "Vaya al Dashboard para que se cargue automaticamente."
             )
             raise ValueError(msg)
-        # El equivalente en Bs. del efectivo USD tambien se cuantiza:
-        # el cajero teclea el USD redondeado a centimos que le muestra la UI.
         efectivo_usd_en_bs = (
             _a_centimos(efectivo_usd * tasa.tasa_venta) if tasa else Decimal("0.00")
         )
         suma_pagos = (
             efectivo_bs + efectivo_usd_en_bs + tarjeta + pago_movil + bio_pago + transferencia
         )
-        # Se acepta una diferencia de 1 centimo por redondeo (ver
-        # TOLERANCIA_REDONDEO); un faltante real sigue siendo un error.
         if suma_pagos < total_bs - TOLERANCIA_REDONDEO:
             msg = (
                 f"La suma de los metodos de pago ({suma_pagos}) "
@@ -285,13 +228,7 @@ class VentaController:
         total_bs: Decimal,
         tasa: TasaCambio | None,
     ) -> list[dict[str, object]] | None:
-        """Valida y normaliza el desglose multi-pago de una venta.
-
-        Cada pago llega como {"metodo", "monto", "referencia"}. Se registra
-        SOLO el monto aplicado, asi que la suma en Bs. de todos los pagos
-        debe cuadrar con el total de la venta (regla de negocio).
-        Devuelve None cuando el llamador no usa multi-pago.
-        """
+        """Valida y normaliza el desglose multi-pago de una venta."""
         if pagos is None:
             return None
         if not pagos:
@@ -321,18 +258,12 @@ class VentaController:
                         "Vaya al Dashboard para que se cargue automaticamente."
                     )
                     raise ValueError(msg)
-                # El llamador puede mandar el monto APLICADO en bolivares
-                # (la UI recorta un pago en USD al faltante exacto y el
-                # sobrante es vuelto). Si no lo manda, se convierte aqui.
                 aplicado = pago.get("monto_bs")
                 monto_bs = (
                     _a_centimos(monto * tasa.tasa_venta)
                     if aplicado is None
                     else _a_centimos(Decimal(str(aplicado)))
                 )
-                # Guarda de integridad: el monto aplicado no puede alejarse
-                # del equivalente del monto recibido por mas de un centimo
-                # de la moneda pagada (un centavo USD = tasa / 100 Bs.).
                 desvio_maximo = _a_centimos(tasa.tasa_venta / Decimal("100")) + TOLERANCIA_REDONDEO
                 if monto_bs <= 0 or abs(monto_bs - monto * tasa.tasa_venta) > desvio_maximo:
                     msg = (
@@ -343,7 +274,17 @@ class VentaController:
                     )
                     raise ValueError(msg)
             else:
-                monto_bs = monto
+                aplicado_bs = pago.get("monto_bs")
+                monto_bs = (
+                    _a_centimos(Decimal(str(aplicado_bs))) if aplicado_bs is not None else monto
+                )
+                if monto_bs <= 0 or monto_bs > monto + TOLERANCIA_REDONDEO:
+                    msg = (
+                        "El monto en bolivares del pago no coincide con su "
+                        f"equivalente (recibido {monto} Bs., aplicado "
+                        f"{monto_bs} Bs.)."
+                    )
+                    raise ValueError(msg)
 
             referencia = pago.get("referencia")
             normalizados.append(
@@ -371,18 +312,16 @@ class VentaController:
         pagos: list[dict[str, object]],
         metodo_pago: dict[str, object] | None,
     ) -> dict[str, object]:
-        """Resume el desglose de pagos en los montos por metodo de Venta.
-
-        Para efectivo_usd se resumen los USD (asi los guarda el modelo y
-        los lee el arqueo de caja); el resto se resume en bolivares.
-        Si ademas llega un resumen metodo_pago y no coincide, se rechaza
-        la venta: nunca se guarda un resumen distinto al desglose.
-        """
+        """Resume el desglose de pagos en los montos por metodo de Venta."""
         acumulado: dict[str, Decimal] = dict.fromkeys(METODOS_PAGO, Decimal("0.00"))
 
         for pago in pagos:
             metodo = str(pago["metodo"])
-            valor = pago["monto"] if metodo == METODO_PAGO_EFECTIVO_USD else pago["monto_bs"]
+            valor = (
+                pago["monto"]
+                if metodo in (METODO_PAGO_EFECTIVO_BS, METODO_PAGO_EFECTIVO_USD)
+                else pago["monto_bs"]
+            )
             acumulado[metodo] += Decimal(str(valor))
 
         if metodo_pago:
@@ -395,8 +334,6 @@ class VentaController:
                     )
                     raise ValueError(msg)
 
-        # dict[str, object] explicito: evita el choque de invarianza de dict
-        # al pasarlo a _procesar_pago(metodo_pago: dict[str, object] | None).
         derivado: dict[str, object] = {}
         for nombre, monto in acumulado.items():
             derivado[nombre] = monto
@@ -429,14 +366,15 @@ class VentaController:
     def _generar_numero_factura(
         db_session: Session | None = None,
     ) -> str:
-        hoy = ahora()
-        fecha_str = hoy.strftime("%Y%m%d")
+        fecha_local = hoy()
+        fecha_str = fecha_local.strftime("%Y%m%d")
+        desde_hoy, hasta_hoy = rango_dia_utc(fecha_local)
 
         with obtener_sesion(db_session) as session:
             ventas_hoy = session.exec(
                 select(Venta).where(
-                    Venta.fecha_venta >= datetime(hoy.year, hoy.month, hoy.day),
-                    Venta.fecha_venta < datetime(hoy.year, hoy.month, hoy.day, 23, 59, 59),
+                    Venta.fecha_venta >= desde_hoy,
+                    Venta.fecha_venta <= hasta_hoy,
                 ),
             ).all()
             correlativo = str(len(ventas_hoy) + 1).zfill(3)
@@ -495,124 +433,83 @@ class VentaController:
             )
             session.add(movimiento)
 
-    # ------------------------------------------------------------------
-    # anular(): marca una venta como ANULADA y devuelve el stock
-    # ------------------------------------------------------------------
-    # Cuando se anula una venta:
-    #   1. Cambiamos el estado a "ANULADA"
-    #   2. Devolvemos el stock de cada producto (entrada de inventario)
-    #   3. Guardamos el cambio en la BD
-    #
-    # Por que devolver el stock?
-    #   - Porque si no lo hacemos, el inventario queda inconsistente.
-    #   - Los productos que se "vendieron" pero se devolvieron deben
-    #     volver a estar disponibles.
-    # ------------------------------------------------------------------
     def anular(
         self,
         idventa: int,
+        motivo_anulacion: str | None = None,
+        anulado_por: str | None = None,
         db_session: Session | None = None,
     ) -> Venta | None:
-        """Anula una venta y devuelve el stock de cada producto.
-        db_session: sesion opcional para tests con BD en memoria."""
+        """Anula una venta y devuelve el stock de cada producto."""
         with obtener_sesion(db_session) as session:
-            # Buscar la venta por ID.
             venta = session.get(Venta, idventa)
             if not venta:
                 return None
 
-            # No se puede anular una venta ya anulada.
             if venta.estado == "ANULADA":
                 msg = "La venta ya esta anulada."
                 raise ValueError(msg)
 
-            # No se puede anular una venta de un turno de caja ya cerrado:
-            # el arqueo y el reporte del dia ya se generaron con esa venta.
             if venta.caja_id is not None:
                 caja = session.get(Caja, venta.caja_id)
                 if caja is not None and caja.estado == "CERRADA":
                     msg = "No se puede anular: el turno de caja de esta venta ya esta cerrado."
                     raise ValueError(msg)
 
-            # Cambiar el estado.
             venta.estado = "ANULADA"
+            venta.motivo_anulacion = motivo_anulacion
+            venta.anulado_por = anulado_por
             session.add(venta)
             session.commit()
             session.refresh(venta)
 
-        # Devolver el stock de cada producto.
-        # Necesitamos los detalles de la venta. Como ya cerramos la
-        # sesion anterior, abrimos una nueva para consultar los detalles.
         with obtener_sesion(db_session) as session:
             detalles = session.exec(
                 select(VentaDetalle).where(VentaDetalle.venta_id == idventa),
             ).all()
 
-        # ADVERTENCIA: venta está DETACHED (obtenida en la sesión anterior).
-        # venta.numero_factura es columna directa (segura). NO accedas a
-        # venta.detalles aquí (relación lazy) sin selectinload().
+        observaciones = f"Anulacion factura {venta.numero_factura}"
+        if motivo_anulacion:
+            observaciones += f" ({motivo_anulacion})"
         for det in detalles:
             self.inventario.registrar_entrada(
                 producto_id=det.producto_id,
                 cantidad=det.cantidad,
-                motivo="DEVOLUCION",
+                motivo=MOTIVO_DEVOLUCION_ANULACION,
                 referencia_id=idventa,
-                observaciones=f"Anulacion factura {venta.numero_factura}",
+                observaciones=observaciones,
                 db_session=db_session,
             )
 
         return venta
 
-    # ------------------------------------------------------------------
-    # obtener_por_id(): busca una venta por su ID
-    # ------------------------------------------------------------------
     def obtener_por_id(
         self,
         idventa: int,
         db_session: Session | None = None,
     ) -> Venta | None:
-        """Busca una venta por su ID.
-        db_session: sesion opcional para tests con BD en memoria."""
+        """Busca una venta por su ID."""
         with obtener_sesion(db_session) as session:
             return session.get(Venta, idventa)
 
-    # ------------------------------------------------------------------
-    # buscar_por_factura(): busca una venta por su numero de factura
-    # ------------------------------------------------------------------
-    # El numero de factura es unico (unique=True en el modelo).
-    # Por eso usamos .first() porque solo puede haber una.
     def buscar_por_factura(
         self,
         numero_factura: str,
         db_session: Session | None = None,
     ) -> Venta | None:
-        """Busca una venta por su numero de factura.
-        db_session: sesion opcional para tests con BD en memoria."""
+        """Busca una venta por su numero de factura."""
         with obtener_sesion(db_session) as session:
             return session.exec(
                 select(Venta).where(col(Venta.numero_factura) == numero_factura)
             ).first()
 
-    # ------------------------------------------------------------------
-    # historial_por_fecha(): ventas de un rango de fechas
-    # ------------------------------------------------------------------
-    # Parametros:
-    #   - desde: fecha de inicio (incluida)
-    #   - hasta: fecha de fin (incluida)
-    # Retorna: lista de ventas ordenadas de la mas reciente a la mas antigua.
-    #
-    # Por que orden descendente?
-    #   - Porque el usuario normalmente quiere ver las ventas mas recientes
-    #     primero, igual que en un sistema de punto de venta real.
-    # ------------------------------------------------------------------
     def historial_por_fecha(
         self,
         desde: datetime,
         hasta: datetime,
         db_session: Session | None = None,
     ) -> list[Venta]:
-        """Devuelve las ventas en un rango de fechas.
-        db_session: sesion opcional para tests con BD en memoria."""
+        """Devuelve las ventas en un rango de fechas."""
         with obtener_sesion(db_session) as session:
             stmt = (
                 select(Venta)
@@ -621,34 +518,23 @@ class VentaController:
             )
             return list(session.exec(stmt).all())
 
-    # ------------------------------------------------------------------
-    # obtener_detalles(): devuelve los productos de una venta
-    # ------------------------------------------------------------------
-    # Cada VentaDetalle tiene un producto_id, cantidad, precio y subtotal.
-    # Esto se usa para mostrar el detalle de la venta en la UI.
     def obtener_detalles(
         self,
         idventa: int,
         db_session: Session | None = None,
     ) -> list[VentaDetalle]:
-        """Devuelve los detalles (productos) de una venta.
-        db_session: sesion opcional para tests con BD en memoria."""
+        """Devuelve los detalles (productos) de una venta."""
         with obtener_sesion(db_session) as session:
             stmt = select(VentaDetalle).where(VentaDetalle.venta_id == idventa)
             return list(session.exec(stmt).all())
 
-    # ------------------------------------------------------------------
-    # obtener_pagos(): devuelve el desglose de pagos de una venta
-    # ------------------------------------------------------------------
-    # Cada PagoVenta tiene: metodo, moneda, monto aplicado, su
-    # equivalente en Bs. y la referencia (si la hubo).
     def obtener_pagos(
         self,
         idventa: int,
         db_session: Session | None = None,
     ) -> list[PagoVenta]:
-        """Devuelve el desglose de pagos (multi-pago) de una venta.
-        db_session: sesion opcional para tests con BD en memoria."""
+        """Devuelve el desglose de pagos (multi-pago) de una venta."""
         with obtener_sesion(db_session) as session:
             stmt = select(PagoVenta).where(PagoVenta.venta_id == idventa)
             return list(session.exec(stmt).all())
+

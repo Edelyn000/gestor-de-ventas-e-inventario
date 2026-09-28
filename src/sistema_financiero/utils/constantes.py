@@ -1,38 +1,7 @@
-# ============================================================
-# ARCHIVO: utils/constantes.py
-# CONSTANTES DEL SISTEMA
-#
-# ¿POR QUE CONSTANTES EN VEZ DE STRINGS LITERALES?
-#   Evita "magic strings" repetidos en todo el codigo.
-#   Si el nombre de un metodo de pago cambia, solo se
-#   modifica AQUI, no en 10 archivos diferentes.
-#
-# ¿COMO SE USA?
-#   from sistema_financiero.utils import METODO_PAGO_EFECTIVO_BS
-#   metodo_pago[METODO_PAGO_EFECTIVO_BS] = Decimal("100.00")
-# ============================================================
+# constantes.py: Constantes de moneda, unidades y metodos de pago.
 
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
-# ----------------------------------------------------------
-# METODOS DE PAGO
-# Son los 6 metodos de pago que acepta el sistema:
-#   efectivo_bs  → Bolivares en efectivo.
-#   efectivo_usd → Dolares en efectivo.
-#   tarjeta      → Tarjeta de debito/credito (en Bs).
-#   pago_movil   → Pago movil (en Bs).
-#   bio_pago     → BioPago (en Bs).
-#   transferencia→ Transferencia bancaria (en Bs).
-#
-# Cada metodo de pago se identifica con un string que
-# funciona como clave en los diccionarios. Se usa en:
-#   - VentaController.crear() para recibir los montos.
-#   - Venta.efectivo_bs, Venta.tarjeta, etc. (modelo ORM).
-#   - PagoVenta.metodo (desglose multi-pago).
-#   - ReporteDiario.efectivo_bs, ReporteDiario.tarjeta, etc.
-#   - UI del POS para construir los botones de metodo de pago.
-#   - reporte_service.py para los encabezados de Excel.
-# ----------------------------------------------------------
 METODO_PAGO_EFECTIVO_BS: str = "efectivo_bs"
 METODO_PAGO_EFECTIVO_USD: str = "efectivo_usd"
 METODO_PAGO_TARJETA: str = "tarjeta"
@@ -40,8 +9,6 @@ METODO_PAGO_PAGO_MOVIL: str = "pago_movil"
 METODO_PAGO_BIO_PAGO: str = "bio_pago"
 METODO_PAGO_TRANSFERENCIA: str = "transferencia"
 
-# Lista completa de metodos de pago para iterar.
-# El orden es el que muestra la UI del POS (efectivo primero).
 METODOS_PAGO: list[str] = [
     METODO_PAGO_EFECTIVO_BS,
     METODO_PAGO_EFECTIVO_USD,
@@ -52,122 +19,165 @@ METODOS_PAGO: list[str] = [
 ]
 
 
-# ----------------------------------------------------------
-# MONEDAS
-# Moneda de un pago (PagoVenta.moneda) y de los montos que
-# recibe la UI. El metodo "efectivo_usd" se cobra en USD; el
-# resto de los metodos opera en bolivares.
-# ----------------------------------------------------------
 MONEDA_BS: str = "BS"
 MONEDA_USD: str = "USD"
 
-# Metodos de pago que se cobran en dolares.
 METODOS_PAGO_USD: list[str] = [METODO_PAGO_EFECTIVO_USD]
 
 
-# ----------------------------------------------------------
-# TOLERANCIA DE REDONDEO EN PAGOS
-# Diferencia maxima (en Bs.) que se acepta entre la suma de
-# los metodos de pago y el total de la venta.
-#
-# ¿Por que existe? El equivalente en USD que ve el cajero
-# esta redondeado a centimos, y al reconvertirlo a Bs. puede
-# quedar 1 centimo por debajo del total. Sin esta tolerancia
-# la venta se rechazaba por un centimo ("no cubre el total").
-# ----------------------------------------------------------
+ORIGEN_TASA_BCV: str = "BCV"
+ORIGEN_TASA_MANUAL: str = "MANUAL"
+
+
 TOLERANCIA_REDONDEO: Decimal = Decimal("0.01")
 
 
-# ----------------------------------------------------------
-# ESTADOS DE VENTA
-# Una venta puede estar COMPLETADA (exitosa) o ANULADA.
-# COMPLETADA → Venta normal, cuenta en reportes.
-# ANULADA    → Se devolvio el stock, no cuenta en reportes.
-#
-# Se usan en:
-#   - Venta.estado (modelo ORM, default "COMPLETADA").
-#   - VentaController.crear() → asigna "COMPLETADA".
-#   - VentaController.anular() → cambia a "ANULADA".
-#   - ReporteService.generar_reporte() → filtra por estado.
-# ----------------------------------------------------------
+ROL_ADMINISTRADOR: str = "ADMINISTRADOR"
+ROL_VENDEDOR: str = "VENDEDOR"
+
+
 ESTADO_VENTA_COMPLETADA: str = "COMPLETADA"
 ESTADO_VENTA_ANULADA: str = "ANULADA"
 
 
-# ----------------------------------------------------------
-# TIPOS DE MOVIMIENTO DE INVENTARIO
-# Cada cambio de stock se registra con un tipo:
-#   ENTRADA → Suma stock (compra, devolucion).
-#   SALIDA  → Resta stock (venta, merma).
-#   AJUSTE  → Stock exacto (inventario fisico).
-#
-# Se usan en:
-#   - MovimientoInventario.tipo (modelo ORM).
-#   - InventarioService.registrar_entrada/salida/ajuste().
-# ----------------------------------------------------------
 TIPO_MOVIMIENTO_ENTRADA: str = "ENTRADA"
 TIPO_MOVIMIENTO_SALIDA: str = "SALIDA"
 TIPO_MOVIMIENTO_AJUSTE: str = "AJUSTE"
 
 
-# ----------------------------------------------------------
-# MOTIVOS DE MOVIMIENTO DE INVENTARIO
-# Motivos comunes para registrar movimientos de stock.
-# ----------------------------------------------------------
 MOTIVO_COMPRA: str = "COMPRA"
 MOTIVO_VENTA: str = "VENTA"
 MOTIVO_DEVOLUCION: str = "DEVOLUCION"
+MOTIVO_DEVOLUCION_ANULACION: str = "DEVOLUCION POR ANULACION"
 MOTIVO_MERMA: str = "MERMA"
 MOTIVO_AJUSTE: str = "AJUSTE"
 MOTIVO_INVENTARIO_FISICO: str = "INVENTARIO FISICO"
 
 
-# ----------------------------------------------------------
-# PREFIJO DE FACTURA
-# Formato: FAC-YYYYMMDD-NNN
-#   FAC    → prefijo fijo.
-#   YYYYMMDD → fecha de emision.
-#   NNN   → numero correlativo del dia (001, 002, ...).
-#
-# Se usa en:
-#   - VentaController.crear() para generar numero_factura.
-# ----------------------------------------------------------
 PREFIJO_FACTURA: str = "FAC"
 
 
-# ----------------------------------------------------------
-# LONGITUD MINIMA DE CONTRASENA
-# Politica de seguridad: minimo 4 caracteres.
-# Se usa en:
-#   - AuthService.crear_usuario().
-#   - AuthService.cambiar_contrasena().
-#   - AuthService.cambiar_contrasena_admin().
-# ----------------------------------------------------------
 LONGITUD_MINIMA_CONTRASENA: int = 4
 
 
-# ----------------------------------------------------------
-# RANGO MAXIMO PARA SPINBOX DE PAGO
-# Limite superior para QDoubleSpinBox en la UI de ventas.
-# ----------------------------------------------------------
 RANGO_SPINBOX_MAX: int = 999999
 
+RANGO_STOCK_MAX: float = 999999.99
 
-# ----------------------------------------------------------
-# TIPOS DE VENTA DE PRODUCTO
-# UNIDAD → Se vende por pieza entera (huevos, aceite, pasta).
-#           Stock y cantidad en enteros.
-# PESO   → Se vende por kilogramos (carne, pollo, verduras).
-#           Stock en kg, cantidad en kg (decimal).
-# GRAMOS → Se vende por gramos (condimentos, especias).
-#           Stock en kg, cantidad en gramos (decimal).
-# ----------------------------------------------------------
+
 TIPO_VENTA_UNIDAD: str = "UNIDAD"
 TIPO_VENTA_PESO: str = "PESO"
-TIPO_VENTA_GRAMOS: str = "GRAMOS"
+
+TIPO_VENTA_GRAMOS_LEGADO: str = "GRAMOS"
 
 TIPOS_VENTA: list[str] = [
     TIPO_VENTA_UNIDAD,
     TIPO_VENTA_PESO,
-    TIPO_VENTA_GRAMOS,
 ]
+
+UNIDADES_VENTA: list[str] = [
+    TIPO_VENTA_UNIDAD,
+    "KILO",
+]
+
+UNIDADES_MEDIDA: frozenset[str] = frozenset({"KILO"})
+
+_UNIDADES_PESO: frozenset[str] = frozenset(
+    {"KG", "KGS", "KILO", "KILOS", "KILOGRAMO", "KILOGRAMOS"}
+)
+
+_UNIDADES_GRAMOS: frozenset[str] = frozenset({"GRAMO", "GRAMOS", "GR", "GRS"})
+
+_VARIANTES_UNIDAD: dict[str, str] = {
+    "UNIDAD": "UNIDAD",
+    "KILO": "KILO",
+    "KILOGRAMO": "KILO",
+    "KILOGRAMOS": "KILO",
+    "KILOS": "KILO",
+    "KGS": "KILO",
+    "KG": "KILO",
+    "GRAMO": "KILO",
+    "GRAMOS": "KILO",
+    "GRS": "KILO",
+    "GR": "KILO",
+    "LITRO": "UNIDAD",
+    "LITROS": "UNIDAD",
+    "LTS": "UNIDAD",
+    "LT": "UNIDAD",
+    "PAQUETE": "UNIDAD",
+    "CAJA": "UNIDAD",
+}
+
+
+def normalizar_unidad(unidad: str) -> str:
+    """Normaliza una unidad a su forma canonica del combo (UNIDAD/KILO)."""
+    clave = (unidad or "").strip().upper()
+    if clave in _VARIANTES_UNIDAD:
+        return _VARIANTES_UNIDAD[clave]
+    return unidad or TIPO_VENTA_UNIDAD
+
+
+def deducir_tipo_venta(unidad: str) -> str:
+    """Deduce el tipo de venta de un producto a partir de su unidad de medida."""
+    unidad_normal = (unidad or "").strip().upper()
+    if unidad_normal in _UNIDADES_PESO or unidad_normal in _UNIDADES_GRAMOS:
+        return TIPO_VENTA_PESO
+    return TIPO_VENTA_UNIDAD
+
+
+def es_medida(tipo_venta: str | None) -> bool:
+    """True si el tipo de venta es por PESO (se captura Kg + g)."""
+    return (tipo_venta or "").strip().upper() in (
+        TIPO_VENTA_PESO,
+        TIPO_VENTA_GRAMOS_LEGADO,
+    )
+
+
+GRAMOS_POR_KILO: int = 1000
+
+MAX_GRAMOS_CAPTURA: int = 999
+
+MAX_KILOS_CAPTURA: int = 999
+
+PESO_KG_GRANO: Decimal = Decimal("0.001")
+
+PASOS_PESO_RAPIDO: tuple[Decimal, ...] = (
+    Decimal("1.000"),
+    Decimal("0.500"),
+    Decimal("0.250"),
+    Decimal("0.100"),
+)
+
+
+def _a_decimal(valor: Decimal | int | float | str | None) -> Decimal:
+    """Convierte a Decimal tolerando None/str/int/float (0.0 si no se puede)."""
+    if valor is None:
+        return Decimal("0")
+    if isinstance(valor, Decimal):
+        return valor
+    try:
+        return Decimal(str(valor).strip())
+    except ArithmeticError, ValueError:
+        return Decimal("0")
+
+
+def a_kg(
+    kilos: Decimal | int | float | str | None, gramos: Decimal | int | float | str | None
+) -> Decimal:
+    """Suma las casillas Kg y g del POS y devuelve KILOGRAMOS."""
+    total = _a_decimal(kilos) + _a_decimal(gramos) / GRAMOS_POR_KILO
+    peso = total.quantize(PESO_KG_GRANO, rounding=ROUND_HALF_UP)
+    if peso < 0:
+        return Decimal("0.000")
+    return peso
+
+
+def descomponer_kg(peso_kg: Decimal | int | float | None) -> tuple[int, int]:
+    """Parte un peso en kg en las casillas (Kg, g) del POS. Inverso de a_kg()."""
+    peso = _a_decimal(peso_kg).quantize(PESO_KG_GRANO, rounding=ROUND_HALF_UP)
+    if peso <= 0:
+        return (0, 0)
+    gramos = int(peso * GRAMOS_POR_KILO)
+    kilos, resto = divmod(gramos, GRAMOS_POR_KILO)
+    return (kilos, resto)
+
