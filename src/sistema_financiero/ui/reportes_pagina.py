@@ -1,18 +1,3 @@
-# ============================================================
-# ARCHIVO: ui/reportes_pagina.py  (PAGINA DE REPORTES / CIERRE DIARIO)
-# ============================================================
-# Widget independiente para la gestion de reportes diarios.
-#
-# QUE MUESTRA:
-#   1. Filtro de fechas (desde / hasta) para el historial de reportes.
-#   2. Botones: Cerrar Dia (genera reporte), Exportar Excel, Regenerar.
-#   3. Tabla con reportes generados (ventas Bs, USD, stock bajo, etc.).
-#
-# --- NO TOCAR: nombre de la clase (ReportesPagina), firma del __init__,
-#     logica de _cerrar_dia, _regenerar_reporte, _exportar_reporte_excel.
-# --- MODIFICABLE: estilos de botones, colores, fuentes, columnas de tabla,
-#     textos, etiquetas, mensajes, ruta/nombre por defecto en exportacion.
-# ============================================================
 from datetime import date
 
 from PyQt6.QtCore import QDate
@@ -29,30 +14,25 @@ from PyQt6.QtWidgets import (
 )
 
 from ..core.reporte_service import ReporteService
-from ..utils import formatear_bs, formatear_usd_texto, hoy
+from ..utils import formatear_bs, formatear_peso_kg, formatear_usd_texto, hoy
+from ..utils.fecha import a_local
 from ..utils.logging_setup import registrar_excepcion
 from .widgets import TablaProductos, TituloPagina
 
 
-# ============ PAGINA DE REPORTES ============
+# ReportesPagina: Cierre diario y exportacion de reportes.
 class ReportesPagina(QWidget):
-    # --- NO TOCAR: firma del constructor (recibe controlador).
     def __init__(self, controlador_reportes: ReporteService) -> None:
         super().__init__()
 
         self.controlador_reportes = controlador_reportes
 
-        # --- MODIFICABLE: layout, margenes, espaciado.
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(15)
 
-        # [Titulo]
-        # --- MODIFICABLE: texto del titulo (tarjeta con barra lateral).
         layout.addWidget(TituloPagina("Reportes"))
 
-        # [Barra de herramientas: filtro de fechas + botones]
-        # --- MODIFICABLE: estilos, textos, colores de botones.
         barra = QHBoxLayout()
         barra.setSpacing(10)
 
@@ -74,7 +54,6 @@ class ReportesPagina(QWidget):
 
         btn_cerrar_dia = QPushButton("Cerrar Dia")
         btn_cerrar_dia.setProperty("rol", "primario")
-        # --- NO TOCAR: conexion a _cerrar_dia.
         btn_cerrar_dia.clicked.connect(self._cerrar_dia)
         barra.addWidget(btn_cerrar_dia)
 
@@ -91,7 +70,6 @@ class ReportesPagina(QWidget):
         barra.addStretch()
         layout.addLayout(barra)
 
-        # --- MODIFICABLE: columnas y anchos de la tabla de reportes.
         columnas = [
             ("ID", 40),
             ("Fecha", 110),
@@ -105,11 +83,8 @@ class ReportesPagina(QWidget):
         self.tabla_reportes = TablaProductos(columnas)
         layout.addWidget(self.tabla_reportes)
 
-        # --- NO TOCAR: carga inicial de datos.
         self._refrescar_tabla_reportes()
 
-    # --- NO TOCAR: logica de consulta de reportes a la BD.
-    # --- MODIFICABLE: formato de los datos en la tabla.
     def _refrescar_tabla_reportes(self) -> None:
         desde_qdate = self.fecha_desde_reporte.date()
         hasta_qdate = self.fecha_hasta_reporte.date()
@@ -117,8 +92,6 @@ class ReportesPagina(QWidget):
         desde = date(desde_qdate.year(), desde_qdate.month(), desde_qdate.day())
         hasta = date(hasta_qdate.year(), hasta_qdate.month(), hasta_qdate.day())
 
-        # ADVERTENCIA: listar_por_rango() cierra la sesión. ReporteDiario no tiene
-        # relaciones, pero si agregas una en el futuro, cárgala con selectinload().
         reportes = self.controlador_reportes.listar_por_rango(desde, hasta)
 
         self.tabla_reportes.setRowCount(len(reportes))
@@ -139,22 +112,24 @@ class ReportesPagina(QWidget):
             self.tabla_reportes.setItem(fila, 5, QTableWidgetItem(str(rep.productos_stock_bajo)))
             self.tabla_reportes.setItem(fila, 6, QTableWidgetItem(str(rep.productos_sin_stock)))
             fecha_gen = (
-                rep.fecha_generacion.strftime("%d/%m/%Y %H:%M") if rep.fecha_generacion else ""
+                a_local(rep.fecha_generacion).strftime("%d/%m/%Y %H:%M")
+                if rep.fecha_generacion
+                else ""
             )
             self.tabla_reportes.setItem(fila, 7, QTableWidgetItem(fecha_gen))
 
         self.tabla_reportes.resizeColumnsToContents()
 
-    # --- NO TOCAR: logica de cierre de dia (genera reporte en BD).
     def _cerrar_dia(self) -> None:
         try:
             reporte = self.controlador_reportes.generar_reporte()
-            # --- MODIFICABLE: mensaje de exito.
             QMessageBox.information(
                 self,
                 "Cierre Exitoso",
                 f"Reporte del {reporte.fecha} generado correctamente.\n"
                 f"Ventas: {reporte.cantidad_ventas} | "
+                f"Unidades: {reporte.unidades_vendidas} | "
+                f"Peso: {formatear_peso_kg(reporte.peso_vendido_kg)}\n"
                 f"Total Bs.: {formatear_bs(reporte.total_ventas_bs)}",
             )
             self._refrescar_tabla_reportes()
@@ -162,7 +137,6 @@ class ReportesPagina(QWidget):
             registrar_excepcion(e, "_cerrar_dia")
             QMessageBox.critical(self, "Error", f"Error al generar reporte.\n{e}")
 
-    # --- NO TOCAR: logica de regeneracion de reporte.
     def _regenerar_reporte(self) -> None:
         fila = self.tabla_reportes.currentRow()
         if fila < 0:
@@ -181,7 +155,6 @@ class ReportesPagina(QWidget):
             QMessageBox.warning(self, "Error", "Fecha de reporte invalida.")
             return
 
-        # --- MODIFICABLE: texto de confirmacion.
         respuesta = QMessageBox.question(
             self,
             "Regenerar Reporte",
@@ -204,8 +177,6 @@ class ReportesPagina(QWidget):
             registrar_excepcion(e, "_regenerar_reporte")
             QMessageBox.critical(self, "Error", f"Error al regenerar reporte.\n{e}")
 
-    # --- NO TOCAR: logica de exportacion a Excel.
-    # --- MODIFICABLE: nombre de archivo por defecto, filtro de archivos.
     def _exportar_reporte_excel(self) -> None:
         fila = self.tabla_reportes.currentRow()
         if fila < 0:
@@ -217,7 +188,6 @@ class ReportesPagina(QWidget):
             return
         reporte_id = int(item_id.text())
 
-        # --- MODIFICABLE: nombre sugerido y filtro del dialogo de guardado.
         ruta, _filtro = QFileDialog.getSaveFileName(
             self,
             "Guardar Reporte Excel",
@@ -229,7 +199,6 @@ class ReportesPagina(QWidget):
             return
 
         try:
-            # --- NO TOCAR: llamada al servicio para exportar.
             self.controlador_reportes.exportar_excel(reporte_id, ruta)
             QMessageBox.information(
                 self,
@@ -239,3 +208,4 @@ class ReportesPagina(QWidget):
         except Exception as e:
             registrar_excepcion(e, "_exportar_reporte_excel")
             QMessageBox.critical(self, "Error", f"Error al exportar.\n{e}")
+

@@ -1,3 +1,4 @@
+# __main__.py: Entrypoint: login, ventana principal y bucle de sesiones.
 import sys
 
 from PyQt6.QtGui import QFont
@@ -12,37 +13,43 @@ from .utils.logging_setup import configurar_logging, manejar_excepcion_no_maneja
 
 
 def main() -> None:
-    # Nunca permitir que un error quede invisible: se registra en
-    # logs/errores.log y se muestra un dialogo (sys.excepthook).
     configurar_logging()
     sys.excepthook = manejar_excepcion_no_manejada
 
     app = QApplication(sys.argv)
-    app.setApplicationName("ABASTO PA' QUE JESUS")
+    app.setApplicationName("Gestor de Ventas e Inventario")
 
     fuente = QFont()
     fuente.setPointSize(12)
-    # Tipografia del sistema: letra moderna y legible en Windows.
     fuente.setFamily("Segoe UI")
     app.setFont(fuente)
 
-    # Tema claro centralizado (fondo gris claro, letras oscuras):
-    # TODO el QSS vive en ui/estilos.py (unico lugar para estilos).
     app.setStyleSheet(QSS_APP)
 
     create_db_and_tables()
     ejecutar_todos()
 
-    login = VentanaLogin()
-    if login.exec() == VentanaLogin.DialogCode.Accepted:
+    while True:
+        login = VentanaLogin()
+        if login.exec() != VentanaLogin.DialogCode.Accepted:
+            sys.exit(0)
         usuario = login.usuario_actual
         assert usuario is not None
-        window = VentanaPrincipal(usuario)
-        window.show()
-        sys.exit(app.exec())
-    else:
-        sys.exit(0)
+
+        ventana = VentanaPrincipal(usuario)
+        salida_por_logout = False
+
+        def _marcar_logout() -> None:
+            nonlocal salida_por_logout
+            salida_por_logout = True
+
+        ventana.sesion_cerrada.connect(_marcar_logout)
+        ventana.show()
+        app.exec()
+        if not salida_por_logout:
+            sys.exit(0)
 
 
 if __name__ == "__main__":
     main()
+

@@ -1,16 +1,15 @@
-# ============ SELECTOR DE RANGO DE FECHAS REUTILIZABLE ============
-# --- NO TOCAR: clase, metodos de conversion de fechas.
-# --- MODIFICABLE: etiquetas, dias por defecto, margenes.
 from datetime import date, datetime
 
 from PyQt6.QtCore import QDate
 from PyQt6.QtWidgets import QDateEdit, QHBoxLayout, QLabel, QWidget
 
+from ...utils.fecha import rango_dia_utc
 
+
+# SelectorFecha: Selector de fecha de un solo dia.
 class SelectorFecha(QWidget):
     """Selector de rango de fechas (desde / hasta) con calendario emergente."""
 
-    # --- MODIFICABLE: textos de etiquetas y periodo por defecto.
     def __init__(
         self,
         etiqueta_desde: str = "Desde:",
@@ -19,7 +18,6 @@ class SelectorFecha(QWidget):
     ) -> None:
         super().__init__()
 
-        # --- MODIFICABLE: layout y configuracion de los QDateEdit.
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -35,7 +33,6 @@ class SelectorFecha(QWidget):
         self.hasta.setDate(QDate.currentDate())
         layout.addWidget(self.hasta)
 
-    # --- NO TOCAR: metodos de extraccion de fechas.
     def fecha_desde(self) -> date:
         qd = self.desde.date()
         return date(qd.year(), qd.month(), qd.day())
@@ -44,11 +41,8 @@ class SelectorFecha(QWidget):
         qd = self.hasta.date()
         return date(qd.year(), qd.month(), qd.day())
 
-    # --- NO TOCAR: conversion a datetime para consultas a BD.
     def rango_datetime(self) -> tuple[datetime, datetime]:
         desde = self.fecha_desde()
         hasta = self.fecha_hasta()
-        return (
-            datetime(desde.year, desde.month, desde.day, 0, 0, 0),
-            datetime(hasta.year, hasta.month, hasta.day, 23, 59, 59),
-        )
+        return rango_dia_utc(desde)[0], rango_dia_utc(hasta)[1]
+

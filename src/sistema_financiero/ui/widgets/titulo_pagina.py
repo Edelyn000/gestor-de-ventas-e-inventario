@@ -1,17 +1,8 @@
-# ============ TITULO DE PANTALLA REUTILIZABLE ============
-# Tarjeta de titulo para las paginas (Dashboard, Ventas, Productos,
-# Inventario, Reportes, Usuarios): fondo blanco, barra vertical
-# izquierda de 5px (#2563eb), esquinas redondeadas solo a la derecha
-# y texto azul oscuro (#1e3a8a).
-#
-# El estilo visual vive en ui/estilos.py (rol "titulo_pagina"):
-#   QFrame[rol="titulo_pagina"] { ... }
-#   QFrame[rol="titulo_pagina"] QLabel { ... }
-# Aqui solo se monta la estructura (QFrame + QLabel con fuente 24pt).
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel
 
 
+# TituloPagina: Titulo de pagina con barra lateral de acento.
 class TituloPagina(QFrame):
     """Etiqueta de titulo con barra de acento lateral (reutilizable)."""
 
@@ -30,3 +21,4 @@ class TituloPagina(QFrame):
         fuente.setBold(True)
         etiqueta.setFont(fuente)
         layout.addWidget(etiqueta)
+

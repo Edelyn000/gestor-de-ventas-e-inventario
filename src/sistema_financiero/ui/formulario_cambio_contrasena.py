@@ -1,14 +1,3 @@
-# ============================================================
-# ARCHIVO: ui/formulario_cambio_contrasena.py
-# ============================================================
-# Dialogo para que el usuario cambie su nombre de usuario,
-# nombre completo y contrasena desde la misma interfaz.
-#
-# --- NO TOCAR: nombre de la clase (FormularioCambioContrasena),
-#     logica de llamar a AuthService, firma del __init__.
-# --- MODIFICABLE: estilos, colores, fuentes, textos, tamanos,
-#     placeholders, validaciones (longitud de contrasena).
-# ============================================================
 from PyQt6.QtWidgets import (
     QDialog,
     QFormLayout,
@@ -26,9 +15,8 @@ from ..models import Usuario
 from ..utils.logging_setup import registrar_excepcion
 
 
-# ============ DIALOGO CAMBIO DE CONTRASENA ============
+# FormularioCambioContrasena: Cambio de contrasena autenticado.
 class FormularioCambioContrasena(QDialog):
-    # --- NO TOCAR: firma del constructor.
     def __init__(
         self,
         parent: QWidget | None = None,
@@ -36,15 +24,12 @@ class FormularioCambioContrasena(QDialog):
     ) -> None:
         super().__init__(parent)
 
-        # --- NO TOCAR: almacenamiento de usuario y servicio de autenticacion.
         self.usuario = usuario
         self.auth_service = AuthService()
 
-        # --- MODIFICABLE: titulo y tamaño del dialogo.
         self.setWindowTitle("Cambiar Contraseña / Usuario")
         self.setFixedSize(400, 300)
 
-        # --- MODIFICABLE: layout, margenes, campos del formulario.
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
 
@@ -76,20 +61,17 @@ class FormularioCambioContrasena(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
-        # --- MODIFICABLE: texto y estilo de botones.
         btn_cancelar = QPushButton("Cancelar")
         btn_cancelar.clicked.connect(self.reject)
         btn_layout.addWidget(btn_cancelar)
 
         btn_guardar = QPushButton("Guardar Cambios")
         btn_guardar.setProperty("rol", "guardar")
-        # --- NO TOCAR: conexion a _guardar (logica del core).
         btn_guardar.clicked.connect(self._guardar)
         btn_layout.addWidget(btn_guardar)
 
         layout.addLayout(btn_layout)
 
-    # --- NO TOCAR: logica principal de guardado (orquesta las actualizaciones).
     def _guardar(self) -> None:
         if self.usuario is None:
             return
@@ -99,7 +81,6 @@ class FormularioCambioContrasena(QDialog):
             QMessageBox.warning(self, "Error", "Debes ingresar tu contraseña actual.")
             return
 
-        # --- NO TOCAR: verificacion de contrasena actual contra BD.
         if not self.auth_service.verificar_login(self.usuario.usuario, contrasena_actual):
             QMessageBox.warning(self, "Error", "La contraseña actual no es correcta.")
             return
@@ -125,7 +106,6 @@ class FormularioCambioContrasena(QDialog):
             QMessageBox.information(self, "Sin cambios", "No se realizaron cambios.")
             self.reject()
 
-    # --- NO TOCAR: metodos de actualizacion individual (llaman a AuthService).
     def _actualizar_nombre(self, errores: list[str]) -> bool:
         usuario = self.usuario
         if usuario is None or usuario.id is None:
@@ -187,3 +167,4 @@ class FormularioCambioContrasena(QDialog):
             registrar_excepcion(e, "FormularioCambioContrasena._actualizar_contrasena")
             errores.append(f"Error inesperado al cambiar la contrasena: {e}")
             return False
+

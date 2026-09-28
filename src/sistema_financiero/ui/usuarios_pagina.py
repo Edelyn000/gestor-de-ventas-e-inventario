@@ -1,21 +1,8 @@
-# ============================================================
-# ARCHIVO: ui/usuarios_pagina.py  (PAGINA DE GESTION DE USUARIOS)
-# ============================================================
-# Widget para gestionar usuarios del sistema.
-# Solo visible para usuarios con rol ADMINISTRADOR.
-#
-# QUE MUESTRA:
-#   1. Seccion "Mi perfil": datos del usuario actual + boton editar.
-#   2. Seccion "Otros usuarios": tabla con los demas usuarios.
-#   3. Boton "Crear usuario" (solo admin).
-#
-# --- NO TOCAR: nombre de la clase (UsuariosPagina), firma del __init__.
-# --- MODIFICABLE: estilos, colores, fuentes, textos, columnas.
-# ============================================================
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -33,11 +20,10 @@ from .formulario_cambio_contrasena import FormularioCambioContrasena
 from .widgets import TablaProductos, TituloPagina
 
 
-# ============ PAGINA DE USUARIOS ============
+# UsuariosPagina: Gestion de usuarios, perfil y reseteo de contrasena.
 class UsuariosPagina(QWidget):
     """Pagina de gestion de usuarios (solo admin)."""
 
-    # --- NO TOCAR: firma del constructor.
     def __init__(self, usuario_actual: Usuario) -> None:
         super().__init__()
 
@@ -48,22 +34,16 @@ class UsuariosPagina(QWidget):
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
 
-        # --- MODIFICABLE: texto del titulo (tarjeta con barra lateral).
         layout.addWidget(TituloPagina("Usuarios"))
 
-        # --- Seccion Mi perfil.
         layout.addWidget(self._crear_seccion_perfil())
         layout.addSpacing(10)
 
-        # --- Seccion Otros usuarios (solo admin).
         self._seccion_otros = self._crear_seccion_otros_usuarios()
         layout.addWidget(self._seccion_otros)
 
         layout.addStretch()
 
-    # ------------------------------------------------------------------
-    # Seccion: Mi perfil
-    # ------------------------------------------------------------------
     def _crear_seccion_perfil(self) -> QWidget:
         """Muestra los datos del usuario actual con boton para editar."""
         contenedor = QWidget()
@@ -74,7 +54,10 @@ class UsuariosPagina(QWidget):
         lbl_seccion.setProperty("rol", "seccion_grande")
         lay.addWidget(lbl_seccion)
 
-        info = QVBoxLayout()
+        panel_perfil = QFrame()
+        panel_perfil.setProperty("rol", "panel_interno")
+        info = QVBoxLayout(panel_perfil)
+        info.setContentsMargins(12, 12, 12, 12)
         info.setSpacing(5)
 
         self.lbl_nombre = QLabel(f"Nombre: {self.usuario_actual.nombre_completo or '-'}")
@@ -84,7 +67,7 @@ class UsuariosPagina(QWidget):
         info.addWidget(self.lbl_nombre)
         info.addWidget(self.lbl_usuario)
         info.addWidget(self.lbl_rol)
-        lay.addLayout(info)
+        lay.addWidget(panel_perfil)
 
         lay.addSpacing(10)
 
@@ -103,9 +86,6 @@ class UsuariosPagina(QWidget):
 
         return contenedor
 
-    # ------------------------------------------------------------------
-    # Seccion: Otros usuarios (solo admin)
-    # ------------------------------------------------------------------
     def _crear_seccion_otros_usuarios(self) -> QWidget:
         """Tabla con los otros usuarios y acciones de admin."""
         contenedor = QWidget()
@@ -116,7 +96,6 @@ class UsuariosPagina(QWidget):
         lbl_seccion.setProperty("rol", "seccion_grande")
         lay.addWidget(lbl_seccion)
 
-        # --- MODIFICABLE: columnas y anchos de la tabla.
         columnas = [
             ("ID", 50),
             ("Nombre", 180),
@@ -127,7 +106,6 @@ class UsuariosPagina(QWidget):
         self.tabla_usuarios = TablaProductos(columnas)
         lay.addWidget(self.tabla_usuarios)
 
-        # --- Botones de accion.
         btn_layout = QHBoxLayout()
 
         btn_crear = QPushButton("+ Crear Usuario")
@@ -146,14 +124,10 @@ class UsuariosPagina(QWidget):
         btn_layout.addStretch()
         lay.addLayout(btn_layout)
 
-        # --- NO TOCAR: carga inicial.
         self._cargar_tabla()
 
         return contenedor
 
-    # ------------------------------------------------------------------
-    # Metodos de accion
-    # ------------------------------------------------------------------
     def _editar_perfil(self) -> None:
         """Abre el dialogo de edicion de perfil."""
         dialogo = FormularioCambioContrasena(
@@ -224,9 +198,6 @@ class UsuariosPagina(QWidget):
 
         self._cargar_tabla()
 
-    # ------------------------------------------------------------------
-    # Metodos auxiliares
-    # ------------------------------------------------------------------
     def _cargar_tabla(self) -> None:
         """Carga todos los usuarios excepto el actual."""
         todos = self.auth_service.listar_usuarios()
@@ -253,9 +224,7 @@ class UsuariosPagina(QWidget):
         self._refrescar_perfil()
 
 
-# ============================================================
-# DIALOGO: Crear usuario nuevo
-# ============================================================
+# DialogoCrearUsuario: Dialogo para crear un usuario nuevo.
 class DialogoCrearUsuario(QDialog):
     """Dialogo simple para crear un usuario."""
 
@@ -331,9 +300,7 @@ class DialogoCrearUsuario(QDialog):
             QMessageBox.critical(self, "Error inesperado", f"No se pudo crear el usuario.\n{e}")
 
 
-# ============================================================
-# DIALOGO: Resetear contrasena
-# ============================================================
+# DialogoResetContrasena: Dialogo para resetear la contrasena de un usuario.
 class DialogoResetContrasena(QDialog):
     """Dialogo para que el admin resetee la contrasena de otro usuario."""
 
@@ -401,3 +368,4 @@ class DialogoResetContrasena(QDialog):
             QMessageBox.critical(
                 self, "Error inesperado", f"No se pudo actualizar la contraseña.\n{e}"
             )
+
