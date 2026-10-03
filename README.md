@@ -5,10 +5,6 @@ reportes de un abasto, con precios simultáneos en bolívares (Bs) y dólares (U
 
 **Autora:** Edelyn Hernandez · edelinhernandezolano@hotmail.com
 
-**Trabajo individual.** Todo el código, las pruebas y la documentación de este
-repositorio los desarrolló una sola persona, por eso el historial tiene un único
-autor.
-
 ![Python](https://img.shields.io/badge/python-%3E%3D3.14-3776AB)
 ![PyQt6](https://img.shields.io/badge/PyQt6-6.11-2c6fbb)
 ![SQLModel](https://img.shields.io/badge/SQLModel-0.0.38-2c6fbb)
