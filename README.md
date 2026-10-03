@@ -99,12 +99,16 @@ Las pruebas están marcadas por nivel y se pueden correr por separado:
 .venv\Scripts\python.exe -m pytest tests/ -m aceptacion
 ```
 
-| Nivel | Qué cubre |
-|---|---|
-| `unitarias` | Un módulo aislado, con el resto simulado |
-| `integracion` | Servicio real sobre base de datos SQLite en memoria |
-| `sistema` | Aplicación completa: login → POS → cobro → cierre, con controladores reales |
-| `aceptacion` | Escenarios de negocio del POS vistos desde la interfaz |
+| Nivel | Cuántas | Qué cubre |
+|---|---|---|
+| `unitarias` | 280 | Un módulo aislado, con el resto simulado |
+| `integracion` | 211 | Servicio real sobre base de datos SQLite en memoria |
+| `sistema` | 31 | Aplicación completa: login → POS → cobro → cierre, con controladores reales |
+| `aceptacion` | 32 | Escenarios de negocio del POS vistos desde la interfaz |
+
+Los cuatro niveles suman 554 porque `aceptacion` reutiliza pruebas que ya
+cuentan como `sistema`: no son 522 pruebas distintas, son 522 pruebas
+clasificadas de más de una forma.
 
 Las pruebas de interfaz usan `pytest-qt` y **nunca tocan la red**: el hilo que
 consulta la tasa BCV se neutraliza con el fixture `_sin_fetch_bcv` en
@@ -153,3 +157,25 @@ Las dependencias apuntan hacia dentro: `ui/` llama a `core/`, `core/` a
 | [DOCUMENTACION.md](DOCUMENTACION.md) | Módulos, base de datos y cómo agregar una funcionalidad |
 | [ESTRUCTURA.md](ESTRUCTURA.md) | Árbol de carpetas y responsabilidad de cada una |
 | [PLANIFICACION_PROYECTO.md](PLANIFICACION_PROYECTO.md) | Requisitos, decisiones técnicas y estado |
+
+## Entrega
+
+| Dato | Valor |
+|---|---|
+| Proyecto | Sistema Finacieron |
+| Integrante | Edelyn Hernandez |
+| Modalidad | Trabajo individual |
+| Rama estable | `main` |
+| Versión estable | `v1.0.0` (tag anotado) |
+| Repositorio | GitHub, privado |
+
+El tag `v1.0.0` marca el commit de entrega. Para working en la misma versión:
+
+```powershell
+git clone <url-del-repositorio>
+cd sistema_finacieron
+git checkout main
+```
+
+La rama `rescue/stash-29sep` se conserva como respaldo del trabajo previo a la
+limpieza del historial. No forma parte de la entrega y no hay que usarla.
