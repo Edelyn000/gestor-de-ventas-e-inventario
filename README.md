@@ -5,9 +5,14 @@ reportes de un abasto, con precios simultáneos en bolívares (Bs) y dólares (U
 
 **Autora:** Edelyn Hernandez · edelinhernandezolano@hotmail.com
 
+**Trabajo individual.** Todo el código, las pruebas y la documentación de este
+repositorio los desarrolló una sola persona, por eso el historial tiene un único
+autor.
+
 ![Python](https://img.shields.io/badge/python-%3E%3D3.14-3776AB)
 ![PyQt6](https://img.shields.io/badge/PyQt6-6.11-2c6fbb)
 ![SQLModel](https://img.shields.io/badge/SQLModel-0.0.38-2c6fbb)
+![SQLite](https://img.shields.io/badge/SQLite-3-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-522%20passing-success)
 ![Ruff](https://img.shields.io/badge/ruff-0%20errores-success)
 ![Mypy](https://img.shields.io/badge/mypy-0%20errores-success)
@@ -110,13 +115,14 @@ consulta la tasa BCV se neutraliza con el fixture `_sin_fetch_bcv` en
 ```
 src/sistema_financiero/
   __main__.py          Arranque: crea la BD, siembra el admin, login, bucle de sesión
-  models/              Capa de datos (11 tablas SQLModel)
+  models/              Capa de datos (11 tablas SQLModel sobre SQLite)
   core/                Lógica de negocio (8 servicios)
   services/            Integración externa (BCV) y fachadas
   ui/                  Interfaz PyQt6 (páginas, formularios y diálogos)
   utils/               Moneda, fecha (UTC/Venezuela), validación, constantes
   db/                  Scripts de datos y semillas
 alembic/               Migraciones de esquema
+database/database.db   Base local en SQLite (no se versiona)
 tests/                 522 pruebas (14 archivos)
 ```
 

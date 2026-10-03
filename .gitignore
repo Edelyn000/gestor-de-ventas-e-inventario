@@ -43,8 +43,8 @@ htmlcov/
 # Presentación (dependencias npm, no se suben al repo)
 presentacion/node_modules/
 
-# Lockfiles de LibreOffice de la presentación (no se suben al repo)
-presentacion/**/.~lock.*
+# Lockfiles de LibreOffice (no se suben al repo)
+.~lock.*#
 
 # Facturas de prueba generadas al guardar PDF desde el POS
 factura_*.pdf

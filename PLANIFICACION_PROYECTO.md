@@ -46,6 +46,15 @@ Gestión financiera e inventario para un abasto. PyQt6, SQLModel y SQLite, dos m
 
 La UI llama a `core/` y nunca al revés. No existe capa `modules/`: la documentación anterior la mencionaba, pero nunca se creó.
 
+El conteo de la capa UI sigue una convención: las **6 páginas** son las de
+navegación por rol (`dashboard`, `productos`, `ventas`, `inventario`,
+`reportes`, `usuarios`), los **6 diálogos** son las ventanas modales
+(`dialogo_factura`, `dialogo_anulacion`, `dialogo_tasa_manual`,
+`formulario_venta`, `formulario_producto`, `formulario_cambio_contrasena`) y
+los **6 widgets** son los componentes de `ui/widgets/`. Además de eso, `ui/`
+tiene `ventana_login.py` y `estilos.py`, que no cuentan en ninguna de las tres
+categorías porque no son páginas, diálogos ni widgets.
+
 ## 5. Decisiones técnicas
 
 ### ADR-001: SQLite con `check_same_thread=False`

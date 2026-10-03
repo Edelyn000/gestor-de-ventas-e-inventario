@@ -121,6 +121,25 @@ El día de negocio es el día local de Venezuela, la BD guarda todo en UTC. `ran
 - Cambiar la contraseña propia pide la actual. Resetear la de otro, solo lo hace un administrador.
 - El login y los errores van a `logs/`, nunca las contraseñas.
 
+### Credencial de la semilla local
+
+`db/seeds.py::seed_admin()` crea un usuario **`admin` con contraseña `admin`**
+la primera vez que se ejecuta el programa, y solo si la tabla de usuarios está
+vacía. Corre el hash con bcrypt, pero la contraseña es literalmente la palabra
+`admin`.
+
+No es una credencial filtrada ni un secreto, y conviene decir por qué:
+
+- La base de datos es un archivo local, `database/database.db`, ignorado por
+  git. Quien clone el repositorio recibe el código, no la base con usuarios.
+- La aplicación es de escritorio: no hay servidor, ni despliegue, ni red
+  expuesta donde esa contraseña proteja algo real.
+- Solo aplica en la primera ejecución y únicamente sobre una tabla vacía.
+
+Está declarado aquí a propósito, para que quede explícito y no parezca un
+descuido. En cualquier despliegue real, el usuario administrador se crea por
+fuera de la semilla y con una contraseña elegida por quien opera.
+
 ## Cómo agregar una funcionalidad
 
 1. **Modelo**, en `models/modelos.py`, si hace falta tabla nueva.
@@ -161,7 +180,7 @@ class MiServicio:
 | `.venv\Scripts\python.exe -m pytest tests/ -m integracion -v` | Un nivel de pruebas |
 | `.venv\Scripts\python.exe -m ruff check src/` | Lint |
 | `.venv\Scripts\python.exe -m mypy src/` | Tipos |
-| `alembic upgrade head` | Aplicar migraciones |
+| `.venv\Scripts\python.exe -m alembic upgrade head` | Aplicar migraciones |
 
 ## Metodología y mantenimiento
 
