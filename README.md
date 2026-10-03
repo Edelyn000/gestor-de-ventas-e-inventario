@@ -103,8 +103,7 @@ Las pruebas están marcadas por nivel y se pueden correr por separado:
 | `aceptacion` | 32 | Escenarios de negocio del POS vistos desde la interfaz |
 
 Los cuatro niveles suman 554 porque `aceptacion` reutiliza pruebas que ya
-cuentan como `sistema`: no son 522 pruebas distintas, son 522 pruebas
-clasificadas de más de una forma.
+cuentan como `sistema`. Son 522 pruebas clasificadas de más de una forma.
 
 Las pruebas de interfaz usan `pytest-qt` y **nunca tocan la red**: el hilo que
 consulta la tasa BCV se neutraliza con el fixture `_sin_fetch_bcv` en
@@ -165,7 +164,7 @@ Las dependencias apuntan hacia dentro: `ui/` llama a `core/`, `core/` a
 | Versión estable | `v1.0.0` (tag anotado) |
 | Repositorio | GitHub, privado |
 
-El tag `v1.0.0` marca el commit de entrega. Para working en la misma versión:
+El tag `v1.0.0` marca el commit de entrega. Para traer esa versión:
 
 ```powershell
 git clone <url-del-repositorio>
@@ -173,5 +172,5 @@ cd sistema_finacieron
 git checkout main
 ```
 
-La rama `rescue/stash-29sep` se conserva como respaldo del trabajo previo a la
-limpieza del historial. No forma parte de la entrega y no hay que usarla.
+La rama `rescue/stash-29sep` conserva el trabajo previo a la limpieza del
+historial. Es un respaldo, no parte de la entrega.

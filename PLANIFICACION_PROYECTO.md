@@ -51,9 +51,8 @@ navegación por rol (`dashboard`, `productos`, `ventas`, `inventario`,
 `reportes`, `usuarios`), los **6 diálogos** son las ventanas modales
 (`dialogo_factura`, `dialogo_anulacion`, `dialogo_tasa_manual`,
 `formulario_venta`, `formulario_producto`, `formulario_cambio_contrasena`) y
-los **6 widgets** son los componentes de `ui/widgets/`. Además de eso, `ui/`
-tiene `ventana_login.py` y `estilos.py`, que no cuentan en ninguna de las tres
-categorías porque no son páginas, diálogos ni widgets.
+los **6 widgets** son los componentes de `ui/widgets/`. Los dos archivos que
+quedan fuera de las tres cuentas son `ventana_login.py` y `estilos.py`.
 
 ## 5. Decisiones técnicas
 

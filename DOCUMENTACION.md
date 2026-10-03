@@ -125,20 +125,19 @@ El día de negocio es el día local de Venezuela, la BD guarda todo en UTC. `ran
 
 `db/seeds.py::seed_admin()` crea un usuario **`admin` con contraseña `admin`**
 la primera vez que se ejecuta el programa, y solo si la tabla de usuarios está
-vacía. Corre el hash con bcrypt, pero la contraseña es literalmente la palabra
-`admin`.
+vacía. El hash usa bcrypt.
 
-No es una credencial filtrada ni un secreto, y conviene decir por qué:
+Su alcance real es corto:
 
-- La base de datos es un archivo local, `database/database.db`, ignorado por
-  git. Quien clone el repositorio recibe el código, no la base con usuarios.
-- La aplicación es de escritorio: no hay servidor, ni despliegue, ni red
-  expuesta donde esa contraseña proteja algo real.
-- Solo aplica en la primera ejecución y únicamente sobre una tabla vacía.
+- `database/database.db` es un archivo local ignorado por git. Quien clone el
+  repositorio recibe el código, no la base con usuarios.
+- La aplicación corre en el escritorio de quien la usa. Esa contraseña no
+  protege ningún servicio remoto.
+- La semilla solo actúa sobre una tabla de usuarios vacía, en la primera
+  ejecución.
 
-Está declarado aquí a propósito, para que quede explícito y no parezca un
-descuido. En cualquier despliegue real, el usuario administrador se crea por
-fuera de la semilla y con una contraseña elegida por quien opera.
+Un despliegue real debería crear al administrador fuera de la semilla, con una
+contraseña que elija quien opera.
 
 ## Cómo agregar una funcionalidad
 
