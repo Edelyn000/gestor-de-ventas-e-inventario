@@ -1,6 +1,7 @@
 # normalizar_gramos_a_kilo.py: Script de datos: normaliza ventas GRAMOS a KILO.
 
 import shutil
+import tempfile
 from decimal import Decimal
 from pathlib import Path
 
@@ -61,7 +62,7 @@ def main() -> None:
 
         print(f"Productos 'GRAMOS' encontrados: {len(legados)}")
 
-        backup_dir = Path.home() / "AppData" / "Local" / "Temp" / "opencode"
+        backup_dir = Path(tempfile.gettempdir())
         backup_dir.mkdir(parents=True, exist_ok=True)
         backup = backup_dir / "database.db.bak_gramos"
         shutil.copy2(ruta_bd, backup)
@@ -93,4 +94,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

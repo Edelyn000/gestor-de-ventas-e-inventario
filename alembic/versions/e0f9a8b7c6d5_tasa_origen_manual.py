@@ -16,7 +16,7 @@ Idempotente con Inspector (patron de las migraciones previas). Las
 filas existentes se rellenan con origen='BCV' (server_default).
 
 Nota: el backup pre-migracion de la BD real esta en
-`%TEMP%\\opencode\\database.db.bak_tasa_manual`.
+`%TEMP%/database.db.bak_tasa_manual`.
 
 Revision ID: e0f9a8b7c6d5
 Revises: d9f8e7d6c5b4

@@ -6,6 +6,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QKeySequence, QShortcut, QShowEvent
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
     QDialog,
     QDoubleSpinBox,
     QFrame,
@@ -17,6 +18,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
@@ -118,6 +120,8 @@ ALTO_FILA_PAGOS = 30
 MIN_FILAS_VISIBLES_PAGOS = 2
 MAX_FILAS_VISIBLES_PAGOS = 4
 ANCHO_COLUMNA_BORRAR_PAGOS = 58
+# Separacion entre CUBIERTO y RESTANTE en la fila de resumen.
+SEPARACION_RESUMEN_PAGOS = 16
 
 ANCHO_COLUMNA_KG = 88
 ANCHO_COLUMNA_GRAMOS = 88
@@ -128,8 +132,9 @@ ANCHO_COLUMNA_PRECIO = 70
 ANCHO_COLUMNA_IMPORTE = 100
 ANCHO_COLUMNA_QUITAR = 48
 
-ANCHO_MINIMO_TICKET = 621
-PROPORCION_PANEL_TICKET = 0.54
+# Ancho fijo del nombre del producto en el ticket (no absorbe el sobrante).
+ANCHO_COLUMNA_PRODUCTO_TICKET = 200
+PROPORCION_PANEL_TICKET = 0.60
 
 ANCHO_BOTON_PESO_RAPIDO = 50
 ALTO_BOTON_PESO_RAPIDO = 24
@@ -145,6 +150,20 @@ ANCHO_COLUMNA_PESO_RAPIDO = (
     + MARGEN_DER_GRUPO_PESO
 )
 ANCHO_COLUMNA_ACCION_CATALOGO = 44
+
+# Suma de las columnas numericas del ticket (Kg + g + P.U. + Importe + +Peso + quitar).
+ANCHO_FIJO_TICKET = (
+    ANCHO_COLUMNA_KG
+    + ANCHO_COLUMNA_GRAMOS
+    + ANCHO_COLUMNA_PRECIO
+    + ANCHO_COLUMNA_IMPORTE
+    + ANCHO_COLUMNA_PESO_RAPIDO
+    + ANCHO_COLUMNA_QUITAR
+)
+# Aire del panel del ticket: margenes internos (24) + barra de scroll/aire (16).
+RESERVA_PANEL_TICKET = 40
+# Minimo del panel: columnas del ticket + el nombre + el aire (evita scroll horizontal).
+ANCHO_MINIMO_TICKET = ANCHO_FIJO_TICKET + ANCHO_COLUMNA_PRODUCTO_TICKET + RESERVA_PANEL_TICKET
 
 ETIQUETAS_PESO_RAPIDO: tuple[str, ...] = ("1kg", "1/2", "1/4", "100g")
 ETIQUETAS_PESO_RAPIDO_LARGAS: tuple[str, ...] = (
@@ -265,7 +284,9 @@ class FormularioVenta(QDialog):
         panel_ticket.setMinimumWidth(ANCHO_MINIMO_TICKET)
         splitter.addWidget(panel_catalogo)
         splitter.addWidget(panel_ticket)
-        splitter.setSizes([600, 700])
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 3)
+        splitter.setSizes([480, 720])
         self.splitter_paneles = splitter
         return splitter
 
@@ -304,12 +325,13 @@ class FormularioVenta(QDialog):
         self.campo_busqueda.setFocus()
         layout.addWidget(self.campo_busqueda)
 
-        self.fila_categorias = QHBoxLayout()
-        self.fila_categorias.setSpacing(6)
-        layout.addLayout(self.fila_categorias)
+        self.cmb_categoria_filtro = QComboBox()
+        self.cmb_categoria_filtro.setMaximumWidth(180)
+        self.cmb_categoria_filtro.currentTextChanged.connect(self._seleccionar_categoria)
+        layout.addWidget(self.cmb_categoria_filtro)
 
         columnas: list[tuple[str, int]] = [
-            ("Producto", 240),
+            ("Producto", 180),
             ("USD", 74),
             ("Bs", 86),
             ("Stock", 78),
@@ -332,6 +354,7 @@ class FormularioVenta(QDialog):
         header = tabla.horizontalHeader()
         if header is not None:
             header.setStretchLastSection(False)
+            header.setMinimumSectionSize(36)
             header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         tabla.itemDoubleClicked.connect(self._on_catalogo_doble_clic)
         self.tabla_productos_catalogo = tabla
@@ -453,51 +476,28 @@ class FormularioVenta(QDialog):
         if valor is not None:
             self._agregar_producto_venta(int(valor))
 
-    # Crea un boton de filtro por categoria (marcable).
-    def _crear_boton_categoria(self, nombre: str) -> QPushButton:
-        btn = QPushButton(nombre)
-        btn.setCheckable(True)
-        btn.setProperty("rol", "categoria")
-        if nombre == self._categoria_seleccionada:
-            btn.setProperty("rol", "categoria_activa")
-        btn.clicked.connect(lambda _=False, cat=nombre: self._seleccionar_categoria(cat))
-        return btn
-
-    # Reconstruye la fila de categorias: [Todos] + categorias de la BD.
-    def _refrescar_botones_categorias(self) -> None:
-        """Reconstruye la fila de categorias: [Todos] + categorias de la BD."""
-        while self.fila_categorias.count():
-            item = self.fila_categorias.takeAt(0)
-            if item is None:
-                break
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
-
-        nombres = ["Todos"] + self._categorias
-        for nombre in nombres:
-            self.fila_categorias.addWidget(self._crear_boton_categoria(nombre))
-        self.fila_categorias.addStretch()
+    # Reconstruye el filtro de categorias: [Todos] + categorias de la BD.
+    def _refrescar_filtro_categorias(self) -> None:
+        """Reconstruye el filtro de categorias: [Todos] + categorias de la BD."""
+        combo = self.cmb_categoria_filtro
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItems(["Todos"] + self._categorias)
+        indice = combo.findText(self._categoria_seleccionada)
+        combo.setCurrentIndex(indice if indice >= 0 else 0)
+        combo.blockSignals(False)
 
     # Marca la categoria activa y re-aplica el filtro.
     def _seleccionar_categoria(self, nombre: str) -> None:
         """Marca la categoria activa y re-aplica el filtro."""
         self._categoria_seleccionada = nombre
-        for i in range(self.fila_categorias.count()):
-            item = self.fila_categorias.itemAt(i)
-            if item is None:
-                continue
-            widget = item.widget()
-            if isinstance(widget, QPushButton):
-                widget.setChecked(widget.text() == nombre)
-                widget.setProperty(
-                    "rol",
-                    "categoria_activa" if widget.text() == nombre else "categoria",
-                )
-                estilo = widget.style()
-                if estilo is not None:
-                    estilo.unpolish(widget)
-                    estilo.polish(widget)
+        combo = getattr(self, "cmb_categoria_filtro", None)
+        if combo is not None and combo.currentText() != nombre:
+            combo.blockSignals(True)
+            indice = combo.findText(nombre)
+            if indice >= 0:
+                combo.setCurrentIndex(indice)
+            combo.blockSignals(False)
         self._aplicar_filtro()
 
     # Crea la tabla del ticket con sus columnas por tipo de venta.
@@ -508,7 +508,7 @@ class FormularioVenta(QDialog):
         layout.setSpacing(8)
 
         columnas: list[tuple[str, int]] = [
-            ("Producto", 200),
+            ("Producto", ANCHO_COLUMNA_PRODUCTO_TICKET),
             ("Kg", ANCHO_COLUMNA_KG),
             ("g", ANCHO_COLUMNA_GRAMOS),
             ("P.U.", ANCHO_COLUMNA_PRECIO),
@@ -554,7 +554,8 @@ class FormularioVenta(QDialog):
         header_ticket = self.tabla_productos_venta.horizontalHeader()
         if header_ticket is not None:
             header_ticket.setStretchLastSection(False)
-            header_ticket.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            # Producto NO absorbe el sobrante: ancho controlado y el aire queda a la derecha.
+            header_ticket.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self.tabla_productos_venta.setShowGrid(False)
         self.tabla_productos_venta.setAlternatingRowColors(True)
         layout.addWidget(self.tabla_productos_venta, 1)
@@ -744,12 +745,7 @@ class FormularioVenta(QDialog):
         """Muestra hasta MAX_FILAS_VISIBLES_PAGOS filas; el resto con scrollbar."""
         filas = min(self.tabla_pagos.rowCount(), MAX_FILAS_VISIBLES_PAGOS)
         filas = max(filas, MIN_FILAS_VISIBLES_PAGOS)
-        alto = (
-            ALTO_ENCABEZADO_PAGOS
-            + ALTO_RESERVA_SCROLL_PAGOS
-            + filas * ALTO_FILA_PAGOS
-            + 2
-        )
+        alto = ALTO_ENCABEZADO_PAGOS + ALTO_RESERVA_SCROLL_PAGOS + filas * ALTO_FILA_PAGOS + 2
         self.tabla_pagos.setFixedHeight(alto)
 
     # Crea el resumen de cobertura y el indicador PAGO MIXTO.
@@ -765,7 +761,7 @@ class FormularioVenta(QDialog):
         self.lbl_restante.setProperty("rol", "resumen_falta")
         fila_resumen.addStretch()
         fila_resumen.addWidget(self.lbl_cubierto)
-        fila_resumen.addStretch()
+        fila_resumen.addSpacing(SEPARACION_RESUMEN_PAGOS)
         fila_resumen.addWidget(self.lbl_restante)
         vbox_pago.addLayout(fila_resumen)
 
@@ -1095,7 +1091,7 @@ class FormularioVenta(QDialog):
             QMessageBox.information(
                 self,
                 "Pago",
-                "La venta ya esta cubierta.\nCierra el panel y pulsa COBRAR (F12).",
+                "La venta ya esta cubierta.\nCierra el panel y pulsa COBRAR.",
             )
 
     # Pregunta si se pueden descartar los pagos parciales registrados.
@@ -1290,15 +1286,20 @@ class FormularioVenta(QDialog):
         self.btn_limpiar_ticket = QPushButton("LIMPIAR TICKET")
         self.btn_limpiar_ticket.setProperty("rol", "anular")
         self.btn_limpiar_ticket.setMinimumHeight(48)
+        self.btn_limpiar_ticket.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
         self.btn_limpiar_ticket.clicked.connect(self._confirmar_limpiar_ticket)
-        btn_layout.addWidget(self.btn_limpiar_ticket)
+        btn_layout.addWidget(self.btn_limpiar_ticket, 2)
 
-        self.btn_cobrar = QPushButton("COBRAR (F12)")
+        self.btn_cobrar = QPushButton("COBRAR")
         self.btn_cobrar.setProperty("rol", "cobrar")
         self.btn_cobrar.setMinimumHeight(48)
+        self.btn_cobrar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_cobrar.clicked.connect(self._finalizar_venta)
         self.btn_cobrar.setEnabled(False)
-        btn_layout.addWidget(self.btn_cobrar)
+        btn_layout.addWidget(self.btn_cobrar, 3)
 
         layout.addLayout(btn_layout)
 
@@ -1309,7 +1310,7 @@ class FormularioVenta(QDialog):
 
         self._productos_catalogo = self.controlador_productos.listar_todos()
         self._categorias = self.controlador_productos.obtener_categorias()
-        self._refrescar_botones_categorias()
+        self._refrescar_filtro_categorias()
         self._aplicar_filtro()
 
     # Reconstruye la lista del catalogo segun el texto y la categoria.
@@ -1686,7 +1687,6 @@ class FormularioVenta(QDialog):
                 )
                 subtotal.setToolTip(f"Importe de la linea: {formatear_bs(item['subtotal'])}")
                 tabla.setItem(fila, 4, subtotal)
-
 
                 btn_quitar = QPushButton("✕")
                 btn_quitar.setProperty("rol", "quitar_pago")
@@ -2110,4 +2110,3 @@ class FormularioVenta(QDialog):
                 "mostrar la factura.\n\n"
                 "Registrala desde el reporte diario (Excel) si la necesitas.",
             )
-

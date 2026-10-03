@@ -20,7 +20,7 @@ backfill copia el valor viejo (piezas contadas antes) a
 unidades_vendidas; el peso historico parte de 0.000.
 
 Nota: el backup pre-migracion de la BD real esta en
-`%TEMP%\\opencode\\database.db.bak_reporte_unidades`.
+`%TEMP%/database.db.bak_reporte_unidades`.
 
 Revision ID: f1e2d3c4b5a6
 Revises: e0f9a8b7c6d5

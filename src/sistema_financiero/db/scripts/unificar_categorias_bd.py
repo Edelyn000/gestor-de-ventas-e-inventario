@@ -1,6 +1,7 @@
 # unificar_categorias_bd.py: Script de migracion: unifica categorias duplicadas.
 
 import shutil
+import tempfile
 from pathlib import Path
 
 from alembic.config import Config
@@ -35,7 +36,7 @@ def main() -> None:
         print(f"NO hay BD en {ruta_bd} — nada que migrar.")
         return
 
-    backup_dir = Path.home() / "AppData" / "Local" / "Temp" / "opencode"
+    backup_dir = Path(tempfile.gettempdir())
     backup_dir.mkdir(parents=True, exist_ok=True)
     backup = backup_dir / "database.db.bak_categorias"
     shutil.copy2(ruta_bd, backup)
@@ -50,4 +51,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

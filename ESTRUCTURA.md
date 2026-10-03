@@ -1,78 +1,96 @@
-# Estructura del Proyecto — Sistema Finaciero
+# Estructura del proyecto
 
 ```
 sistema_finacieron/
-├── src/
-│   └── sistema_financiero/
-│       ├── __init__.py          ← Inicializador del paquete
-│       ├── __main__.py          ← Entrypoint de la aplicación
-│       ├── core/                ← Lógica de negocio
-│       ├── models/              ← Capa de datos (ORM)
-│       ├── ui/                  ← Vistas PyQt6
-│       │   └── widgets/         ← Componentes reutilizables de UI
-│       ├── modules/             ← Módulos funcionales
-│       ├── services/            ← Servicios de integración
-│       └── db/                  ← Migraciones y seeds
-├── database/                    ← Archivo SQLite (se crea automáticamente)
-└── ...
+├── src/sistema_financiero/
+│   ├── __init__.py
+│   ├── __main__.py          punto de entrada
+│   ├── core/                lógica de negocio
+│   ├── models/              ORM y conexión
+│   ├── ui/                  vistas PyQt6
+│   │   └── widgets/         componentes reutilizables
+│   ├── services/            integraciones externas
+│   ├── db/                  Alembic, seeds y scripts
+│   └── utils/               formateo, validación, constantes
+├── alembic/                 migraciones y `alembic.ini`
+├── tests/                   pytest + pytest-qt
+├── database/database.db     SQLite local
+└── logs/                    bitácora de app, errores y eventos
 ```
 
-## Descripción por carpeta
+## Responsabilidad por carpeta
 
-### `core/` — Lógica de negocio
+### `core/`
 
-Acá va toda la lógica pura de la aplicación: cálculos, validaciones, reglas de negocio. No debe depender de la UI ni de la base de datos directamente. Ejemplos:
+Reglas de negocio. No importa PyQt6 ni toca la BD directamente.
 
-- `AuthService` → autenticación de usuarios (login, verificación de contraseñas con bcrypt)
-- `VentaController` → cálculo de totales, validación de productos antes de facturar
-- `InventarioService` → actualizar stock, registrar movimientos, alertas de stock bajo
-- `ReporteService` → generar reportes diarios, consolidar ventas
+| Módulo | Qué hace |
+|---|---|
+| `auth_service.py` | Login con bcrypt, CRUD de usuarios |
+| `inventario_service.py` | Entrada, salida y ajuste de stock |
+| `producto_controller.py` | CRUD de productos y categorías, alertas |
+| `venta_controller.py` | Crear y anular ventas, pagos mixtos |
+| `caja_service.py` | Apertura, arqueo y cierre de caja |
+| `reporte_service.py` | Reporte diario y exportación a Excel |
+| `tasa_cambio_service.py` | Tasas BCV y manuales, historial |
+| `rentabilidad.py` | Costo de ventas, utilidad bruta y margen (funciones puras) |
 
-### `models/` — Capa de datos (ORM)
+### `models/`
 
-Contiene los modelos SQLModel que definen las tablas de la base de datos. También va la configuración del engine y la sesión. Archivos:
+Los modelos SQLModel que definen las 11 tablas, el engine y la sesión.
 
-- `modelos.py` → Definición de tablas: `Producto`, `Venta`, `VentaDetalle`, `MovimientoInventario`, `TasaCambio`, `Usuario`, `ReporteDiario`
-- `conexion.py` → Engine de SQLAlchemy, creación de la DB (`abasto.db`), `get_session()`
+- `modelos.py`: `Producto`, `Categoria`, `Venta`, `VentaDetalle`, `PagoVenta`, `MovimientoInventario`, `TasaCambio`, `Usuario`, `Caja`, `ReporteDiario`, `ReporteVentaDetalle`
+- `conexion.py`: engine de SQLAlchemy, `obtener_sesion()`, `create_db_and_tables()`
 
-### `ui/` — Vistas PyQt6
+SQLModel deriva el nombre de tabla del nombre de la clase en minúsculas, así que `VentaDetalle` crea `ventadetalle` y `ReporteVentaDetalle` crea `reporteventadetalle`. La base real conserva además `reporte_venta_detalle`, una tabla de 0 filas que creó una migración anterior con el nombre en snake_case.
 
-Acá van las ventanas, diálogos y componentes visuales de la interfaz. Separado en:
+### `ui/`
 
-- **`ui/__init__.py`** + **`ui/interflaz.py`** → ventanas principales, layouts, navegación
-- **`ui/widgets/`** → componentes reutilizables (ej: tabla de productos personalizada, selector de fecha, campo de búsqueda)
-- No debe contener lógica de negocio directamente — solo llama a `core/`
+Ventanas, diálogos y componentes. Un page llama a `core/`, nunca al revés.
 
-### `modules/` — Módulos funcionales
+| Archivo | Qué hace |
+|---|---|
+| `interfaz.py` | Ventana principal, menú lateral por rol, cabecera con "Cerrar Sesion" |
+| `ventana_login.py` | Inicio de sesión |
+| `dashboard_pagina.py` | Resumen del día, alertas de stock, tasa BCV |
+| `productos_pagina.py` | CRUD de productos y pestaña de movimientos |
+| `ventas_pagina.py` | Historial de ventas y panel "Caja del Turno" |
+| `inventario_pagina.py` | Entrada, salida, ajuste e historial de stock |
+| `reportes_pagina.py` | Cierre del día y exportación |
+| `usuarios_pagina.py` | Perfil, cambio de contraseña y gestión de usuarios |
+| `formulario_venta.py` | POS: catálogo, ticket, cobro mixto, factura |
+| `formulario_producto.py` | Alta y edición de productos |
+| `dialogo_factura.py` | Vista previa, impresión y PDF de la factura |
+| `dialogo_anulacion.py` | Anulación con motivo y doble autorización |
+| `dialogo_tasa_manual.py` | Fijar tasa a mano cuando no hay BCV |
+| `estilos.py` | QSS centralizado y paleta |
 
-Aquí van las funcionalidades agrupadas por dominio. Cada módulo puede contener su propio subconjunto de lógica. Ejemplos:
+`ui/widgets/` tiene los componentes reutilizables: `TablaProductos`, `SelectorFecha`, `IndicadorStock`, `CampoBusqueda`, `TituloPagina`, `SpinBoxStock`.
 
-- `modules/ventas/` → pantalla de registro de ventas, historial
-- `modules/productos/` → CRUD de productos, gestión de categorías
-- `modules/reportes/` → generación y visualización de reportes
-- `modules/usuarios/` → gestión de usuarios y roles
+### `services/`
 
-### `services/` — Servicios de integración
+Wrappers de terceros.
 
-Acá van los servicios que se conectan con APIs externas o realizan tareas auxiliares:
+- `bcv.py`: consulta la tasa al BCV y distingue red caída de error interno
+- `exportar_excel.py`: fachada hacia `ReporteService`
 
-- `services/tasa_bcv.py` → consultar la tasa de cambio del BCV vía scraper-bcv
-- `services/exportar_excel.py` → exportar reportes a Excel con openpyxl
+### `db/`
 
-### `db/` — Acceso y configuración de base de datos
+Seeds y scripts de datos. Las migraciones viven en `alembic/` en la raíz, no aquí.
 
-Capa específica para operaciones de base de datos: migraciones, seeds, consultas complejas que no están en los modelos:
+- `seeds.py`: `seed_admin`, `seed_productos`, `seed_tasa_cambio`
+- `scripts/`: scripts de migración de datos que no entran en `core/`
 
-- Migraciones con Alembic
-- Scripts para poblar datos de prueba (seeds)
-- Consultas personalizadas que no encajan en SQLModel puro
+### `utils/`
+
+Funciones sin estado: `moneda.py` (formateo), `fecha.py` (UTC y día local VET), `validacion.py`, `constantes.py`, `texto.py`, `logging_setup.py`.
 
 ## Flujo de llamadas
 
 ```
 __main__.py
     ↓
-ui/  ←→  core/  ←→  models/  ←→  db/
-              ↑
-         services/
+ui/  →  core/  →  models/  →  SQLite
+          ↓
+      services/  →  BCV, Excel
 ```

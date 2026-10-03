@@ -1,9 +1,9 @@
 [project]
 name = "sistema-finacieron"
 version = "0.1.0"
-description = ""
+description = "Sistema de gestión de ventas, inventario, caja y reportes para un abasto (PyQt6 + SQLModel + SQLite)"
 authors = [
-    {name = "Edelynhernandez ",email = "edelinhernandezolano@hotmail.com"}
+    {name = "Edelyn Hernandez", email = "edelinhernandezolano@hotmail.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.14"
@@ -59,7 +59,7 @@ namespace_packages = true
 mypy_path = "src"
 
 [tool.pytest.ini_options]
-# Niveles de prueba (ver AGENTS.md -> "Niveles de pruebas"):
+# Niveles de prueba (marcadores de pytest definidos abajo):
 #   unitarias   -> un modulo aislado (helper, servicio, widget) + sesion en memoria
 #   integracion -> 2+ modulos concatenados (servicio+BD, venta+pago+inventario+caja,
 #                  pagina UI + controlador + BD, exportacion real)

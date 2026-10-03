@@ -1,425 +1,184 @@
-# Documentación del Sistema Financiero
+# Documentación del sistema
 
-## ¿Qué es este sistema?
+Sistema de gestión financiera para un abasto. PyQt6, SQLModel y SQLite. Guarda cada venta en bolívares y dólares con la tasa del día.
 
-Un sistema de gestión financiera para un abasto/mini-mercado. Permite llevar control de productos, ventas, inventario, reportes diarios y usuarios. Trabaja con SQLite local y tiene una interfaz gráfica escrita en PyQt6.
-
----
-
-## Roles de usuario
+## Roles
 
 | Rol | Acceso |
 |---|---|
-| **ADMINISTRADOR** | Todo: productos, ventas, inventario, reportes, gestión de usuarios |
-| **VENDEDOR** | Productos, ventas, inventario, reportes. NO ve la página de Usuarios |
+| ADMINISTRADOR | Dashboard, Ventas, Inventarios, Reportes, Usuarios |
+| VENDEDOR | Solo Ventas |
 
----
+El menú lateral se arma a partir del rol: el vendedor arranca en Ventas y nunca ve el Dashboard, así que no toca la red del BCV.
 
-## Módulos del sistema
+## Módulos
 
-### 1. Dashboard (página de inicio)
+### Dashboard
 
-**Qué muestra:**
-- Tarjeta "Ventas Hoy": total vendido en bolívares el día actual
-- Tarjeta "Stock Bajo": productos por debajo del mínimo
-- Tarjeta "Sin Stock": productos con stock en cero
-- Tarjeta "Tasa BCV": tasa de cambio del día (se consulta automáticamente al BCV)
-- Tabla de productos con stock bajo o sin stock
+Cuatro tarjetas: Ventas Hoy, Stock Bajo, Sin Stock y Tasa BCV. Debajo, la tabla de productos con stock bajo o agotado.
 
-**Cómo funciona:**
-- Se actualiza automáticamente cada 10 minutos
-- Si no hay tasa del BCV para hoy, consulta el BCV en un hilo separado (no congela la app)
-- La tasa se guarda en la tabla `tasa_cambio` y se reutiliza para las ventas
+La tasa se consulta en un hilo aparte, así que la interfaz no se congela sin internet. Si no hay tasa del día, el Dashboard consulta al BCV; si la hay y tiene menos de 10 minutos, no repite la llamada. El hilo corre cada 10 minutos mientras la app está abierta, y la fila del día se actualiza por UPSERT. Sin red, la tarjeta dice "Sin tasa (error)" y el error queda en `logs/errores.log`.
 
----
+### Productos
 
-### 2. Productos
+El formulario pide el precio en dólares y muestra el equivalente en bolívares al lado, calculado con la tasa activa. El tipo de venta se deduce de la unidad, no se elige.
 
-**Qué permite hacer:**
-- **Crear producto**: nombre, categoría, tipo de venta (UNIDAD/PESO/GRAMOS), precios de compra y venta (VES y USD), stock actual, stock mínimo
-- **Editar producto**: modificar cualquier dato
-- **Eliminar producto**: con confirmación
-- **Buscar**: filtrar por nombre o categoría mientras escribes
-
-**Tipos de venta:**
-| Tipo | Descripción | Ejemplo |
+| Unidad | Tipo de venta | Cantidad en el ticket |
 |---|---|---|
-| UNIDAD | Piezas enteras | 5 latas, 10 paquetes |
-| PESO | Kilogramos (decimal) | 2.500 kg de arroz |
-| GRAMOS | Gramos (decimal) | 500 gramos de queso |
+| UNIDAD | UNIDAD | Piezas enteras |
+| KILO | PESO | Kilos con decimales y gramos separados |
 
-**Campos del producto:**
-- `nombre_producto`: nombre del artículo
-- `categoria`: agrupación (ej: "Lácteos", "Carnes")
-- `tipo_venta`: UNIDAD, PESO o GRAMOS
-- `precio_compra`: cuánto costó (en VES)
-- `precio_venta_bs`: precio de venta en bolívares
-- `precio_venta_usd`: precio de venta en dólares
-- `stock_actual`: cantidad actual en inventario
-- `stock_minimo`: mínimo antes de alertar
-- `unidad`: texto descriptivo (ej: "UNIDAD", "KG", "GRAMO")
+El stock admite decimales solo con KILO. Las categorías se normalizan al guardar, así que "Limpieza" y "LIMPIEZA" apuntan a la misma fila, y el formulario puede crear una desde el combo.
 
----
+Un producto con ventas o movimientos de inventario no se puede eliminar: borrarlo rompería el costo histórico de las ventas y los reportes. El botón avisa el motivo.
 
-### 3. Ventas
+### POS (formulario de venta)
 
-**Qué permite hacer:**
-- **Registrar venta**: seleccionar productos, cantidades, método de pago
-- **Anular venta**: devolver stock automáticamente
-- **Ver detalle**: doble clic en una fila muestra los productos de esa venta
-- **Filtrar por fechas**: seleccionar rango desde/hasta
+- **Catálogo** en lista con columnas Producto, USD, Bs, Stock y (+). El precio en bolívares se recalcula con la tasa activa. Doble clic, Enter o el botón (+) agregan al ticket.
+- **Filtro de categoría** desplegable, con "Todos" por defecto.
+- **Ticket** por tipo de venta: las líneas UNIDAD piden "Cant." entera; si hay alguna línea PESO, el ticket gana columnas Kg y g, un botón "+ Peso" y los rápidos 1kg, 1/2, 1/4 y 100g. Quitar la última línea PESO devuelve el ticket al modo UNIDAD.
+- **Cobro digital en un clic**: Tarjeta, Pago Móvil, BioPago y Transferencia cubren el total sin teclear montos.
+- **Efectivo con vuelto en vivo**: la fila "Recibido" aparece con el faltante precargado y muestra el vuelto mientras se teclea.
+- **Pago mixto**: el panel docked reparte el total entre varios métodos. COBRAR se habilita solo cuando la venta queda cubierta.
+- **Tasa manual**: sin internet, el botón ✏️ fija la tasa del día. Queda registrada con origen MANUAL, la tasa oficial del BCV no se toca y si el BCV actualiza durante una venta activa el cambio se ofrece al vaciar el ticket.
+- **Factura** al cobrar: vista previa, Imprimir y Guardar PDF. Si falla, la venta ya quedó registrada y el aviso lo dice.
 
-**Métodos de pago (pueden combinarse en una venta):**
-| Método | Descripción |
+### Ventas
+
+Historial con doble clic para ver el detalle y filtro por rango de fechas. La columna Acciones con el botón de anulación solo la ve el administrador.
+
+Cada venta acepta hasta 6 métodos de pago combinables:
+
+| Método | Clave en BD |
 |---|---|
-| Efectivo BS | Pago en bolívares efectivo |
-| Efectivo USD | Pago en dólares efectivo |
-| Tarjeta | Pago con tarjeta de crédito/débito |
-| Pago Móvil | Transferencia bancaria |
-| BioPago | Pago biométrico |
+| Efectivo Bs | `efectivo_bs` |
+| Efectivo USD | `efectivo_usd` |
+| Tarjeta | `tarjeta` |
+| Pago Móvil | `pago_movil` |
+| BioPago | `bio_pago` |
+| Transferencia | `transferencia` |
 
-**Cómo se registra una venta:**
-1. El usuario selecciona productos y cantidades
-2. El sistema calcula los subtotales y el total
-3. Selecciona el método de pago y los montos
-4. Se aplica la tasa de cambio del día para convertir BS ↔ USD
-5. Se guarda la venta con estado "COMPLETADA"
-6. Se genera un número de factura automático
+El POS cobra en bolívares. Un pago en dólares guarda el monto recibido, el equivalente aplicado y el vuelto en bolívares, para que el arqueo descuente el vuelto que salió del cajón.
 
-**Cuando se anula una venta:**
-- El estado cambia a "ANULADA"
-- El stock de cada producto se devuelve automáticamente
-- Los movimientos de inventario se registran como "SALIDA" con motivo "DEVOLUCION"
+Anular exige motivo y las credenciales de un administrador. Queda auditada con `motivo_anulacion` y `anulado_por`, y el stock de cada producto se devuelve.
 
----
+### Inventario
 
-### 4. Inventario
+Entrada, salida y ajuste, con historial completo. El vendedor solo ve Entrada: Salida y Ajuste son del administrador.
 
-**Qué permite hacer:**
-- **Registrar entrada**: compras, devoluciones, traslados
-- **Registrar salida**: pérdidas, vencimientos, traslados
-- **Registrar ajuste**: corrección de inventario físico
-- **Ver historial**: tabla con todos los movimientos
-
-**Tipos de movimiento:**
-| Tipo | Motivos | Efecto en stock |
+| Tipo | Motivos | Efecto |
 |---|---|---|
-| ENTRADA | COMPRA, DEVOLUCION, TRASLADO, OTRO | Suma al stock |
-| SALIDA | VENTA, PERDIDA, VENCIMIENTO, TRASLADO, OTRO | Resta del stock |
-| AJUSTE | INVENTARIO, ROBO, EXTRA, OTRO | Establece stock físico |
+| ENTRADA | COMPRA, DEVOLUCION, TRASLADO, OTRO | Suma |
+| SALIDA | VENTA, PERDIDA, VENCIMIENTO, TRASLADO, OTRO | Resta |
+| AJUSTE | INVENTARIO, ROBO, EXTRA, OTRO | Fija el stock contado |
 
-**Cómo funciona el ajuste:**
-- El usuario indica el stock FÍSICO (lo que cuenta en el almacén)
-- El sistema calcula la diferencia con el stock registrado
-- Registra el movimiento con stock_anterior y stock_nuevo
+El ajuste toma el stock físico, calcula la diferencia y guarda el stock anterior y el nuevo. Cada movimiento es una fila de auditoría.
 
-**Cada movimiento registra:**
-- Producto afectado
-- Tipo (ENTRADA/SALIDA/AJUSTE)
-- Motivo
-- Cantidad
-- Stock anterior y nuevo (para auditoría)
-- Fecha y observaciones
+### Reportes
 
----
+Cerrar Dia consolida el día local de Venezuela. El mismo botón regenera un reporte de una fecha ya cerrada sin duplicar el detalle.
 
-### 5. Reportes
+El reporte guarda: total en Bs y USD, cantidad de ventas, unidades vendidas, peso vendido en kilos, costo de ventas, utilidad bruta, margen, alertas de stock, desglose por método de pago, cantidad de productos con costo de compra no confiable y el detalle agrupado por producto.
 
-**Qué permite hacer:**
-- **Cerrar día**: genera un reporte consolidado del día actual
-- **Regenerar**: volver a generar un reporte de una fecha específica
-- **Exportar Excel**: descargar el reporte como archivo .xlsx
-- **Ver historial**: tabla con reportes anteriores
+El costo se toma del snapshot guardado en cada línea de venta, no del precio actual del producto: cambiar el costo hoy no reescribe la historia.
 
-**Qué contiene un reporte diario:**
-- Total de ventas en BS y USD
-- Cantidad de ventas realizadas
-- Cantidad de productos vendidos
-- Productos con stock bajo
-- Productos sin stock
-- Desglose por método de pago (efectivo BS, efectivo USD, tarjeta, pago móvil, bio_pago)
-- Fecha y hora de generación
+El Excel sale en 4 hojas: Reporte Diario, Ventas del Dia, Alertas de Stock y Productos Vendidos (Detalle).
 
----
+### Usuarios (solo administrador)
 
-### 6. Usuarios (solo ADMINISTRADOR)
+Editar perfil, cambiar contraseña, crear usuario, resetear la contraseña de otro y activar o desactivar. Desactivar en vez de eliminar conserva el historial de ventas asociado al ID.
 
-**Qué permite hacer:**
-- **Ver mi perfil**: nombre, usuario, rol
-- **Editar perfil**: cambiar nombre completo
-- **Cambiar contraseña**: con verificación de contraseña actual
-- **Crear usuario**: nombre completo, usuario, contraseña, rol
-- **Resetear contraseña**: el admin puede cambiar la contraseña de otro usuario
-- **Activar/Desactivar**: bloquear acceso sin eliminar el usuario
-
-**Por qué desactivar y no eliminar:**
-Si eliminas un usuario, se pierden las ventas asociadas a ese ID. Al desactivarlo, no puede entrar pero su historial se mantiene.
-
-**Cómo funciona el login:**
-1. El usuario escribe su nombre y contraseña
-2. El sistema busca el usuario en la BD
-3. Verifica la contraseña con bcrypt (compara hash)
-4. Si es correcto → abre la ventana principal
-5. Si es incorrecto → muestra "Usuario o contraseña incorrectos"
-6. Un usuario desactivado no puede iniciar sesión aunque la contraseña sea correcta
-
----
+El login busca el usuario, compara con bcrypt y si el usuario está desactivado no entra aunque la contraseña sea correcta. Cada intento queda en `logs/eventos.log` sin la contraseña.
 
 ## Base de datos
 
-**Motor:** SQLite local (`database/database.db`)
+SQLite en `database/database.db`. 11 tablas del ORM:
 
-**Tablas:**
-
-| Tabla | Qué almacena |
+| Tabla | Qué guarda |
 |---|---|
 | `producto` | Artículos del inventario |
-| `venta` | Ventas completas con totales y métodos de pago |
-| `venta_detalle` | Líneas individuales de cada venta (producto + cantidad + precio) |
-| `movimiento_inventario` | Auditoría de cambios de stock |
-| `tasa_cambio` | Tasas diarias del BCV |
-| `usuario` | Usuarios del sistema (contraseña hasheada con bcrypt) |
-| `reporte_diario` | Cierres diarios consolidados |
+| `categoria` | Categorías normalizadas por clave única |
+| `venta` | Cabecera de venta, totales y desglose por método |
+| `ventadetalle` | Líneas de la venta, con el costo snapshot |
+| `venta_pago` | Desglose de pago, con tasa y vuelto |
+| `movimientoinventario` | Auditoría de cambios de stock |
+| `tasacambio` | Tasas BCV y manuales por fecha y origen |
+| `usuario` | Usuarios con contraseña hasheada y rol |
+| `caja` | Apertura y cierre de caja con arqueo |
+| `reportediario` | Cierre diario con totales y rentabilidad |
+| `reporteventadetalle` | Agrupación de productos por reporte |
 
-**Monedas:**
-- El sistema trabaja en dos monedas: VES (bolívares) y USD (dólares)
-- Cada venta registra el total en ambas monedas
-- La tasa de cambio se usa al momento de la venta para la conversión
+La base real tiene además `reporte_venta_detalle`, con 0 filas: la creó la migración `f1e2d3c4b5a6` con el nombre en snake_case y el ORM nunca escribió ahí. Es una tabla muerta.
 
----
+Los nombres vienen del nombre de la clase en minúsculas: `VentaDetalle` produce `ventadetalle`. Para cambiar uno hay que declararlo en el cuerpo de la clase, `__tablename__` como kwarg se ignora.
+
+El día de negocio es el día local de Venezuela, la BD guarda todo en UTC. `rango_dia_utc()` hace la conversión, y una venta de las 23:50 cuenta para el día que el cajero ve.
 
 ## Seguridad
 
-- **Contraseñas**: se guardan hasheadas con bcrypt (nunca en texto plano)
-- **Bcrypt es lento a propósito**: dificulta ataques de fuerza bruta
-- **Cada hash incluye su "sal"**: dos hashes del mismo texto son diferentes
-- **No revelar si el usuario existe**: el mensaje de error siempre dice "Usuario o contraseña incorrectos"
-- **Verificación de contraseña actual**: para cambiar la propia contraseña, se pide la actual
+- bcrypt con salt por hash: dos contraseñas iguales dan hashes distintos.
+- El mensaje de error del login no dice si el usuario existe.
+- Cambiar la contraseña propia pide la actual. Resetear la de otro, solo lo hace un administrador.
+- El login y los errores van a `logs/`, nunca las contraseñas.
 
----
+## Cómo agregar una funcionalidad
 
-## Cómo agregar una nueva funcionalidad
+1. **Modelo**, en `models/modelos.py`, si hace falta tabla nueva.
+2. **Migración**, desde la raíz del repo (el `alembic.ini` usa una URL relativa):
 
-### 1. Crear el modelo (si es necesario)
-
-En `src/sistema_financiero/models/modelos.py`:
-
-```python
-class MiModelo(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    campo: str = Field(max_length=100)
+```powershell
+.venv\Scripts\python.exe -m alembic revision --autogenerate -m "descripcion del cambio"
+.venv\Scripts\python.exe -m alembic upgrade head
 ```
 
-### 2. Crear la migración (si es necesario)
-
-```bash
-alembic revision --autogenerate -m "descripcion del cambio"
-alembic upgrade head
-```
-
-### 3. Crear el controlador/servicio
-
-En `src/sistema_financiero/core/`:
+3. **Servicio o controlador**, en `core/`, con `obtener_sesion(session=None)` para aceptar la sesión del llamador:
 
 ```python
 class MiServicio:
-    def listar(self, db_session: Session | None = None) -> list[MiModelo]:
-        with obtener_sesion(db_session) as session:
-            return list(session.exec(select(MiModelo)).all())
+    def listar(self, session: Session | None = None) -> list[MiModelo]:
+        with obtener_sesion(session) as db:
+            return list(db.exec(select(MiModelo)).all())
 ```
 
-### 4. Crear la página UI
+4. **Página**, en `ui/`, que solo llama a `core/`.
+5. **Menú**, en `ui/interfaz.py`: importar la página, crearla en `__init__`, añadir el nombre a `self._items_menu` y escribir el despachador `_crear_pagina_mi_modulo()`.
+6. **Tests** en `tests/`: `pytest-qt` para la UI, BD en memoria para la lógica, y el marker del nivel que corresponda (`unitarias`, `integracion`, `sistema` o `aceptacion`).
+7. **Verificar**:
 
-En `src/sistema_financiero/ui/`:
-
-```python
-class MiPagina(QWidget):
-    def __init__(self, controlador):
-        super().__init__()
-        # Layout, tabla, botones...
+```powershell
+.venv\Scripts\python.exe -m ruff check src/ tests/
+.venv\Scripts\python.exe -m mypy src/
+.venv\Scripts\python.exe -m pytest
 ```
 
-### 5. Agregar al menú
-
-En `src/sistema_financiero/ui/interfaz.py`:
-- Importar la página
-- Crearla en `__init__`
-- Agregar "Mi Módulo" a `items_menu`
-- Crear `_crear_pagina_mi_modulo()` para agregarla al `QStackedWidget`
-
-### 6. Escribir tests
-
-En `tests/`:
-- Tests de UI con `pytest-qt`
-- Tests de lógica de negocio con `pytest` y BD en memoria
-
-### 7. Verificar
-
-```bash
-poetry run ruff check src/
-poetry run mypy src/
-poetry run pytest
-```
-
----
-
-## Comandos útiles
+## Comandos
 
 | Comando | Qué hace |
 |---|---|
 | `poetry install` | Instalar dependencias |
-| `poetry run python -m sistema_financiero` | Ejecutar la app |
-| `poetry run pytest` | Ejecutar todos los tests |
-| `poetry run pytest tests/ -v` | Tests con verbosidad |
-| `poetry run pytest tests/ -k test_algo` | Test específico |
-| `poetry run ruff check src/` | Verificar estilo de código |
-| `poetry run mypy src/` | Verificar tipos |
+| `.\run.ps1` | Ejecutar la app |
+| `.venv\Scripts\python.exe -m pytest` | Correr los tests |
+| `.venv\Scripts\python.exe -m pytest tests/ -m integracion -v` | Un nivel de pruebas |
+| `.venv\Scripts\python.exe -m ruff check src/` | Lint |
+| `.venv\Scripts\python.exe -m mypy src/` | Tipos |
 | `alembic upgrade head` | Aplicar migraciones |
-| `alembic revision --autogenerate -m "msg"` | Crear migración |
 
----
+## Metodología y mantenimiento
 
-## Estructura del proyecto
+Ciclo de vida en cascada: requisitos, análisis y diseño, construcción, pruebas. Cada fase se cerró antes de pasar a la siguiente.
 
-```
-sistema_finacieron/
-├── src/sistema_financiero/     ← código fuente
-│   ├── __main__.py             ← punto de entrada
-│   ├── models/                 ← modelos de BD (SQLModel)
-│   ├── core/                   ← lógica de negocio
-│   ├── services/               ← servicios externos (BCV, Excel)
-│   ├── ui/                     ← interfaz gráfica (PyQt6)
-│   ├── utils/                  ← utilidades (fechas, formato)
-│   └── db/                     ← migraciones y seeds
-├── tests/                      ← pruebas
-├── database/                   ← base de datos SQLite
-├── alembic/                    ← migraciones
-└── DOCUMENTACION.md            ← este archivo
-```
+| Fase | Resultado |
+|---|---|
+| Requisitos | RF-01 a RF-07 y RNF-01 a RNF-09 |
+| Análisis y diseño | DFD, E-R y diccionario de datos, documentados en la presentación del proyecto |
+| Construcción | `src/`, SQLite y migraciones Alembic |
+| Pruebas | 522 tests, CI/CD, esta documentación |
 
----
+Mantenimiento previsto:
 
-## Resumen del proyecto (para no olvidarlo)
-
-### ¿Qué es?
-Sistema de gestión financiera para un abasto/mini-mercado. Control de productos, ventas, inventario, tasas de cambio, reportes y dashboard con gráficos. MVP **completado al 100%**.
-
-### Arquitectura en capas
-
-| Capa | Ubicación | Qué hace |
-|------|-----------|----------|
-| **Entrypoint** | `__main__.py` | Inicializa la app, DB, login, ventana principal |
-| **UI (pantallas)** | `src/ui/` | 7 vistas + 4 diálogos + 4 widgets reutilizables (PyQt6) |
-| **Módulos (fachadas)** | `src/modules/` | Conecta UI con lógica de negocio |
-| **Core (lógica)** | `src/core/` | Reglas de negocio: auth, productos, ventas, inventario, reportes, tasas (~1773 líneas) |
-| **Servicios** | `src/services/` | Servicios externos: consulta BCV, exportación Excel |
-| **Modelos (BD)** | `src/models/` | 7 tablas SQLModel con check constraints |
-| **DB (migraciones)** | `src/db/` | Alembic + seeds (admin, productos, tasas) |
-| **Utils** | `src/utils/` | Helpers: formateo moneda, validación, constantes |
-
-### Qué hace cada módulo
-
-| Módulo | Función principal |
-|--------|-------------------|
-| **Dashboard** | Panel resumen: ventas del día, stock bajo, tasa BCV, gráficos |
-| **Productos** | CRUD completo con tipos (UNIDAD/PESO/GRAMOS), precios VES/USD |
-| **Ventas** | Registro multi-pago, facturación, anulación con devolución stock |
-| **Inventario** | Entradas, salidas, ajustes con auditoría de stock |
-| **Reportes** | Cierre diario, exportar Excel, historial |
-| **Tasas** | BCV automático + manual, historial |
-| **Usuarios** | Login bcrypt, CRUD, activar/desactivar |
-
-### Qué ya tiene el proyecto
-
-- **172 tests** pasando (unitarios + UI)
-- **CI/CD** con GitHub Actions (lint + tests + coverage)
-- **Base de datos** SQLite local (`database/database.db`)
-- **Login** seguro con bcrypt
-- **Tipado completo** (mypy strict, 0 errores)
-- **Linting** (ruff, 0 fallos)
-- **Migraciones** con Alembic
-
-### Tecnologías principales
-
-| Tecnología | Para qué |
-|------------|----------|
-| Python >=3.14 | Lenguaje base |
-| PyQt6 | Interfaz gráfica de escritorio |
-| SQLModel | ORM con tipado |
-| SQLite | Base de datos local |
-| pyqtgraph | Gráficos en dashboard |
-| openpyxl | Exportación Excel |
-| scraper-bcv | Tasas BCV automáticas |
-| bcrypt | Contraseñas seguras |
-| alembic | Migraciones de BD |
-
-### Comandos clave
-
-| Comando | Qué hace |
-|---------|----------|
-| `poetry run python -m sistema_financiero` | Ejecutar la app |
-| `poetry run pytest` | Correr todos los tests |
-| `poetry run ruff check src/` | Verificar código |
-| `poetry run mypy src/` | Verificar tipos |
-
-### Estado final
-
-| Fase | Estado |
-|------|--------|
-| Entrypoint + Login + DB | ✅ Completado |
-| CRUD Productos + UI | ✅ Completado |
-| Módulo Ventas + Detalle | ✅ Completado |
-| Inventario + Movimientos | ✅ Completado |
-| Tasas de Cambio + Reportes | ✅ Completado |
-| Dashboard + Gráficos | ✅ Completado |
-| Exportación Excel | ✅ Completado |
-| Tests + CI + Documentación | ✅ Completado |
-
-**Proyecto listo para uso en producción local.**
-
----
-
-## Metodología del Proyecto
-
-### Modelo seleccionado: Ciclo de Vida de Llorens Fábregas (II) — Cascada/Secuencial
-
-```
-Fase 1 → Fase 2 → Fase 3 → Fase 4
-(Requisitos) (Diseño) (Construcción) (Pruebas)
-```
-
-Cada fase se completa antes de pasar a la siguiente. No se retrocede.
-
-### Por qué este modelo
-
-- **Requisitos estables:** El abasto siempre va a vender, controlar stock y cobrar en BS/USD
-- **Mediana complejidad:** No es un sistema que cambie cada semana
-- **Diseño primero:** Al diseñar bien la BD al inicio, evitaste problemas después
-- **Feedback tardío mitigado:** Los tests (172) compensan que el cliente no vio el sistema hasta el final
-
-### Fases aplicadas
-
-| Fase | Qué se hizo | Resultado |
-|------|-------------|-----------|
-| **1. Requisitos** | Definir necesidades del abasto: registro de ventas, alertas stock, tasa BCV, inventario, usuarios | Documento de necesidades |
-| **2. Análisis y Diseño** | Diseñar BD (7 tablas), DFD (Nivel 0, 1, 2, 3), Diagrama E-R | Arquitectura del sistema |
-| **3. Construcción** | Programar: modelos, core, UI, servicios, db | Código funcional |
-| **4. Pruebas y Mantenimiento** | 172 tests, CI/CD, documentación, plan de mantenimiento | Sistema verificado |
-
-### Documentos generados por fase
-
-| Fase | Documentos |
-|------|------------|
-| Requisitos | Requisitos funcionales (RF-01 a RF-07), requisitos no funcionales (RNF-01 a RNF-09) |
-| Diseño | DFD Nivel 0/1/2/3, Diagrama E-R, Diccionario de Datos, Fichas de Proceso/Flujo/Almacén/Entidad |
-| Construcción | Código fuente (src/), base de datos SQLite, migraciones Alembic |
-| Pruebas | 172 tests (unitarios + UI), CI/CD GitHub Actions, DOCUMENTACION.md |
-
-### Plan de Mantenimiento
-
-| Tipo | Descripción |
-|------|-------------|
-| **Correctivo** | Bitácoras de logs automáticos en `logs/` para reparaciones inmediatas |
-| **Adaptativo** | Alembic para migraciones de esquema SQLite sin perder datos |
-| **Perfectivo** | Planificación de impresión en ticketeras 80mm y cuentas por pagar |
-| **Preventivo** | Copias de seguridad diarias de `database/database.db` a unidad externa o nube |
+| Tipo | Qué |
+|---|---|
+| Correctivo | Bitácora en `logs/` para ubicar el fallo rápido |
+| Adaptativo | Alembic para cambiar el esquema SQLite sin perder datos |
+| Perfectivo | Impresión en ticketeras 80 mm y cuentas por pagar |
+| Preventivo | Copia diaria de `database/database.db` a unidad externa |

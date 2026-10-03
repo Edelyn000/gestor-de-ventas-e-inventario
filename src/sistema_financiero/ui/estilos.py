@@ -340,7 +340,7 @@ QPushButton[rol="agregar_catalogo"]:hover {
 }
 
 /* Botones rapidos de peso de la FILA del ticket (PESO): boton amarillo
-   suave. (El catalogo ya no los muestra: ai hay un solo "+" azul con el
+   suave. (El catalogo ya no los muestra: ahi hay un solo "+" azul con el
    rol agregar_catalogo; los 4 rapidos viven solo en la columna "+ Peso"
    de cada linea, donde tienen altura propia.) */
 QPushButton[rol="agregar_catalogo_peso"] {
@@ -733,4 +733,3 @@ QLabel[rol="pago_mixto"] {
     color: #2563eb;
 }
 """
-

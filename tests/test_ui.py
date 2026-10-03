@@ -18,11 +18,13 @@ from PyQt6.QtWidgets import (
     QDialog,
     QFrame,
     QGridLayout,
+    QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QTableWidget,
     QWidget,
 )
@@ -52,9 +54,13 @@ from sistema_financiero.ui.formulario_venta import (
     ANCHO_COLUMNA_KG,
     ANCHO_COLUMNA_PESO_RAPIDO,
     ANCHO_COLUMNA_PRECIO,
+    ANCHO_COLUMNA_PRODUCTO_TICKET,
     ANCHO_COLUMNA_QUITAR,
+    ANCHO_FIJO_TICKET,
     ANCHO_MINIMO_TICKET,
     MARGEN_DER_GRUPO_PESO,
+    PROPORCION_PANEL_TICKET,
+    RESERVA_PANEL_TICKET,
     FormularioVenta,
 )
 from sistema_financiero.ui.interfaz import VentanaPrincipal
@@ -1085,15 +1091,31 @@ class TestFormularioVenta:
         assert hasattr(dialogo, "btn_limpiar_ticket")
         assert hasattr(dialogo, "btn_cobrar")
 
-    # Verifica que el boton 'COBRAR (F12)' esta en el dialogo.
+    # Verifica que el boton 'COBRAR' esta en el dialogo.
     def test_boton_cobrar_existe(self, qtbot: QtBot) -> None:
-        """Verifica que el boton 'COBRAR (F12)' esta en el dialogo."""
+        """Verifica que el boton 'COBRAR' esta en el dialogo."""
         dialogo = FormularioVenta()
         qtbot.addWidget(dialogo)
 
         botones = dialogo.findChildren(QPushButton)
-        btn_cobrar = [b for b in botones if b.text() == "COBRAR (F12)"]
+        btn_cobrar = [b for b in botones if b.text() == "COBRAR"]
         assert len(btn_cobrar) > 0
+
+    # COBRAR y LIMPIAR TICKET comparten su fila 40/60 (prioridad a COBRAR).
+    def test_cobrar_y_limpiar_se_reparten_40_60(self, qtbot: QtBot) -> None:
+        """COBRAR y LIMPIAR TICKET comparten su fila 40/60 (prioridad a COBRAR)."""
+        dialogo = FormularioVenta()
+        qtbot.addWidget(dialogo)
+
+        assert dialogo.btn_cobrar.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Expanding
+        politica_limpiar = dialogo.btn_limpiar_ticket.sizePolicy().horizontalPolicy()
+        assert politica_limpiar == QSizePolicy.Policy.Expanding
+
+        fila = next(
+            h for h in dialogo.findChildren(QHBoxLayout) if h.indexOf(dialogo.btn_cobrar) >= 0
+        )
+        assert fila.stretch(fila.indexOf(dialogo.btn_limpiar_ticket)) == 2
+        assert fila.stretch(fila.indexOf(dialogo.btn_cobrar)) == 3
 
     # COBRAR sin productos: boton deshabilitado y handler con red de seguridad.
     def test_venta_vacia_muestra_error(self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1409,6 +1431,23 @@ class TestFormularioVenta:
         dialogo._seleccionar_categoria("Todos")
         assert dialogo.tabla_productos_catalogo.rowCount() == 2
 
+    # El filtro de categorias del catalogo es un desplegable (QComboBox).
+    def test_filtro_categorias_es_desplegable(self, qtbot: QtBot) -> None:
+        """El filtro de categorias del catalogo es un desplegable (QComboBox)."""
+        dialogo = FormularioVenta()
+        qtbot.addWidget(dialogo)
+        dialogo.controlador_productos = MagicMock()
+        dialogo.controlador_productos.listar_todos.return_value = []
+        dialogo.controlador_productos.obtener_categorias.return_value = ["ALIMENTOS", "LACTEOS"]
+
+        dialogo._cargar_catalogo()
+
+        combo = dialogo.cmb_categoria_filtro
+        assert isinstance(combo, QComboBox)
+        etiquetas = [combo.itemText(i) for i in range(combo.count())]
+        assert etiquetas == ["Todos", "ALIMENTOS", "LACTEOS"]
+        assert combo.currentText() == "Todos"
+
     # Helper: POS con el catalogo cargado a partir de un unico producto.
     def _pos_con_catalogo(self, qtbot: QtBot, producto: Producto) -> FormularioVenta:
         """Helper: POS con el catalogo cargado a partir de un unico producto."""
@@ -1520,6 +1559,32 @@ class TestFormularioVenta:
         assert celda_nombre is not None
         assert celda_nombre.toolTip() == "Harina"
 
+    # La columna Producto del ticket tiene ancho controlado (no absorbe el sobrante).
+    def test_columna_producto_del_ticket_tiene_ancho_controlado(self, qtbot: QtBot) -> None:
+        """La columna Producto del ticket tiene ancho controlado (no absorbe el sobrante)."""
+        producto = Producto(
+            idproducto=21,
+            nombre_producto="Harina",
+            tipo_venta="UNIDAD",
+            precio_venta_bs=Decimal("80.00"),
+            precio_venta_usd=Decimal("2.00"),
+            stock_actual=Decimal("10"),
+            stock_minimo=Decimal("1"),
+        )
+        dialogo = self._pos_con_catalogo(qtbot, producto)
+
+        tabla = dialogo.tabla_productos_venta
+        header = tabla.horizontalHeader()
+        assert header is not None
+        assert header.sectionResizeMode(0) == QHeaderView.ResizeMode.Interactive
+        assert tabla.columnWidth(0) == ANCHO_COLUMNA_PRODUCTO_TICKET
+
+        # Al no absorber el sobrante, la columna conserva su ancho al agregar lineas.
+        item = dialogo.tabla_productos_catalogo.item(0, 0)
+        assert item is not None
+        dialogo._on_catalogo_doble_clic(item)
+        assert tabla.columnWidth(0) == ANCHO_COLUMNA_PRODUCTO_TICKET
+
     # A 1024x680 el ticket entra COMPLETO: sin scrollbar horizontal.
     def test_ticket_no_necesita_scroll_horizontal_a_1024(
         self, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
@@ -1553,8 +1618,11 @@ class TestFormularioVenta:
             + ANCHO_COLUMNA_QUITAR
         )
         assert ancho_fijo == 511
-        assert ANCHO_MINIMO_TICKET == 621
-        assert ancho_fijo < ANCHO_MINIMO_TICKET
+        assert ancho_fijo == ANCHO_FIJO_TICKET
+        # El minimo del panel cubre las columnas + el nombre + el aire de reserva.
+        esperado_minimo = ancho_fijo + ANCHO_COLUMNA_PRODUCTO_TICKET + RESERVA_PANEL_TICKET
+        assert esperado_minimo == ANCHO_MINIMO_TICKET
+        assert ancho_fijo + ANCHO_COLUMNA_PRODUCTO_TICKET < ANCHO_MINIMO_TICKET
 
         panel_ticket = dialogo.splitter_paneles.widget(1)
         panel_catalogo = dialogo.splitter_paneles.widget(0)
@@ -1563,6 +1631,19 @@ class TestFormularioVenta:
         assert panel_ticket.minimumWidth() == ANCHO_MINIMO_TICKET
         assert panel_catalogo.minimumSizeHint().width() < ANCHO_MINIMO_TICKET
         assert tamanos[1] >= min(ANCHO_MINIMO_TICKET, ancho_fijo)
+
+    # El splitter reparte 40/60 y el ticket gana ancho al expandir la ventana.
+    def test_splitter_reparte_40_60_con_prioridad_al_ticket(self, qtbot: QtBot) -> None:
+        """El splitter reparte 40/60 y el ticket gana ancho al expandir la ventana."""
+        dialogo = FormularioVenta()
+        qtbot.addWidget(dialogo)
+
+        assert PROPORCION_PANEL_TICKET == 0.60
+
+        # Headless (sin show) la geometria del splitter no se finaliza: solo se
+        # comprueba que el ticket recibe mas ancho que el catalogo.
+        tamanos = dialogo.splitter_paneles.sizes()
+        assert tamanos[1] > tamanos[0]
 
     # El ✕ quita SOLO esa linea del ticket y el total vuelve a cero.
     def test_boton_quitar_elimina_la_fila_y_recalcula_total(self, qtbot: QtBot) -> None:
@@ -5221,4 +5302,3 @@ class TestDashboardRefrescoBcv:
 
         assert len(llamadas) == 1
         assert pagina._bcv_fetching is True
-

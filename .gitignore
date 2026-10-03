@@ -26,6 +26,9 @@ venv/
 Thumbs.db
 .DS_Store
 
+# Configuración de agentes de IA (no se versiona; respaldo en _opencode_respaldo/)
+.opencode/
+
 # Logs
 *.log
 
