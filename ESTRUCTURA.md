@@ -14,6 +14,7 @@ sistema_finacieron/
 │   └── utils/               formateo, validación, constantes
 ├── alembic/                 migraciones y `alembic.ini`
 ├── tests/                   pytest + pytest-qt
+├── presentacion/            entregables documentales en 10 carpetas
 ├── database/database.db     SQLite local
 └── logs/                    bitácora de app, errores y eventos
 ```
@@ -84,6 +85,25 @@ Seeds y scripts de datos. Las migraciones viven en `alembic/` en la raíz, no aq
 ### `utils/`
 
 Funciones sin estado: `moneda.py` (formateo), `fecha.py` (UTC y día local VET), `validacion.py`, `constantes.py`, `texto.py`, `logging_setup.py`.
+
+### `presentacion/`
+
+Entregables del proyecto, 45 archivos en 10 carpetas ordenadas por nivel de abstracción. No es código: nada en `src/` la importa.
+
+| Carpeta | Archivos | Contenido |
+|---|---|---|
+| `00-contexto/` | 1 | Diagrama de contexto del sistema |
+| `01-dfd/` | 8 | DFD de nivel 1 y los 7 procesos de nivel 2 |
+| `02-procesos/` | 8 | Diagramas de flujo de los procesos P0 a P7 |
+| `03-actores/` | 5 | Diagramas actor-lInteractor AL_D1 a AL_D5 |
+| `04-diccionario/` | 4 | Detalle de datos por módulo, DD_ER_1 a DD_ER_4 |
+| `05-entidad-relacion/` | 2 | Diagrama E-R en PNG y su fuente Graphviz `.dot` |
+| `06-datos/` | 6 | Flujos de datos FD_FD1 a FD_FD6 |
+| `07-entradas-salidas/` | 9 | Casos actor-sistema (3) y capturas reales de la UI (6) |
+| `08-minutas/` | 1 | Acta de reunión firmada, sin modificar |
+| `09-presentacion/` | 1 | Presentación final en PowerPoint |
+
+`07-entradas-salidas/` mezcla los diagramas de interacción con capturas de pantalla de la aplicación en ejecución, así que ilustra tanto el diseño como el resultado.
 
 ## Flujo de llamadas
 

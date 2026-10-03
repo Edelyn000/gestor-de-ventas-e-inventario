@@ -112,3 +112,23 @@ La BD guarda todo en UTC y el "hoy" del cajero es el día local de Venezuela. `r
 | 6 | Dashboard y alertas | Completada |
 | 7 | Exportación a Excel | Completada |
 | 8 | Caja, factura, anulación, rentabilidad, CI y documentación | Completada |
+| 9 | Entregables documentales: contexto, DFD, procesos, actores, diccionario, E-R, datos, entradas/salidas, minutas y presentación | Completada |
+
+## 9. Entregables
+
+Los 45 archivos de `presentacion/` están ordenados en 10 carpetas por nivel de abstracción:
+
+| Carpeta | Archivos | Contenido |
+|---|---|---|
+| `00-contexto/` | 1 | Contexto del sistema |
+| `01-dfd/` | 8 | DFD nivel 1 y 7 procesos de nivel 2 |
+| `02-procesos/` | 8 | Flujos de proceso P0 a P7 |
+| `03-actores/` | 5 | Actores e interactores AL_D1 a AL_D5 |
+| `04-diccionario/` | 4 | Detalle de datos DD_ER_1 a DD_ER_4 |
+| `05-entidad-relacion/` | 2 | Diagrama E-R y su fuente `.dot` |
+| `06-datos/` | 6 | Flujos de datos FD_FD1 a FD_FD6 |
+| `07-entradas-salidas/` | 9 | Interacción actor-sistema y capturas de la UI |
+| `08-minutas/` | 1 | Acta firmada de la reunión |
+| `09-presentacion/` | 1 | Presentación final |
+
+Ninguno es código: `src/` no depende de `presentacion/`.

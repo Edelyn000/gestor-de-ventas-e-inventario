@@ -1,0 +1,164 @@
+digraph E_R {
+    graph [rankdir=LR, dpi=300, splines=ortho, nodesep=0.05,
+           ranksep=0.18, fontname="Arial", bgcolor="white",
+           compound=true, concentrate=false];
+    node  [shape=plaintext, fontname="Arial", fontsize=12, penwidth=1.2];
+    edge  [fontname="Arial", fontsize=11, color="#2f5f9e", penwidth=1.4];
+
+    categoria [label=<
+<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white" COLOR="#2f5f9e">
+<TR><TD BGCOLOR="#D6EAF8" ALIGN="LEFT"><B>categoria</B></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">id : <I>integer</I> <FONT COLOR="#B8860B"><B>[PK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">nombre : <I>varchar</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">clave : <I>varchar</I> <FONT COLOR="#6A3E9E"><B>[UQ]</B></FONT></TD></TR>
+</TABLE>>];
+
+    producto [label=<
+<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white" COLOR="#2f5f9e">
+<TR><TD BGCOLOR="#D6EAF8" ALIGN="LEFT"><B>producto</B></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">idproducto : <I>integer</I> <FONT COLOR="#B8860B"><B>[PK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">categoria_id : <I>integer</I> <FONT COLOR="#1F6FB2"><B>[FK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">nombre_producto : <I>varchar</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">tipo_venta : <I>varchar</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">stock_actual : <I>decimal</I></TD></TR>
+</TABLE>>];
+
+    movimientoinventario [label=<
+<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white" COLOR="#2f5f9e">
+<TR><TD BGCOLOR="#D6EAF8" ALIGN="LEFT"><B>movimiento_inventario</B></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">id : <I>integer</I> <FONT COLOR="#B8860B"><B>[PK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">producto_id : <I>integer</I> <FONT COLOR="#1F6FB2"><B>[FK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">tipo : <I>varchar</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">cantidad : <I>decimal</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">fecha_movimiento : <I>datetime</I></TD></TR>
+</TABLE>>];
+
+    usuario [label=<
+<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white" COLOR="#2f5f9e">
+<TR><TD BGCOLOR="#D6EAF8" ALIGN="LEFT"><B>usuario</B></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">id : <I>integer</I> <FONT COLOR="#B8860B"><B>[PK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">usuario : <I>varchar</I> <FONT COLOR="#6A3E9E"><B>[UQ]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">rol : <I>varchar</I></TD></TR>
+</TABLE>>];
+
+    caja [label=<
+<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white" COLOR="#2f5f9e">
+<TR><TD BGCOLOR="#D6EAF8" ALIGN="LEFT"><B>caja</B></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">id : <I>integer</I> <FONT COLOR="#B8860B"><B>[PK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">usuario_id : <I>integer</I> <FONT COLOR="#1F6FB2"><B>[FK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">fecha_apertura : <I>datetime</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">estado : <I>varchar</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">sobrante_faltante_bs : <I>decimal</I></TD></TR>
+</TABLE>>];
+
+    venta [label=<
+<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white" COLOR="#2f5f9e">
+<TR><TD BGCOLOR="#D6EAF8" ALIGN="LEFT"><B>venta</B></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">idventa : <I>integer</I> <FONT COLOR="#B8860B"><B>[PK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">caja_id : <I>integer</I> <FONT COLOR="#1F6FB2"><B>[FK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">numero_factura : <I>varchar</I> <FONT COLOR="#6A3E9E"><B>[UQ]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">fecha_venta : <I>datetime</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">total_bs : <I>decimal</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">total_usd : <I>decimal</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">estado : <I>varchar</I></TD></TR>
+</TABLE>>];
+
+    ventadetalle [label=<
+<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white" COLOR="#2f5f9e">
+<TR><TD BGCOLOR="#D6EAF8" ALIGN="LEFT"><B>venta_detalle</B></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">id : <I>integer</I> <FONT COLOR="#B8860B"><B>[PK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">venta_id : <I>integer</I> <FONT COLOR="#1F6FB2"><B>[FK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">producto_id : <I>integer</I> <FONT COLOR="#1F6FB2"><B>[FK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">cantidad : <I>decimal</I></TD></TR>
+</TABLE>>];
+
+    venta_pago [label=<
+<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white" COLOR="#2f5f9e">
+<TR><TD BGCOLOR="#D6EAF8" ALIGN="LEFT"><B>venta_pago</B></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">idpago : <I>integer</I> <FONT COLOR="#B8860B"><B>[PK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">venta_id : <I>integer</I> <FONT COLOR="#1F6FB2"><B>[FK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">metodo : <I>varchar</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">monto : <I>decimal</I></TD></TR>
+</TABLE>>];
+
+    reportediario [label=<
+<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white" COLOR="#2f5f9e">
+<TR><TD BGCOLOR="#D6EAF8" ALIGN="LEFT"><B>reporte_diario</B></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">id : <I>integer</I> <FONT COLOR="#B8860B"><B>[PK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">fecha : <I>date</I> <FONT COLOR="#6A3E9E"><B>[UQ]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">total_ventas_bs : <I>decimal</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">utilidad_bruta_bs : <I>decimal</I></TD></TR>
+</TABLE>>];
+
+    reporteventadetalle [label=<
+<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white" COLOR="#2f5f9e">
+<TR><TD BGCOLOR="#D6EAF8" ALIGN="LEFT"><B>reporte_venta_detalle</B></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">id : <I>integer</I> <FONT COLOR="#B8860B"><B>[PK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">reporte_id : <I>integer</I> <FONT COLOR="#1F6FB2"><B>[FK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">producto_id : <I>integer</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">cantidad : <I>decimal</I></TD></TR>
+</TABLE>>];
+
+    tasacambio [label=<
+<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white" COLOR="#2f5f9e">
+<TR><TD BGCOLOR="#D6EAF8" ALIGN="LEFT"><B>tasa_cambio</B></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">id : <I>integer</I> <FONT COLOR="#B8860B"><B>[PK]</B></FONT></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">fecha : <I>date</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">origen : <I>varchar</I></TD></TR>
+<TR><TD ALIGN="LEFT" BALIGN="LEFT">tasa_venta : <I>decimal</I></TD></TR>
+</TABLE>>];
+
+    r1 [label=<<B>clasifica</B>>, shape=diamond, width=1.50, height=0.68, fixedsize=true, fontsize=8, fontname="Arial", color="#2f5f9e", penwidth=1.20];
+    r2 [label=<<B>registra</B>>, shape=diamond, width=1.50, height=0.68, fixedsize=true, fontsize=8, fontname="Arial", color="#2f5f9e", penwidth=1.20];
+    r3 [label=<<B>se vende en</B>>, shape=diamond, width=1.50, height=0.68, fixedsize=true, fontsize=8, fontname="Arial", color="#2f5f9e", penwidth=1.20];
+    r4 [label=<<B>detalla</B>>, shape=diamond, width=1.50, height=0.68, fixedsize=true, fontsize=8, fontname="Arial", color="#2f5f9e", penwidth=1.20];
+    r5 [label=<<B>se paga con</B>>, shape=diamond, width=1.50, height=0.68, fixedsize=true, fontsize=8, fontname="Arial", color="#2f5f9e", penwidth=1.20];
+    r6 [label=<<B>se cobra en</B>>, shape=diamond, width=1.50, height=0.68, fixedsize=true, fontsize=8, fontname="Arial", color="#2f5f9e", penwidth=1.20];
+    r7 [label=<<B>abre</B>>, shape=diamond, width=1.50, height=0.68, fixedsize=true, fontsize=8, fontname="Arial", color="#2f5f9e", penwidth=1.20];
+    r8 [label=<<B>desglosa</B>>, shape=diamond, width=1.50, height=0.68, fixedsize=true, fontsize=8, fontname="Arial", color="#2f5f9e", penwidth=1.20];
+    r9  [label=<<B>se aplica en</B>>, shape=diamond, width=1.50, height=0.68, fixedsize=true, fontsize=8, fontname="Arial", color="#2f5f9e", penwidth=1.20];
+    r10 [label=<<B>actualiza</B>>, shape=diamond, width=1.50, height=0.68, fixedsize=true, fontsize=8, fontname="Arial", color="#2f5f9e", penwidth=1.20];
+    { rank=same; usuario; reportediario; }
+    { rank=same; caja; categoria; reporteventadetalle; }
+    { rank=same; venta; producto; }
+    { rank=same; ventadetalle; movimientoinventario; venta_pago; }
+
+    categoria -> r1 [taillabel="1", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    r1 -> producto [headlabel="N", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    producto -> r2 [taillabel="1", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    r2 -> movimientoinventario [headlabel="N", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    producto -> r3 [taillabel="1", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    r3 -> ventadetalle [headlabel="N", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    venta -> r4 [taillabel="1", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    r4 -> ventadetalle [headlabel="N", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    venta -> r5 [taillabel="1", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    r5 -> venta_pago [headlabel="N", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    caja -> r6 [taillabel="1", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    r6 -> venta [headlabel="N", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    usuario -> r7 [taillabel="1", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    r7 -> caja [headlabel="N", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    reportediario -> r8 [taillabel="1", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    r8 -> reporteventadetalle [headlabel="N", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    tasacambio -> r9 [taillabel="1", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    r9 -> venta [headlabel="N", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    usuario -> r10 [taillabel="1", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    r10 -> tasacambio [headlabel="N", labelfontsize=11, labelfontname="Arial", color="#2f5f9e", penwidth=1.20, dir=none];
+    usuario -> caja [style=invis, weight=100, minlen=1];
+    usuario -> categoria [style=invis, weight=100, minlen=1];
+    usuario -> reporteventadetalle [style=invis, weight=100, minlen=1];
+    reportediario -> caja [style=invis, weight=100, minlen=1];
+    reportediario -> categoria [style=invis, weight=100, minlen=1];
+    reportediario -> reporteventadetalle [style=invis, weight=100, minlen=1];
+    caja -> venta [style=invis, weight=100, minlen=1];
+    caja -> producto [style=invis, weight=100, minlen=1];
+    categoria -> venta [style=invis, weight=100, minlen=1];
+    categoria -> producto [style=invis, weight=100, minlen=1];
+    reporteventadetalle -> venta [style=invis, weight=100, minlen=1];
+    reporteventadetalle -> producto [style=invis, weight=100, minlen=1];
+    venta -> ventadetalle [style=invis, weight=100, minlen=1];
+    venta -> movimientoinventario [style=invis, weight=100, minlen=1];
+    venta -> venta_pago [style=invis, weight=100, minlen=1];
+    producto -> ventadetalle [style=invis, weight=100, minlen=1];
+    producto -> movimientoinventario [style=invis, weight=100, minlen=1];
+    producto -> venta_pago [style=invis, weight=100, minlen=1];
+}
