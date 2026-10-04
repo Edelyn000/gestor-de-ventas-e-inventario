@@ -44,7 +44,7 @@ Gestor de ventas, inventario, caja y reportes para un abasto. PyQt6, SQLModel y 
 | DB | `db/` | Alembic, seeds y scripts de datos |
 | Utils | `utils/` | Moneda, fecha, validación, constantes, logging |
 
-La UI llama a `core/` y nunca al revés. No existe capa `modules/`: la documentación anterior la mencionaba, pero nunca se creó.
+La UI llama a `core/` y nunca al revés. 
 
 El conteo de la capa UI sigue una convención: las **6 páginas** son las de
 navegación por rol (`dashboard`, `productos`, `ventas`, `inventario`,
