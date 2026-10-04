@@ -79,7 +79,7 @@ Wrappers de terceros.
 
 Seeds y scripts de datos. Las migraciones viven en `alembic/` en la raíz, no aquí.
 
-- `seeds.py`: `seed_admin`, `seed_productos`, `seed_tasa_cambio`
+- `seeds.py`: `seed_productos`, `seed_tasa_cambio`
 - `scripts/`: scripts de migración de datos que no entran en `core/`
 
 ### `utils/`

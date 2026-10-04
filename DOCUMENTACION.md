@@ -123,23 +123,26 @@ El día de negocio es el día local de Venezuela, la BD guarda todo en UTC. `ran
 - Cambiar la contraseña propia pide la actual. Resetear la de otro, solo lo hace un administrador.
 - El login y los errores van a `logs/`, nunca las contraseñas.
 
-### Credencial de la semilla local
+### Creación del administrador en el primer inicio
 
-`db/seeds.py::seed_admin()` crea un usuario **`admin` con contraseña `admin`**
-la primera vez que se ejecuta el programa, y solo si la tabla de usuarios está
-vacía. El hash usa bcrypt.
+Cuando la aplicación arranca por primera vez, la tabla de usuarios está vacía.
 
-Su alcance real es corto:
+Si no existe ningún usuario, `__main__.asegurar_administrador()` muestra
+`ui/dialogo_primer_uso.py`, que pide:
 
-- `database/database.db` es un archivo local ignorado por git. Quien clone el
-  repositorio recibe el código, no la base con usuarios.
-- La aplicación corre en el escritorio de quien la usa. Esa contraseña no
-  protege ningún servicio remoto.
-- La semilla solo actúa sobre una tabla de usuarios vacía, en la primera
-  ejecución.
+- Nombre completo (opcional)
+- Nombre de usuario (obligatorio)
+- Contraseña (obligatoria, mínimo 4 caracteres)
+- Repetir la contraseña (debe coincidir con la anterior)
 
-Un despliegue real debería crear al administrador fuera de la semilla, con una
-contraseña que elija quien opera.
+No hay ninguna contraseña predeterminada. Si el operador cancela el diálogo,
+el programa termina con `sys.exit(0)` sin crear usuarios.
+
+El usuario creado se guarda usando `AuthService.crear_usuario()`, que aplica
+`bcrypt` con sal, normaliza el nombre de usuario a minúsculas y le asigna
+el rol `ADMINISTRADOR`.
+
+Si ya existe al menos un usuario, el diálogo no aparece.
 
 ## Cómo agregar una funcionalidad
 

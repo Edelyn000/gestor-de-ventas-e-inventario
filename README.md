@@ -9,7 +9,7 @@ reportes de un abasto, con precios simultáneos en bolívares (Bs) y dólares (U
 ![PyQt6](https://img.shields.io/badge/PyQt6-6.11-2c6fbb)
 ![SQLModel](https://img.shields.io/badge/SQLModel-0.0.38-2c6fbb)
 ![SQLite](https://img.shields.io/badge/SQLite-3-brightgreen)
-![Tests](https://img.shields.io/badge/tests-522%20passing-success)
+![Tests](https://img.shields.io/badge/tests-541%20passing-success)
 ![Ruff](https://img.shields.io/badge/ruff-0%20errores-success)
 ![Mypy](https://img.shields.io/badge/mypy-0%20errores-success)
 
@@ -79,7 +79,7 @@ Equivale a `.venv\Scripts\python.exe -m sistema_financiero`.
 .venv\Scripts\python.exe -m mypy src/
 ```
 
-**Estado verificado:** 522 pruebas en verde, 0 errores de Ruff sobre `src/`,
+**Estado verificado:** 541 pruebas en verde, 0 errores de Ruff sobre `src/`,
 `tests/` y `alembic/`, y 0 errores de mypy sobre 51 archivos de `src/`.
 
 Las pruebas están marcadas por nivel y se pueden correr por separado:
@@ -99,7 +99,7 @@ Las pruebas están marcadas por nivel y se pueden correr por separado:
 | `aceptacion` | 32 | Escenarios de negocio del POS vistos desde la interfaz |
 
 Los cuatro niveles suman 554 porque `aceptacion` reutiliza pruebas que ya
-cuentan como `sistema`. Son 522 pruebas clasificadas de más de una forma.
+cuentan como `sistema`. Son 541 pruebas clasificadas de más de una forma.
 
 Las pruebas de interfaz usan `pytest-qt` y **nunca tocan la red**: el hilo que
 consulta la tasa BCV se neutraliza con el fixture `_sin_fetch_bcv` en
@@ -109,7 +109,7 @@ consulta la tasa BCV se neutraliza con el fixture `_sin_fetch_bcv` en
 
 ```
 src/sistema_financiero/
-  __main__.py          Arranque: crea la BD, siembra el admin, login, bucle de sesión
+  __main__.py          Arranque: crea la BD, crea el administrador en el primer inicio, login, bucle de sesión
   models/              Capa de datos (11 tablas SQLModel sobre SQLite)
   core/                Lógica de negocio (8 servicios)
   services/            Integración externa (BCV) y fachadas
@@ -118,7 +118,7 @@ src/sistema_financiero/
   db/                  Scripts de datos y semillas
 alembic/               Migraciones de esquema
 database/database.db   Base local en SQLite (no se versiona)
-tests/                 522 pruebas (14 archivos)
+tests/                 541 pruebas (14 archivos)
 ```
 
 Las dependencias apuntan hacia dentro: `ui/` llama a `core/`, `core/` a

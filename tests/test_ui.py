@@ -29,8 +29,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from pytestqt.qtbot import QtBot
-from sqlmodel import Session
+from sqlmodel import Session, select
 
+from sistema_financiero.core.auth_service import AuthService
 from sistema_financiero.core.caja_service import CajaService
 from sistema_financiero.models.modelos import Caja, Categoria, Producto, Usuario, Venta
 from sistema_financiero.ui.dashboard_pagina import (
@@ -43,6 +44,7 @@ from sistema_financiero.ui.dialogo_factura import (
     DialogoFactura,
     generar_html_factura,
 )
+from sistema_financiero.ui.dialogo_primer_uso import DialogoPrimerUso
 from sistema_financiero.ui.dialogo_tasa_manual import DialogoTasaManual
 from sistema_financiero.ui.formulario_cambio_contrasena import FormularioCambioContrasena
 from sistema_financiero.ui.formulario_producto import FormularioProducto
@@ -71,9 +73,11 @@ from sistema_financiero.ui.ventana_login import VentanaLogin
 from sistema_financiero.ui.ventas_pagina import VentasPagina
 from sistema_financiero.ui.widgets import SpinBoxStock, TituloPagina
 from sistema_financiero.utils import (
+    LONGITUD_MINIMA_CONTRASENA,
     METODO_PAGO_EFECTIVO_BS,
     METODOS_PAGO,
     MONEDA_BS,
+    ROL_ADMINISTRADOR,
     UNIDADES_VENTA,
     ahora,
     hoy,
@@ -3191,6 +3195,411 @@ class TestFormularioCambioContrasena:
 
         dialogo.auth_service.actualizar.assert_called_once()
         mock_info.assert_called_once()
+
+
+class TestDialogoPrimerUso:
+    """Pruebas para el dialogo de creacion del administrador del primer inicio."""
+
+    pytestmark = pytest.mark.unitarias
+
+    # Conecta el AuthService del dialogo con una BD en memoria.
+    @pytest.fixture()
+    def _bd_en_memoria(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        session: Session,
+    ) -> Session:
+        """Conecta el AuthService del dialogo con una BD en memoria."""
+
+        # Contexto que devuelve la sesion de prueba como si fuera obtener_sesion.
+        class _ContextoSesion:
+            # Entra en el contexto de la sesion de prueba.
+            def __enter__(self) -> Session:
+                return session
+
+            # Cierra el contexto sin Invalidar la sesion.
+            def __exit__(self, *args: object) -> None:
+                pass
+
+        # Devuelve siempre el contexto de la sesion de prueba.
+        def _obtener_sesion(sesion: Session | None = None) -> _ContextoSesion:
+            return _ContextoSesion()
+
+        monkeypatch.setattr(
+            "sistema_financiero.core.auth_service.obtener_sesion",
+            _obtener_sesion,
+        )
+        return session
+
+    # Rellena los cuatro campos del formulario.
+    @staticmethod
+    def _llenar(
+        dialogo: DialogoPrimerUso,
+        usuario: str,
+        contrasena: str,
+        confirmar: str | None = None,
+        nombre: str = "",
+    ) -> None:
+        """Rellena los cuatro campos del formulario."""
+        dialogo.txt_nombre_completo.setText(nombre)
+        dialogo.txt_usuario.setText(usuario)
+        dialogo.txt_contrasena.setText(contrasena)
+        dialogo.txt_confirmar.setText(contrasena if confirmar is None else confirmar)
+
+    # Verifica que el dialogo se crea con el titulo correcto.
+    def test_crear_dialogo(self, qtbot: QtBot) -> None:
+        """Verifica que el dialogo se crea con el titulo correcto."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        assert "Configuración inicial" in dialogo.windowTitle()
+
+    # Verifica que los campos existen y las contrasenas estan ocultas.
+    def test_widgets_existen(self, qtbot: QtBot) -> None:
+        """Verifica que los campos existen y las contrasenas estan ocultas."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        assert isinstance(dialogo.txt_nombre_completo, QLineEdit)
+        assert isinstance(dialogo.txt_usuario, QLineEdit)
+        assert isinstance(dialogo.txt_contrasena, QLineEdit)
+        assert isinstance(dialogo.txt_confirmar, QLineEdit)
+
+        assert dialogo.txt_contrasena.echoMode() == QLineEdit.EchoMode.Password
+        assert dialogo.txt_confirmar.echoMode() == QLineEdit.EchoMode.Password
+
+    # Verifica que no existe ningun boton para recuperar la contrasena.
+    def test_sin_recuperar_contrasena(self, qtbot: QtBot) -> None:
+        """Verifica que no existe ningun boton para recuperar la contrasena."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        nombres = [b.text().lower() for b in dialogo.findChildren(QPushButton)]
+        assert not any("olvid" in t for t in nombres)
+
+    # Verifica que crea el administrador con el rol correcto y la contrasena hasheada.
+    def test_crear_admin_exitoso(
+        self,
+        qtbot: QtBot,
+        monkeypatch: pytest.MonkeyPatch,
+        _bd_en_memoria: Session,
+    ) -> None:
+        """Verifica que crea el administrador con el rol correcto y la contrasena hasheada."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.registrar_evento",
+            MagicMock(),
+        )
+
+        self._llenar(dialogo, "jefe", "clave_segura", nombre="Dueño del Abasto")
+        dialogo._crear()
+
+        admin = _bd_en_memoria.exec(
+            select(Usuario).where(Usuario.usuario == "jefe"),
+        ).first()
+        assert admin is not None
+        assert admin.rol == ROL_ADMINISTRADOR
+        assert admin.activo is True
+        assert admin.nombre_completo == "Dueño del Abasto"
+        assert bcrypt.checkpw(b"clave_segura", admin.contrasena.encode("utf-8"))
+
+    # Verifica que el dialogo se cierra al crear el administrador.
+    def test_crear_admin_acepta_el_dialogo(
+        self,
+        qtbot: QtBot,
+        monkeypatch: pytest.MonkeyPatch,
+        _bd_en_memoria: Session,
+    ) -> None:
+        """Verifica que el dialogo se cierra al crear el administrador."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.registrar_evento",
+            MagicMock(),
+        )
+
+        self._llenar(dialogo, "jefe", "clave_segura")
+        dialogo._crear()
+
+        assert dialogo.result() == QDialog.DialogCode.Accepted
+
+    # Verifica que el nombre completo es opcional.
+    def test_nombre_completo_opcional(
+        self,
+        qtbot: QtBot,
+        monkeypatch: pytest.MonkeyPatch,
+        _bd_en_memoria: Session,
+    ) -> None:
+        """Verifica que el nombre completo es opcional."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.registrar_evento",
+            MagicMock(),
+        )
+
+        self._llenar(dialogo, "jefe", "clave_segura", nombre="   ")
+        dialogo._crear()
+
+        admin = _bd_en_memoria.exec(
+            select(Usuario).where(Usuario.usuario == "jefe"),
+        ).first()
+        assert admin is not None
+        assert admin.nombre_completo is None
+
+    # Auditoria: la creacion se registra como INFO con el usuario y sin la contrasena.
+    def test_crear_admin_registra_evento(
+        self,
+        qtbot: QtBot,
+        monkeypatch: pytest.MonkeyPatch,
+        _bd_en_memoria: Session,
+    ) -> None:
+        """Auditoria: la creacion se registra como INFO con el usuario y sin la contrasena."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        mock_evento = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.registrar_evento", mock_evento
+        )
+
+        self._llenar(dialogo, "jefe", "clave_segura")
+        dialogo._crear()
+
+        mock_evento.assert_called_once_with(
+            logging.INFO,
+            "Primer inicio: administrador 'jefe' creado.",
+        )
+        assert "clave_segura" not in mock_evento.call_args[0][1]
+
+    # Verifica que sin usuario muestra error y no crea nada.
+    def test_crear_sin_usuario(
+        self,
+        qtbot: QtBot,
+        monkeypatch: pytest.MonkeyPatch,
+        _bd_en_memoria: Session,
+    ) -> None:
+        """Verifica que sin usuario muestra error y no crea nada."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.QMessageBox.warning",
+            mock_warning,
+        )
+
+        self._llenar(dialogo, "", "clave_segura")
+        dialogo._crear()
+
+        mock_warning.assert_called_once()
+        assert dialogo.result() != QDialog.DialogCode.Accepted
+        assert _bd_en_memoria.exec(select(Usuario)).first() is None
+
+    # Verifica que sin contrasena muestra error.
+    def test_crear_sin_contrasena(
+        self,
+        qtbot: QtBot,
+        monkeypatch: pytest.MonkeyPatch,
+        _bd_en_memoria: Session,
+    ) -> None:
+        """Verifica que sin contrasena muestra error."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.QMessageBox.warning",
+            mock_warning,
+        )
+
+        self._llenar(dialogo, "jefe", "")
+        dialogo._crear()
+
+        mock_warning.assert_called_once()
+        assert _bd_en_memoria.exec(select(Usuario)).first() is None
+
+    # Verifica que una contrasena mas corta que el minimo muestra error.
+    def test_crear_contrasena_corta(
+        self,
+        qtbot: QtBot,
+        monkeypatch: pytest.MonkeyPatch,
+        _bd_en_memoria: Session,
+    ) -> None:
+        """Verifica que una contrasena mas corta que el minimo muestra error."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.QMessageBox.warning",
+            mock_warning,
+        )
+
+        corta = "a" * (LONGITUD_MINIMA_CONTRASENA - 1)
+        self._llenar(dialogo, "jefe", corta)
+        dialogo._crear()
+
+        mock_warning.assert_called_once()
+        assert f"al menos {LONGITUD_MINIMA_CONTRASENA} caracteres" in mock_warning.call_args[0][2]
+        assert _bd_en_memoria.exec(select(Usuario)).first() is None
+
+    # Verifica que contraseñas distintas muestran error.
+    def test_crear_contrasenas_distintas(
+        self,
+        qtbot: QtBot,
+        monkeypatch: pytest.MonkeyPatch,
+        _bd_en_memoria: Session,
+    ) -> None:
+        """Verifica que contraseñas distintas muestran error."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.QMessageBox.warning",
+            mock_warning,
+        )
+
+        self._llenar(dialogo, "jefe", "clave_segura", confirmar="otra_clave")
+        dialogo._crear()
+
+        mock_warning.assert_called_once()
+        assert "no coinciden" in mock_warning.call_args[0][2]
+        assert _bd_en_memoria.exec(select(Usuario)).first() is None
+
+    # Verifica que sin repetir la contrasena muestra error.
+    def test_crear_sin_repetir_contrasena(
+        self,
+        qtbot: QtBot,
+        monkeypatch: pytest.MonkeyPatch,
+        _bd_en_memoria: Session,
+    ) -> None:
+        """Verifica que sin repetir la contrasena muestra error."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.QMessageBox.warning",
+            mock_warning,
+        )
+
+        self._llenar(dialogo, "jefe", "clave_segura", confirmar="")
+        dialogo._crear()
+
+        mock_warning.assert_called_once()
+        assert _bd_en_memoria.exec(select(Usuario)).first() is None
+
+    # Verifica que la contrasena no puede ser igual al usuario.
+    def test_crear_contrasena_igual_al_usuario(
+        self,
+        qtbot: QtBot,
+        monkeypatch: pytest.MonkeyPatch,
+        _bd_en_memoria: Session,
+    ) -> None:
+        """Verifica que la contrasena no puede ser igual al usuario."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.QMessageBox.warning",
+            mock_warning,
+        )
+
+        self._llenar(dialogo, "jefe", "jefe")
+        dialogo._crear()
+
+        mock_warning.assert_called_once()
+        assert "igual al nombre de usuario" in mock_warning.call_args[0][2]
+        assert _bd_en_memoria.exec(select(Usuario)).first() is None
+
+    # Verifica que un usuario duplicado muestra el error del servicio.
+    def test_crear_usuario_duplicado(
+        self,
+        qtbot: QtBot,
+        monkeypatch: pytest.MonkeyPatch,
+        _bd_en_memoria: Session,
+    ) -> None:
+        """Verifica que un usuario duplicado muestra el error del servicio."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        AuthService().crear_usuario(usuario="jefe", contrasena="otra_clave")
+
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.QMessageBox.warning",
+            mock_warning,
+        )
+        mock_evento = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.registrar_evento", mock_evento
+        )
+
+        self._llenar(dialogo, "jefe", "clave_segura")
+        dialogo._crear()
+
+        mock_warning.assert_called_once()
+        assert "ya existe" in mock_warning.call_args[0][2]
+        assert dialogo.result() != QDialog.DialogCode.Accepted
+        mock_evento.assert_not_called()
+
+    # Verifica que un error inesperado se registra como excepcion.
+    def test_crear_error_inesperado(
+        self,
+        qtbot: QtBot,
+        monkeypatch: pytest.MonkeyPatch,
+        _bd_en_memoria: Session,
+    ) -> None:
+        """Verifica que un error inesperado se registra como excepcion."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        dialogo.auth_service.crear_usuario = MagicMock(side_effect=RuntimeError("fallo"))
+
+        mock_warning = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.QMessageBox.warning",
+            mock_warning,
+        )
+        mock_excepcion = MagicMock()
+        monkeypatch.setattr(
+            "sistema_financiero.ui.dialogo_primer_uso.registrar_excepcion",
+            mock_excepcion,
+        )
+
+        self._llenar(dialogo, "jefe", "clave_segura")
+        dialogo._crear()
+
+        mock_excepcion.assert_called_once()
+        mock_warning.assert_called_once()
+        assert dialogo.result() != QDialog.DialogCode.Accepted
+
+    # Verifica que el boton Salir cierra el dialogo sin crear el administrador.
+    def test_salir_no_crea_admin(
+        self,
+        qtbot: QtBot,
+        _bd_en_memoria: Session,
+    ) -> None:
+        """Verifica que el boton Salir cierra el dialogo sin crear el administrador."""
+        dialogo = DialogoPrimerUso()
+        qtbot.addWidget(dialogo)
+
+        self._llenar(dialogo, "jefe", "clave_segura")
+
+        for btn in dialogo.findChildren(QPushButton):
+            if btn.text() == "Salir":
+                qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
+                break
+
+        assert dialogo.result() == QDialog.DialogCode.Rejected
+        assert _bd_en_memoria.exec(select(Usuario)).first() is None
 
 
 class TestInventarioPagina:

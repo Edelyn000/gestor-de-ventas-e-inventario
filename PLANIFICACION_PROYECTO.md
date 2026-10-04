@@ -36,7 +36,7 @@ Gestor de ventas, inventario, caja y reportes para un abasto. PyQt6, SQLModel y 
 
 | Capa | Ubicación | Responsabilidad |
 |---|---|---|
-| Entrypoint | `__main__.py` | QApplication, BD, seed de admin, login, bucle de sesiones |
+| Entrypoint | `__main__.py` | QApplication, BD, primer inicio (crea admin si no existe), login, bucle de sesiones |
 | UI | `ui/` | 6 páginas, 6 diálogos, 6 widgets reutilizables |
 | Core | `core/` | Servicios y controladores con las reglas de negocio |
 | Servicios | `services/` | BCV y fachada de exportación |

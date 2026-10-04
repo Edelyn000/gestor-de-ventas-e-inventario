@@ -1,7 +1,6 @@
-# seeds.py: Datos semilla de usuarios, productos y tasa.
+# seeds.py: Datos semilla de productos y tasa.
 from decimal import Decimal
 
-import bcrypt
 from sqlmodel import Session, select
 
 from sistema_financiero.utils import (
@@ -15,25 +14,8 @@ from ..models import (
     Categoria,
     Producto,
     TasaCambio,
-    Usuario,
     obtener_sesion,
 )
-
-
-# Crea el usuario admin por defecto si no existe.
-def seed_admin(session: Session | None = None) -> None:
-    """Crea el usuario admin por defecto si no existe."""
-    with obtener_sesion(session) as s:
-        if s.exec(select(Usuario)).first() is None:
-            admin = Usuario(
-                usuario="admin",
-                contrasena=bcrypt.hashpw(b"admin", bcrypt.gensalt()).decode("utf-8"),
-                nombre_completo="Administrador",
-                rol="ADMINISTRADOR",
-                activo=True,
-            )
-            s.add(admin)
-            s.commit()
 
 
 # Crea productos de ejemplo si no hay ninguno (con categorias unicas).
@@ -199,7 +181,5 @@ def seed_tasa_cambio(session: Session | None = None) -> None:
 # Ejecuta todos los seeds en orden.
 def ejecutar_todos(session: Session | None = None) -> None:
     """Ejecuta todos los seeds en orden."""
-    seed_admin(session)
     seed_productos(session)
     seed_tasa_cambio(session)
-

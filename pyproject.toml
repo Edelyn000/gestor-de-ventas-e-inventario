@@ -1,5 +1,5 @@
 [project]
-name = "sistema-finacieron"
+name = "sistema-financiero"
 version = "0.1.0"
 description = "Sistema de gestión de ventas, inventario, caja y reportes para un abasto (PyQt6 + SQLModel + SQLite)"
 authors = [
