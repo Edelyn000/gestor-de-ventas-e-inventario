@@ -54,8 +54,8 @@ inventado.
 
 - Python >= 3.14
 - Poetry 2.x
-- PyQt6 (interfaz gráfica)
-- SQLModel + SQLite (persistencia, sin servidor externo)
+- PyQt6
+- SQLModel + SQLite
 
 ## Instalación
 
