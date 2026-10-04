@@ -4,7 +4,7 @@ MVP terminado. 522 tests, CI/CD activo, mypy y ruff limpios.
 
 ## 1. Resumen
 
-Gestión financiera e inventario para un abasto. PyQt6, SQLModel y SQLite, dos monedas por venta (VES y USD).
+Gestor de ventas, inventario, caja y reportes para un abasto. PyQt6, SQLModel y SQLite, dos monedas por venta (VES y USD).
 
 ## 2. Requisitos funcionales
 

@@ -1,6 +1,8 @@
 # Documentación del sistema
 
-Gestor de ventas e inventario . PyQt6, SQLModel y SQLite. Guarda cada venta en bolívares y dólares con la tasa del día.
+Gestor de ventas, inventario, caja y reportes para un abasto, con precios
+simultáneos en bolívares (Bs) y dólares (USD). PyQt6, SQLModel y SQLite;
+la tasa viene del BCV o de una tasa manual registrada por origen.
 
 ## Roles
 
