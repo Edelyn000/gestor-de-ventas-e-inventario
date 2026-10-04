@@ -1,6 +1,6 @@
 # Documentación del sistema
 
-Sistema de gestión financiera para un abasto. PyQt6, SQLModel y SQLite. Guarda cada venta en bolívares y dólares con la tasa del día.
+gestor de ventas e inventario . PyQt6, SQLModel y SQLite. Guarda cada venta en bolívares y dólares con la tasa del día.
 
 ## Roles
 
