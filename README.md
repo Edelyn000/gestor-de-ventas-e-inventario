@@ -157,7 +157,7 @@ Las dependencias apuntan hacia dentro: `ui/` llama a `core/`, `core/` a
 | Integrante | Edelyn Hernandez |
 | Modalidad | Trabajo individual |
 | Rama estable | `main` |
-| Versión estable | `v1.0.0` (tag anotado) |
+| Versión estable | `v1.0.0` |
 | Repositorio | [github.com/Edelyn000/gestor-de-ventas-e-inventario](https://github.com/Edelyn000/gestor-de-ventas-e-inventario) |
 
 El tag `v1.0.0` marca el commit de entrega. Para traer esa versión:
@@ -167,6 +167,3 @@ git clone https://github.com/Edelyn000/gestor-de-ventas-e-inventario.git
 cd gestor-de-ventas-e-inventario
 git checkout main
 ```
-
-La rama `rescue/stash-29sep` conserva el trabajo previo a la limpieza del
-historial. Es un respaldo, no parte de la entrega.
