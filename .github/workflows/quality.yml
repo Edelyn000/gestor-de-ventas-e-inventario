@@ -25,7 +25,7 @@ jobs:
           poetry install
 
       - name: Run Ruff (linting)
-        run: poetry run ruff check src/
+        run: poetry run ruff check .
 
       - name: Run Mypy (type checking)
         run: poetry run mypy src/

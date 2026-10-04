@@ -7,7 +7,7 @@
 # QUE HACE:
 #   1. Instala Python 3.14 y Poetry 2.x.
 #   2. Instala las dependencias del proyecto (incluyendo dev).
-#   3. Corre linter (ruff) sobre `src/`.
+#   3. Corre linter (ruff) sobre todo el repositorio.
 #   4. Corre type checker (mypy) sobre `src/`.
 #   5. Corre tests (pytest) con cobertura.
 #
@@ -111,11 +111,9 @@ jobs:
       # ----------------------------------------------------------
       # PASO 7: Linter (ruff)
       # ----------------------------------------------------------
-      # ruff check: verifica estilo y posibles errores en src/.
-      # --exit-zero: aunque haya errores, no detiene el pipeline
-      #   (pero los reportamos para que sean visibles).
+      # ruff check: verifica estilo y posibles errores en todo el repo.
       - name: Lint with ruff
-        run: poetry run ruff check src/
+        run: poetry run ruff check .
 
       # ----------------------------------------------------------
       # PASO 8: Type checker (mypy)

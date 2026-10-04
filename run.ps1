@@ -1,7 +1,4 @@
-# ============================================================
-# LANZADOR DIRECTO DEL SISTEMA FINANCIERO
-# Evita el shim de poetry.exe bloqueado por Device Guard (WDAC).
-# Usa el Python del venv local (.venv\Scripts\python.exe).
-# ============================================================
+# Lanzador del Gestor de Ventas e Inventario.
+# Equivale a: poetry run python -m sistema_financiero
 
 .venv\Scripts\python.exe -m sistema_financiero

@@ -1,4 +1,4 @@
-# Sistema Finacieron
+# Gestor de Ventas e Inventario
 
 Sistema de escritorio para gestionar las ventas, el inventario, la caja y los
 reportes de un abasto, con precios simultáneos en bolívares (Bs) y dólares (USD).
@@ -70,10 +70,6 @@ poetry install
 ```
 
 Equivale a `.venv\Scripts\python.exe -m sistema_financiero`.
-
-> Se invoca el intérprete del entorno virtual y no `poetry run` porque la
-> directiva de Device Guard de la organización bloquea de forma intermitente
-> los ejecutables `poetry.exe` y `pytest.exe`.
 
 ## Tests, lint y tipos
 
@@ -157,18 +153,18 @@ Las dependencias apuntan hacia dentro: `ui/` llama a `core/`, `core/` a
 
 | Dato | Valor |
 |---|---|
-| Proyecto | Sistema Finacieron |
+| Proyecto | Gestor de Ventas e Inventario |
 | Integrante | Edelyn Hernandez |
 | Modalidad | Trabajo individual |
 | Rama estable | `main` |
 | Versión estable | `v1.0.0` (tag anotado) |
-| Repositorio | GitHub, privado |
+| Repositorio | [github.com/Edelyn000/gestor-de-ventas-e-inventario](https://github.com/Edelyn000/gestor-de-ventas-e-inventario) |
 
 El tag `v1.0.0` marca el commit de entrega. Para traer esa versión:
 
 ```powershell
-git clone <url-del-repositorio>
-cd sistema_finacieron
+git clone https://github.com/Edelyn000/gestor-de-ventas-e-inventario.git
+cd gestor-de-ventas-e-inventario
 git checkout main
 ```
 
